@@ -148,10 +148,11 @@ export default async function HomePage() {
               $4.99<span className="text-xs font-normal text-gray-500">/mo</span>
             </div>
             <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-xs">
-              <li>✓ Custom Airline Branding</li>
+              <li>✓ Custom Airline Logo</li>
               <li>✓ Up to 5 Active Pilots</li>
               <li>✓ 10 Persistent Hulls</li>
               <li>✓ Basic Fleet Management</li>
+              <li className="text-gray-600 line-through text-xs">Custom Colors &amp; Branding</li>
             </ul>
             <Link href="/register" className="w-full border border-white/20 py-3 rounded-xl hover:bg-white/5 transition text-sm font-bold text-center block">
               Create Airline
