@@ -1,12 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { CURRENCIES } from '@/lib/currencies';
+
+interface AirportResult {
+  id: string;
+  icao: string;
+  name: string;
+  city: string | null;
+  country: string;
+  facility_type: string;
+}
 
 export default function CreateAirlinePage() {
   const router = useRouter();
@@ -20,15 +29,48 @@ export default function CreateAirlinePage() {
     currency_code: 'USD',
     currency_symbol: '$',
   });
+
+  // Hub airport search
+  const [hubSearch, setHubSearch] = useState('');
+  const [hubResults, setHubResults] = useState<AirportResult[]>([]);
+  const [hubSearching, setHubSearching] = useState(false);
+  const [selectedHub, setSelectedHub] = useState<AirportResult | null>(null);
+
+  // Currency search
   const [currencySearch, setCurrencySearch] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   const selectedCurrency = CURRENCIES.find((c) => c.code === form.currency_code);
-
   const filteredCurrencies = CURRENCIES.filter((c) =>
     `${c.code} ${c.label}`.toLowerCase().includes(currencySearch.toLowerCase()),
   );
+
+  const searchAirports = useCallback(async (q: string) => {
+    if (q.length < 2) { setHubResults([]); return; }
+    setHubSearching(true);
+    try {
+      const { data } = await api.get(`/network/airports/search?q=${encodeURIComponent(q)}`);
+      setHubResults(data);
+    } catch {
+      setHubResults([]);
+    } finally {
+      setHubSearching(false);
+    }
+  }, []);
+
+  function handleHubInput(value: string) {
+    setHubSearch(value);
+    setSelectedHub(null);
+    searchAirports(value);
+  }
+
+  function handleHubSelect(airport: AirportResult) {
+    setSelectedHub(airport);
+    setHubSearch('');
+    setHubResults([]);
+    setForm({ ...form, hub_country: airport.country });
+  }
 
   function handleCurrencySelect(code: string, symbol: string) {
     setForm({ ...form, currency_code: code, currency_symbol: symbol });
@@ -43,6 +85,7 @@ export default function CreateAirlinePage() {
     if (form.iata_code && !/^[A-Z0-9]{2}$/.test(form.iata_code.toUpperCase())) {
       e.iata_code = 'IATA must be exactly 2 characters';
     }
+    if (!selectedHub) e.hub = 'Starting hub airport is required';
     return e;
   }
 
@@ -54,11 +97,20 @@ export default function CreateAirlinePage() {
     setLoading(true);
 
     try {
-      await api.post('/airline', {
+      // Create airline
+      const { data: airline } = await api.post('/airline', {
         ...form,
         icao_code: form.icao_code.toUpperCase(),
         iata_code: form.iata_code.toUpperCase() || undefined,
       });
+
+      // Add starting hub
+      await api.post('/network/hubs', {
+        airport_id: selectedHub!.icao,
+        type: 'PRIMARY',
+      });
+
+      // Re-fetch user so airline_id and role are updated in store
       const { data: me } = await api.post('/auth/me');
       setUser(me);
       router.push('/dashboard/airline');
@@ -84,6 +136,7 @@ export default function CreateAirlinePage() {
 
       <form onSubmit={handleSubmit} className="glass-card rounded-2xl p-8 flex flex-col gap-6">
 
+        {/* Identity */}
         <div>
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Identity</h2>
           <div className="flex flex-col gap-4">
@@ -112,17 +165,90 @@ export default function CreateAirlinePage() {
                 maxLength={2}
               />
             </div>
-            <Input
-              label="Hub Country (optional)"
-              placeholder="United States"
-              value={form.hub_country}
-              onChange={(e) => setForm({ ...form, hub_country: e.target.value })}
-            />
           </div>
         </div>
 
         <div className="h-px bg-white/5" />
 
+        {/* Starting Hub Airport */}
+        <div>
+          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Starting Hub Airport</h2>
+          <div className="relative">
+            <label className="text-sm font-medium text-gray-300 block mb-1.5">
+              Primary Hub <span className="text-red-400">*</span>
+            </label>
+
+            {selectedHub ? (
+              <div className="flex items-center justify-between rounded-xl border border-aero/50 bg-aero/5 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    {selectedHub.icao} — {selectedHub.name}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {selectedHub.city ? `${selectedHub.city}, ` : ''}{selectedHub.country} · {selectedHub.facility_type.replace('_', ' ')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedHub(null); setForm({ ...form, hub_country: '' }); }}
+                  className="text-gray-500 hover:text-white text-sm ml-4 transition"
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search by ICAO, airport name or city..."
+                  value={hubSearch}
+                  onChange={(e) => handleHubInput(e.target.value)}
+                  className={`w-full rounded-xl border px-4 py-3 text-sm text-white placeholder-gray-500 bg-white/5 focus:outline-none focus:ring-1 transition ${
+                    errors.hub ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-white/10 focus:border-[#00D1FF] focus:ring-[#00D1FF]'
+                  }`}
+                />
+                {hubSearching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <svg className="animate-spin h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                  </div>
+                )}
+
+                {hubResults.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-[#111] shadow-2xl">
+                    {hubResults.map((airport) => (
+                      <button
+                        key={airport.id}
+                        type="button"
+                        onClick={() => handleHubSelect(airport)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition border-b border-white/5 last:border-0"
+                      >
+                        <span className="font-mono text-aero text-sm w-12 flex-shrink-0">{airport.icao}</span>
+                        <div className="min-w-0">
+                          <p className="text-sm text-white truncate">{airport.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {airport.city ? `${airport.city}, ` : ''}{airport.country}
+                          </p>
+                        </div>
+                        <span className="ml-auto text-xs text-gray-600 flex-shrink-0">
+                          {airport.facility_type.replace('_', ' ')}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {errors.hub && <p className="text-xs text-red-400 mt-1.5">{errors.hub}</p>}
+          </div>
+        </div>
+
+        <div className="h-px bg-white/5" />
+
+        {/* Currency */}
         <div>
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Currency</h2>
           <div className="relative">
@@ -134,7 +260,6 @@ export default function CreateAirlinePage() {
               onChange={(e) => setCurrencySearch(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-[#00D1FF] focus:outline-none focus:ring-1 focus:ring-[#00D1FF] transition"
             />
-
             {currencySearch && (
               <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded-xl border border-white/10 bg-[#111] shadow-2xl">
                 {filteredCurrencies.length === 0 ? (
@@ -155,10 +280,7 @@ export default function CreateAirlinePage() {
                 )}
               </div>
             )}
-
-            <p className="mt-2 text-xs text-gray-600">
-              {CURRENCIES.length} currencies available · Type to search
-            </p>
+            <p className="mt-2 text-xs text-gray-600">{CURRENCIES.length} currencies available · Type to search</p>
           </div>
         </div>
 
