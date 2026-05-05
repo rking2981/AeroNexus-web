@@ -6,15 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
-
-const CURRENCIES = [
-  { code: 'USD', symbol: '$', label: 'US Dollar' },
-  { code: 'EUR', symbol: '€', label: 'Euro' },
-  { code: 'GBP', symbol: '£', label: 'British Pound' },
-  { code: 'CAD', symbol: 'CA$', label: 'Canadian Dollar' },
-  { code: 'AUD', symbol: 'A$', label: 'Australian Dollar' },
-  { code: 'ANC', symbol: '✈', label: 'AeroNexus Credits (custom)' },
-];
+import { CURRENCIES } from '@/lib/currencies';
 
 export default function CreateAirlinePage() {
   const router = useRouter();
@@ -28,14 +20,26 @@ export default function CreateAirlinePage() {
     currency_code: 'USD',
     currency_symbol: '$',
   });
+  const [currencySearch, setCurrencySearch] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  const selectedCurrency = CURRENCIES.find((c) => c.code === form.currency_code);
+
+  const filteredCurrencies = CURRENCIES.filter((c) =>
+    `${c.code} ${c.label}`.toLowerCase().includes(currencySearch.toLowerCase()),
+  );
+
+  function handleCurrencySelect(code: string, symbol: string) {
+    setForm({ ...form, currency_code: code, currency_symbol: symbol });
+    setCurrencySearch('');
+  }
 
   function validate() {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = 'Airline name is required';
     if (!form.icao_code.trim()) e.icao_code = 'ICAO code is required';
-    if (!/^[A-Z]{3,4}$/.test(form.icao_code.toUpperCase())) e.icao_code = 'ICAO must be 3-4 letters';
+    if (!/^[A-Z]{3,4}$/.test(form.icao_code.toUpperCase())) e.icao_code = 'ICAO must be 3–4 letters';
     if (form.iata_code && !/^[A-Z0-9]{2}$/.test(form.iata_code.toUpperCase())) {
       e.iata_code = 'IATA must be exactly 2 characters';
     }
@@ -55,11 +59,8 @@ export default function CreateAirlinePage() {
         icao_code: form.icao_code.toUpperCase(),
         iata_code: form.iata_code.toUpperCase() || undefined,
       });
-
-      // Re-fetch user so airline_id and role are updated in store
       const { data: me } = await api.post('/auth/me');
       setUser(me);
-
       router.push('/dashboard/airline');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -67,11 +68,6 @@ export default function CreateAirlinePage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleCurrencyChange(code: string) {
-    const currency = CURRENCIES.find((c) => c.code === code);
-    setForm({ ...form, currency_code: code, currency_symbol: currency?.symbol ?? '$' });
   }
 
   if (user?.airline_id) {
@@ -83,14 +79,11 @@ export default function CreateAirlinePage() {
     <div className="p-8 max-w-2xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Create Your Virtual Airline</h1>
-        <p className="text-gray-400 text-sm">
-          Set up your VA identity. You can update branding and settings after creation.
-        </p>
+        <p className="text-gray-400 text-sm">Set up your VA identity. You can update branding and settings after creation.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="glass-card rounded-2xl p-8 flex flex-col gap-6">
 
-        {/* Airline Identity */}
         <div>
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Identity</h2>
           <div className="flex flex-col gap-4">
@@ -111,7 +104,7 @@ export default function CreateAirlinePage() {
                 maxLength={4}
               />
               <Input
-                label="IATA Code (optional, 2 chars)"
+                label="IATA Code (optional)"
                 placeholder="PV"
                 value={form.iata_code}
                 onChange={(e) => setForm({ ...form, iata_code: e.target.value.toUpperCase() })}
@@ -130,34 +123,42 @@ export default function CreateAirlinePage() {
 
         <div className="h-px bg-white/5" />
 
-        {/* Currency */}
         <div>
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Currency</h2>
-          <div className="grid grid-cols-1 gap-3">
-            {CURRENCIES.map((c) => (
-              <label
-                key={c.code}
-                className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition ${
-                  form.currency_code === c.code
-                    ? 'border-aero bg-aero/5 text-white'
-                    : 'border-white/10 text-gray-400 hover:border-white/20'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="currency"
-                  value={c.code}
-                  checked={form.currency_code === c.code}
-                  onChange={() => handleCurrencyChange(c.code)}
-                  className="hidden"
-                />
-                <span className="text-xl w-8 text-center">{c.symbol}</span>
-                <div>
-                  <p className="text-sm font-medium">{c.label}</p>
-                  <p className="text-xs text-gray-500">{c.code}</p>
-                </div>
-              </label>
-            ))}
+          <div className="relative">
+            <label className="text-sm font-medium text-gray-300 block mb-1.5">Airline Currency</label>
+            <input
+              type="text"
+              placeholder={`Search — currently: ${selectedCurrency?.symbol} ${selectedCurrency?.label} (${selectedCurrency?.code})`}
+              value={currencySearch}
+              onChange={(e) => setCurrencySearch(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-[#00D1FF] focus:outline-none focus:ring-1 focus:ring-[#00D1FF] transition"
+            />
+
+            {currencySearch && (
+              <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded-xl border border-white/10 bg-[#111] shadow-2xl">
+                {filteredCurrencies.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-gray-500">No currencies found</div>
+                ) : (
+                  filteredCurrencies.map((c) => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => handleCurrencySelect(c.code, c.symbol)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-white/5 transition"
+                    >
+                      <span className="w-8 text-center">{c.symbol}</span>
+                      <span className="text-white flex-1">{c.label}</span>
+                      <span className="text-gray-500 text-xs font-mono">{c.code}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            <p className="mt-2 text-xs text-gray-600">
+              {CURRENCIES.length} currencies available · Type to search
+            </p>
           </div>
         </div>
 
