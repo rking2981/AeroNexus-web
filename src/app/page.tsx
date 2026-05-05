@@ -1,6 +1,29 @@
 import Link from 'next/link';
 
-export default function HomePage() {
+interface FoundersStatus {
+  enabled: boolean;
+  count: number;
+  cap: number;
+  sold_out: boolean;
+  remaining: number;
+}
+
+async function getFoundersStatus(): Promise<FoundersStatus> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/founders-status`, {
+      next: { revalidate: 60 }, // refresh every 60 seconds
+    });
+    if (!res.ok) throw new Error('Failed');
+    return res.json();
+  } catch {
+    // If the API is unreachable, show the card as available
+    return { enabled: true, count: 0, cap: 100, sold_out: false, remaining: 100 };
+  }
+}
+
+export default async function HomePage() {
+  const founders = await getFoundersStatus();
+
   return (
     <div className="antialiased">
       {/* Nav */}
@@ -48,10 +71,7 @@ export default function HomePage() {
             >
               Start Your Airline
             </Link>
-            <a
-              href="#"
-              className="glass-card px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition"
-            >
+            <a href="#" className="glass-card px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition">
               Download ACARS
             </a>
           </div>
@@ -156,26 +176,52 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* Founder's Pass */}
+          {/* Founder's Pass — sold out or available */}
           <div className="glass-card p-8 rounded-3xl flex flex-col border-purple-500/50 relative overflow-hidden">
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-purple-500/20 blur-3xl" />
-            <h4 className="text-lg font-bold mb-1 text-purple-400">Founder&apos;s Pass</h4>
-            <div className="text-3xl font-extrabold mb-4">
-              $199<span className="text-xs font-normal text-gray-500">/once</span>
-            </div>
-            <p className="text-[10px] text-purple-300 uppercase font-bold mb-4 tracking-wider">
-              Limited to first 100 users
-            </p>
-            <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-xs">
-              <li>✓ <strong>Lifetime Enterprise Access</strong></li>
-              <li>✓ No Monthly Fees, Ever</li>
-              <li>✓ &quot;Founder&quot; Profile Badge</li>
-              <li>✓ Early Access to New Features</li>
-              <li>✓ Direct Dev Feedback Channel</li>
-            </ul>
-            <Link href="/register?plan=founders" className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl hover:bg-purple-500 transition text-sm shadow-lg shadow-purple-900/20 text-center block">
-              Secure My Spot
-            </Link>
+
+            {founders.sold_out ? (
+              // ─── Sold out state ─────────────────────────────────────────
+              <>
+                <h4 className="text-lg font-bold mb-1 text-purple-400">Founder&apos;s Pass</h4>
+                <div className="text-3xl font-extrabold mb-2 text-gray-500 line-through">$199</div>
+                <p className="text-[10px] text-purple-300 uppercase font-bold mb-6 tracking-wider">
+                  Sold Out — All 100 Claimed
+                </p>
+                <div className="flex-grow flex flex-col justify-center text-center py-4">
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                    Thank you to all who purchased the Founder&apos;s Pass. We have reached our limit.
+                  </p>
+                  <p className="text-purple-400/70 text-xs mt-4">
+                    🎖️ {founders.count} Founders are part of history.
+                  </p>
+                </div>
+              </>
+            ) : (
+              // ─── Available state ─────────────────────────────────────────
+              <>
+                <h4 className="text-lg font-bold mb-1 text-purple-400">Founder&apos;s Pass</h4>
+                <div className="text-3xl font-extrabold mb-4">
+                  $199<span className="text-xs font-normal text-gray-500">/once</span>
+                </div>
+                <p className="text-[10px] text-purple-300 uppercase font-bold mb-4 tracking-wider">
+                  {founders.remaining} of {founders.cap} remaining
+                </p>
+                <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-xs">
+                  <li>✓ <strong>Lifetime Enterprise Access</strong></li>
+                  <li>✓ No Monthly Fees, Ever</li>
+                  <li>✓ &quot;Founder&quot; Profile Badge</li>
+                  <li>✓ Early Access to New Features</li>
+                  <li>✓ Direct Dev Feedback Channel</li>
+                </ul>
+                <Link
+                  href="/register?plan=founders"
+                  className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl hover:bg-purple-500 transition text-sm shadow-lg shadow-purple-900/20 text-center block"
+                >
+                  Secure My Spot
+                </Link>
+              </>
+            )}
           </div>
 
         </div>
