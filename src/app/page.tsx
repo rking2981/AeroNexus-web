@@ -168,9 +168,9 @@ export default async function HomePage() {
             </div>
             <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-xs">
               <li>✓ 500 Pilots &amp; 200 Hulls</li>
-              <li>✓ Custom Domain Support</li>
+              <li>✓ Full Custom Branding</li>
               <li>✓ Alliance Management</li>
-              <li>✓ Advanced Analytics API</li>
+              <li>✓ Public API Access</li>
             </ul>
             <Link href="/register" className="w-full bg-aero text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm text-center block">
               Get Enterprise
