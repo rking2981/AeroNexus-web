@@ -2,12 +2,13 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { useAuthStore } from '@/store/auth';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
 
   useEffect(() => {
     if (!isAuthenticated()) router.replace('/login');
@@ -15,12 +16,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!isAuthenticated()) return null;
 
+  const emailUnverified = user && !(user as { email_verified?: boolean }).email_verified;
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-[#0A0A0A]">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Email verification banner */}
+        {emailUnverified && (
+          <div className="flex-shrink-0 bg-amber-500/10 border-b border-amber-500/20 px-6 py-3 flex items-center justify-between">
+            <p className="text-sm text-amber-300">
+              ✉️ Please verify your email address to unlock all features.
+            </p>
+            <Link
+              href="/verify-email"
+              className="text-xs font-bold text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-lg hover:bg-amber-500/10 transition"
+            >
+              Verify Now →
+            </Link>
+          </div>
+        )}
+        <main className="flex-1 overflow-y-auto bg-[#0A0A0A]">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
