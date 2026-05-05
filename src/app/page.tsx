@@ -116,6 +116,54 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Managed Website */}
+      <section className="max-w-7xl mx-auto px-6 py-24 border-t border-white/10">
+        <div className="glass-card rounded-3xl p-10 md:p-16 flex flex-col md:flex-row items-center gap-10">
+          <div className="flex-1">
+            <span className="text-aero font-semibold tracking-widest text-xs uppercase mb-4 block">
+              Enterprise Add-On
+            </span>
+            <h2 className="text-4xl font-extrabold tracking-tight mb-4">
+              Your VA, Your Website.
+            </h2>
+            <p className="text-gray-400 leading-relaxed mb-6">
+              Get a fully custom, professionally built website for your Virtual Airline — hosted on
+              your own <span className="text-white font-medium">yourva.aeronexus.app</span> subdomain.
+              Complete with a live flight map, crew center, fleet page, pilot roster, and a manager portal.
+            </p>
+            <ul className="text-gray-400 space-y-2 text-sm mb-8">
+              <li>✓ Custom design built by AeroNexus</li>
+              <li>✓ Live map showing your airline&apos;s flights only</li>
+              <li>✓ Crew Center — pilots dispatch, book flights &amp; view logbooks</li>
+              <li>✓ Manager Center — full VA management from your own domain</li>
+              <li>✓ Hosting &amp; SSL included</li>
+            </ul>
+            <div className="flex items-center gap-6">
+              <div>
+                <p className="text-3xl font-extrabold">$199</p>
+                <p className="text-xs text-gray-500">one-time setup</p>
+              </div>
+              <div className="text-gray-600">+</div>
+              <div>
+                <p className="text-3xl font-extrabold">$19.99</p>
+                <p className="text-xs text-gray-500">per year hosting</p>
+              </div>
+              <Link
+                href="/register"
+                className="ml-4 bg-aero text-black font-bold px-6 py-3 rounded-xl hover:brightness-110 transition text-sm"
+              >
+                Get Started →
+              </Link>
+            </div>
+            <p className="text-xs text-gray-600 mt-4">Requires Enterprise subscription · Contact us after purchase</p>
+          </div>
+          <div className="hidden md:flex flex-col items-center justify-center w-48 flex-shrink-0">
+            <div className="text-7xl mb-4">🌐</div>
+            <p className="text-center text-xs text-gray-500 font-mono">yourva.aeronexus.app</p>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing */}
       <section id="pricing" className="max-w-7xl mx-auto px-6 py-24 border-t border-white/10">
         <div className="text-center mb-16">
