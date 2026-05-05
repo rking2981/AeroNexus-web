@@ -19,6 +19,7 @@ const PILOT_NAV = [
 const MANAGER_NAV = [
   { href: '/dashboard/airline', label: 'My Airline', icon: '🏢' },
   { href: '/dashboard/fleet', label: 'Fleet', icon: '🛩️' },
+  { href: '/dashboard/market', label: 'Aircraft Market', icon: '🏪' },
   { href: '/dashboard/network', label: 'Routes & Hubs', icon: '🌐' },
   { href: '/dashboard/crew', label: 'Crew Center', icon: '👥' },
   { href: '/dashboard/finances', label: 'Finances', icon: '💰' },
