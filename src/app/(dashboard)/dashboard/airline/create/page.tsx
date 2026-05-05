@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { api } from '@/lib/api';
+import { api, publicApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { CURRENCIES } from '@/lib/currencies';
 
@@ -50,7 +50,7 @@ export default function CreateAirlinePage() {
     if (q.length < 2) { setHubResults([]); return; }
     setHubSearching(true);
     try {
-      const { data } = await api.get(`/network/airports/search?q=${encodeURIComponent(q)}`);
+      const { data } = await publicApi.get(`/network/airports/search?q=${encodeURIComponent(q)}`);
       setHubResults(data);
     } catch {
       setHubResults([]);

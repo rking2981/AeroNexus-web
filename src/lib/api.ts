@@ -5,6 +5,12 @@ export const api = axios.create({
   withCredentials: false,
 });
 
+// Public client — no auth, no logout-on-401. Use for unauthenticated endpoints.
+export const publicApi = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  withCredentials: false,
+});
+
 // Attach access token from localStorage on every request
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
