@@ -133,7 +133,7 @@ export default async function HomePage() {
         <div className="text-2xl font-bold tracking-tighter italic">
           AERO<span className="text-aero">NEXUS</span>
         </div>
-        <div className="hidden md:flex space-x-8 text-sm font-medium text-gray-400">
+        <div className="hidden md:flex space-x-8 text-base font-medium text-gray-400">
           <a href="#features" className="hover:text-white transition">Network</a>
           <a href="#features" className="hover:text-white transition">Economy</a>
           <a href="#features" className="hover:text-white transition">ACARS</a>
