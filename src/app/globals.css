@@ -10,6 +10,19 @@ body {
   color: #ffffff;
   font-family: var(--font-inter), 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
+  cursor: default;
+}
+
+*, *::before, *::after {
+  cursor: inherit;
+}
+
+a, button, [role="button"], label, select {
+  cursor: pointer;
+}
+
+input, textarea {
+  cursor: text;
 }
 
 .glass-card {
