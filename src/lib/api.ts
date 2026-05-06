@@ -38,6 +38,7 @@ api.interceptors.response.use(
 
     // Not a 401, or already retried — just reject
     if (error.response?.status !== 401 || original._retry) {
+      console.log(`[AeroNexus API] Request failed — status: ${error.response?.status}, url: ${original.url}, retried: ${original._retry}`);
       return Promise.reject(error);
     }
 
@@ -57,9 +58,14 @@ api.interceptors.response.use(
     original._retry = true;
     isRefreshing = true;
 
+    console.log(`[AeroNexus API] 401 on ${original.url} — attempting token refresh`);
+
     try {
       const refreshToken = localStorage.getItem('refresh_token');
-      if (!refreshToken) throw new Error('no_refresh_token');
+      if (!refreshToken) {
+        console.warn('[AeroNexus API] No refresh token in localStorage — will redirect to login');
+        throw new Error('no_refresh_token');
+      }
 
       const { data } = await axios.post(
         `${BASE_URL}/auth/refresh`,
@@ -67,6 +73,7 @@ api.interceptors.response.use(
         { headers: { Authorization: `Bearer ${refreshToken}` } },
       );
 
+      console.log('[AeroNexus API] Token refresh successful — retrying original request');
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
 
@@ -76,10 +83,16 @@ api.interceptors.response.use(
     } catch (refreshError: unknown) {
       refreshQueue = [];
 
-      // Only force logout if the refresh endpoint itself returned 401
-      // (meaning the refresh token is genuinely expired/invalid)
       const refreshStatus = (refreshError as { response?: { status?: number } })?.response?.status;
+      console.error('[AeroNexus API] Token refresh failed', {
+        refreshStatus,
+        message: (refreshError as Error)?.message,
+        willLogout: refreshStatus === 401 || (refreshError as Error)?.message === 'no_refresh_token',
+      });
+
+      // Only force logout if the refresh endpoint itself returned 401
       if (refreshStatus === 401 || (refreshError as Error)?.message === 'no_refresh_token') {
+        console.warn('[AeroNexus API] ⚠️ Logging out — refresh token invalid or missing');
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         if (typeof window !== 'undefined') window.location.href = '/login';
