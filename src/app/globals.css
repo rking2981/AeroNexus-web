@@ -10,19 +10,28 @@ body {
   color: #ffffff;
   font-family: var(--font-inter), 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
-  cursor: default;
 }
 
-*, *::before, *::after {
-  cursor: inherit;
+/* Prevent text cursor on all non-interactive elements */
+* {
+  cursor: default !important;
 }
 
-a, button, [role="button"], label, select {
-  cursor: pointer;
+a, button, [role="button"], label, select,
+[class*="cursor-pointer"] {
+  cursor: pointer !important;
 }
 
-input, textarea {
-  cursor: text;
+input, textarea, [contenteditable] {
+  cursor: text !important;
+}
+
+input[type="range"] {
+  cursor: ew-resize !important;
+}
+
+input[type="color"] {
+  cursor: pointer !important;
 }
 
 .glass-card {
