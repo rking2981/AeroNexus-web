@@ -184,28 +184,57 @@ export default function NetworkPage() {
           )}
 
           {hubs.length === 0 ? (
-            <div className="glass-card rounded-2xl p-8 text-center text-gray-500">No hubs added yet</div>
+            <div className="glass-card rounded-2xl p-12 text-center text-gray-500">
+              <p className="text-4xl mb-3">🏢</p>
+              <p>No hubs added yet. Search above to add your first hub.</p>
+            </div>
           ) : (
-            hubs.map((hub) => (
-              <div key={hub.id} className="glass-card rounded-2xl p-5 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className={cn('text-xs font-bold px-2 py-1 rounded-lg border',
-                    hub.type === 'PRIMARY' ? 'text-aero border-aero/30 bg-aero/10' : 'text-gray-400 border-white/20')}>
-                    {hub.type}
-                  </span>
-                  <div>
-                    <p className="font-mono font-bold">{hub.airport.icao} <span className="font-sans font-normal text-gray-400 text-sm">— {hub.airport.name}</span></p>
-                    <p className="text-xs text-gray-500">{hub.airport.city ? `${hub.airport.city}, ` : ''}{hub.airport.country}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {hubs.map((hub) => (
+                <div key={hub.id} className={cn(
+                  'glass-card rounded-2xl p-5 flex flex-col gap-3 border',
+                  hub.type === 'PRIMARY' ? 'border-aero/20' : 'border-white/10',
+                )}>
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-mono text-3xl font-extrabold tracking-tight text-white">
+                      {hub.airport.icao}
+                    </span>
+                    <span className={cn(
+                      'text-[10px] font-bold px-2 py-1 rounded-lg border flex-shrink-0 mt-1',
+                      hub.type === 'PRIMARY'
+                        ? 'text-aero border-aero/30 bg-aero/10'
+                        : 'text-gray-400 border-white/20 bg-white/5',
+                    )}>
+                      {hub.type}
+                    </span>
                   </div>
+
+                  {/* Airport name & location */}
+                  <div>
+                    <p className="text-sm font-medium text-white leading-snug">{hub.airport.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {hub.airport.city ? `${hub.airport.city}, ` : ''}{hub.airport.country}
+                    </p>
+                  </div>
+
+                  {/* Facility type */}
+                  <p className="text-xs text-gray-600 uppercase tracking-widest">
+                    {hub.airport.facility_type?.replace(/_/g, ' ') ?? 'Airport'}
+                  </p>
+
+                  {/* Remove button */}
+                  {isManager && (
+                    <button
+                      onClick={() => deleteHub(hub.id)}
+                      className="mt-auto text-xs text-red-400 hover:text-red-300 transition border border-red-500/20 hover:bg-red-500/5 px-3 py-1.5 rounded-lg w-full text-center"
+                    >
+                      Remove Hub
+                    </button>
+                  )}
                 </div>
-                {isManager && (
-                  <button onClick={() => deleteHub(hub.id)}
-                    className="text-xs text-red-400 hover:text-red-300 transition border border-red-500/20 px-3 py-1.5 rounded-lg">
-                    Remove
-                  </button>
-                )}
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       )}
