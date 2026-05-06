@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
@@ -13,13 +13,39 @@ interface Flight {
   pax_happiness: number;
   landing_vs_fpm: number | null;
   block_time_min: number | null;
+  fuel_used_kg: string | null;
+  max_g_force: string | null;
+  landing_type: string;
   departed_at: string | null;
   arrived_at: string | null;
+  takeoff_at: string | null;
+  landed_at: string | null;
   hull: { registration: string; aircraft_type: string; aircraft_category: string };
   route: {
     distance_nm: number;
-    origin: { icao: string; name: string };
-    destination: { icao: string; name: string };
+    base_ticket_price: number;
+    origin: { icao: string; name: string; city: string | null; country: string };
+    destination: { icao: string; name: string; city: string | null; country: string };
+  };
+  airline: { name: string; icao_code: string } | null;
+}
+
+interface TrackPoint {
+  lat: string;
+  lon: string;
+  alt_ft: number | null;
+  hdg: number | null;
+  spd_kts: number | null;
+  recorded_at: string;
+}
+
+interface TrackData {
+  id: string;
+  status: string;
+  track_points: TrackPoint[];
+  route: {
+    origin: { icao: string; latitude: string; longitude: string };
+    destination: { icao: string; latitude: string; longitude: string };
   };
 }
 
@@ -27,22 +53,299 @@ function HappinessBar({ value }: { value: number }) {
   const color = value >= 85 ? 'bg-green-500' : value >= 70 ? 'bg-amber-500' : 'bg-red-500';
   return (
     <div className="flex items-center gap-2">
-      <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+      <div className="w-20 h-1.5 bg-white/10 rounded-full overflow-hidden">
         <div className={cn('h-full rounded-full', color)} style={{ width: `${value}%` }} />
       </div>
-      <span className={cn('text-xs', value >= 85 ? 'text-green-400' : value >= 70 ? 'text-amber-400' : 'text-red-400')}>
+      <span className={cn('text-xs font-mono', value >= 85 ? 'text-green-400' : value >= 70 ? 'text-amber-400' : 'text-red-400')}>
         {value.toFixed(0)}%
       </span>
     </div>
   );
 }
 
+function vsColor(fpm: number) {
+  const abs = Math.abs(fpm);
+  if (abs <= 200) return 'text-green-400';
+  if (abs <= 400) return 'text-amber-400';
+  return 'text-red-400';
+}
+
+function formatTime(iso: string | null) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDate(iso: string | null) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatDuration(min: number) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h}h ${m.toString().padStart(2, '0')}m`;
+}
+
+// ─── SVG flight track map ─────────────────────────────────────────────────────
+
+function FlightTrackMap({ track }: { track: TrackData }) {
+  const W = 600; const H = 280; const PAD = 32;
+
+  // Collect all points including origin/dest
+  const allLats: number[] = [Number(track.route.origin.latitude), Number(track.route.destination.latitude)];
+  const allLons: number[] = [Number(track.route.origin.longitude), Number(track.route.destination.longitude)];
+  const points = track.track_points.map((p) => ({ lat: Number(p.lat), lon: Number(p.lon), alt: p.alt_ft }));
+  points.forEach((p) => { allLats.push(p.lat); allLons.push(p.lon); });
+
+  const minLat = Math.min(...allLats); const maxLat = Math.max(...allLats);
+  const minLon = Math.min(...allLons); const maxLon = Math.max(...allLons);
+
+  // Add padding to bounding box
+  const latPad = (maxLat - minLat) * 0.2 || 1;
+  const lonPad = (maxLon - minLon) * 0.2 || 1;
+  const bMinLat = minLat - latPad; const bMaxLat = maxLat + latPad;
+  const bMinLon = minLon - lonPad; const bMaxLon = maxLon + lonPad;
+
+  function project(lat: number, lon: number): [number, number] {
+    const x = PAD + ((lon - bMinLon) / (bMaxLon - bMinLon)) * (W - PAD * 2);
+    // Invert Y (lat increases upward)
+    const y = PAD + ((bMaxLat - lat) / (bMaxLat - bMinLat)) * (H - PAD * 2);
+    return [x, y];
+  }
+
+  const originPt = project(Number(track.route.origin.latitude), Number(track.route.origin.longitude));
+  const destPt = project(Number(track.route.destination.latitude), Number(track.route.destination.longitude));
+
+  const hasTrack = points.length > 1;
+
+  // Build polyline from track points, or great-circle arc if no track yet
+  let pathD = '';
+  if (hasTrack) {
+    const coords = points.map((p) => project(p.lat, p.lon));
+    pathD = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c[0].toFixed(1)},${c[1].toFixed(1)}`).join(' ');
+  } else {
+    // Fallback: quadratic bezier arc between origin and dest
+    const mx = (originPt[0] + destPt[0]) / 2;
+    const my = Math.min(originPt[1], destPt[1]) - 40;
+    pathD = `M${originPt[0].toFixed(1)},${originPt[1].toFixed(1)} Q${mx.toFixed(1)},${my.toFixed(1)} ${destPt[0].toFixed(1)},${destPt[1].toFixed(1)}`;
+  }
+
+  // Altitude gradient — colour track by altitude
+  const maxAlt = Math.max(...points.map((p) => p.alt ?? 0), 1);
+
+  return (
+    <div className="w-full rounded-xl overflow-hidden border border-white/5 bg-[#080810]">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: '220px' }}>
+        <defs>
+          <linearGradient id="trackGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#00D1FF" stopOpacity="0.4" />
+            <stop offset="50%" stopColor="#00D1FF" stopOpacity="1" />
+            <stop offset="100%" stopColor="#00D1FF" stopOpacity="0.4" />
+          </linearGradient>
+          {/* Glow filter */}
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+
+        {/* Grid lines */}
+        {[0.25, 0.5, 0.75].map((f) => (
+          <g key={f}>
+            <line x1={PAD} y1={PAD + f * (H - PAD * 2)} x2={W - PAD} y2={PAD + f * (H - PAD * 2)}
+              stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+            <line x1={PAD + f * (W - PAD * 2)} y1={PAD} x2={PAD + f * (W - PAD * 2)} y2={H - PAD}
+              stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+          </g>
+        ))}
+
+        {/* Track glow */}
+        <path d={pathD} fill="none" stroke="#00D1FF" strokeWidth="6" strokeOpacity="0.08" strokeLinecap="round" />
+        {/* Main track */}
+        <path d={pathD} fill="none" stroke="url(#trackGrad)" strokeWidth="2.5"
+          strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)" />
+
+        {/* Altitude dots along track */}
+        {hasTrack && points.filter((_, i) => i % Math.max(1, Math.floor(points.length / 20)) === 0).map((p, i) => {
+          const [x, y] = project(p.lat, p.lon);
+          const altPct = (p.alt ?? 0) / maxAlt;
+          const opacity = 0.3 + altPct * 0.7;
+          return <circle key={i} cx={x} cy={y} r="2" fill="#00D1FF" opacity={opacity} />;
+        })}
+
+        {/* Origin marker */}
+        <circle cx={originPt[0]} cy={originPt[1]} r="6" fill="#0A0A0A" stroke="#00D1FF" strokeWidth="2" />
+        <circle cx={originPt[0]} cy={originPt[1]} r="2.5" fill="#00D1FF" />
+        <text x={originPt[0]} y={originPt[1] - 10} textAnchor="middle" fill="#00D1FF"
+          fontSize="10" fontFamily="monospace" fontWeight="700">
+          {track.route.origin.icao}
+        </text>
+
+        {/* Destination marker */}
+        <circle cx={destPt[0]} cy={destPt[1]} r="6" fill="#0A0A0A" stroke="#ffffff" strokeWidth="2" />
+        <circle cx={destPt[0]} cy={destPt[1]} r="2.5" fill="#ffffff" />
+        <text x={destPt[0]} y={destPt[1] - 10} textAnchor="middle" fill="#ffffff"
+          fontSize="10" fontFamily="monospace" fontWeight="700">
+          {track.route.destination.icao}
+        </text>
+
+        {/* No track message */}
+        {!hasTrack && (
+          <text x={W / 2} y={H - 10} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="9">
+            No ACARS track data recorded for this flight
+          </text>
+        )}
+
+        {/* Track point count */}
+        {hasTrack && (
+          <text x={W - PAD} y={H - 8} textAnchor="end" fill="rgba(255,255,255,0.2)" fontSize="9">
+            {points.length} track points
+          </text>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+// ─── Flight detail panel ──────────────────────────────────────────────────────
+
+function FlightDetail({ flight, onClose }: { flight: Flight; onClose: () => void }) {
+  const [track, setTrack] = useState<TrackData | null>(null);
+  const [trackLoading, setTrackLoading] = useState(true);
+
+  useEffect(() => {
+    api.get(`/flights/${flight.id}/track`)
+      .then((r) => setTrack(r.data))
+      .catch(() => setTrack(null))
+      .finally(() => setTrackLoading(false));
+  }, [flight.id]);
+
+  const isCompleted = flight.status === 'COMPLETED';
+  const grossRevenue = isCompleted
+    ? (flight.route.base_ticket_price * flight.pax_count)
+    : null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-card rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-bold text-xl text-aero">{flight.route.origin.icao}</span>
+              <span className="text-gray-500">→</span>
+              <span className="font-mono font-bold text-xl">{flight.route.destination.icao}</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {flight.route.origin.name} → {flight.route.destination.name}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition text-xl leading-none">✕</button>
+        </div>
+
+        <div className="p-5 flex flex-col gap-5">
+          {/* Map */}
+          {trackLoading ? (
+            <div className="h-48 rounded-xl bg-white/5 animate-pulse" />
+          ) : track ? (
+            <FlightTrackMap track={track} />
+          ) : null}
+
+          {/* Info grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Date', value: formatDate(flight.arrived_at ?? flight.departed_at) },
+              { label: 'Operated By', value: flight.airline ? `${flight.airline.name} (${flight.airline.icao_code})` : '—' },
+              { label: 'Aircraft', value: `${flight.hull.registration} · ${flight.hull.aircraft_type}` },
+              { label: 'Category', value: flight.hull.aircraft_category.replace('_', ' ') },
+              { label: 'Distance', value: `${flight.route.distance_nm.toLocaleString()} nm` },
+              { label: 'Landing Type', value: flight.landing_type.replace('_', ' ') },
+            ].map((r) => (
+              <div key={r.label} className="glass-card rounded-xl p-3">
+                <p className="text-xs text-gray-500 mb-0.5">{r.label}</p>
+                <p className="text-sm font-medium">{r.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Times */}
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { label: 'Departed', value: formatTime(flight.departed_at) },
+              { label: 'Takeoff', value: formatTime(flight.takeoff_at) },
+              { label: 'Landed', value: formatTime(flight.landed_at) },
+              { label: 'Arrived', value: formatTime(flight.arrived_at) },
+            ].map((r) => (
+              <div key={r.label} className="text-center">
+                <p className="text-xs text-gray-500 mb-0.5">{r.label}</p>
+                <p className="text-sm font-mono font-bold">{r.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Flight stats */}
+          {isCompleted && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="glass-card rounded-xl p-3">
+                <p className="text-xs text-gray-500 mb-1">Block Time</p>
+                <p className="text-sm font-mono font-bold">{flight.block_time_min ? formatDuration(flight.block_time_min) : '—'}</p>
+              </div>
+              <div className="glass-card rounded-xl p-3">
+                <p className="text-xs text-gray-500 mb-1">PAX</p>
+                <p className="text-sm font-mono font-bold">{flight.pax_count}</p>
+              </div>
+              <div className="glass-card rounded-xl p-3">
+                <p className="text-xs text-gray-500 mb-2">PAX Happiness</p>
+                <HappinessBar value={Number(flight.pax_happiness)} />
+              </div>
+              <div className="glass-card rounded-xl p-3">
+                <p className="text-xs text-gray-500 mb-1">Landing VS</p>
+                {flight.landing_vs_fpm !== null ? (
+                  <p className={cn('text-sm font-mono font-bold', vsColor(flight.landing_vs_fpm))}>
+                    {flight.landing_vs_fpm} fpm
+                  </p>
+                ) : <p className="text-sm text-gray-500">—</p>}
+              </div>
+              <div className="glass-card rounded-xl p-3">
+                <p className="text-xs text-gray-500 mb-1">Fuel Used</p>
+                <p className="text-sm font-mono font-bold">
+                  {flight.fuel_used_kg ? `${Number(flight.fuel_used_kg).toLocaleString()} kg` : '—'}
+                </p>
+              </div>
+              <div className="glass-card rounded-xl p-3">
+                <p className="text-xs text-gray-500 mb-1">Max G-Force</p>
+                <p className={cn('text-sm font-mono font-bold',
+                  flight.max_g_force ? (Number(flight.max_g_force) > 2 ? 'text-red-400' : Number(flight.max_g_force) > 1.5 ? 'text-amber-400' : 'text-green-400') : '')}>
+                  {flight.max_g_force ? `${Number(flight.max_g_force).toFixed(2)}g` : '—'}
+                </p>
+              </div>
+              {grossRevenue !== null && (
+                <div className="glass-card rounded-xl p-3 col-span-2">
+                  <p className="text-xs text-gray-500 mb-1">Gross Revenue</p>
+                  <p className="text-sm font-mono font-bold text-green-400">
+                    ${grossRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main logbook page ────────────────────────────────────────────────────────
+
 const STATUS_COLORS: Record<string, string> = {
   COMPLETED: 'text-green-400 bg-green-500/10 border-green-500/20',
-  IN_FLIGHT: 'text-aero bg-aero/10 border-aero/20',
-  CRUISE: 'text-aero bg-aero/10 border-aero/20',
-  BOARDING: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-  TAXI: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+  CRUISE:    'text-aero bg-aero/10 border-aero/20',
+  CLIMB:     'text-aero bg-aero/10 border-aero/20',
+  DESCENT:   'text-aero bg-aero/10 border-aero/20',
+  BOARDING:  'text-amber-400 bg-amber-500/10 border-amber-500/20',
+  TAXI:      'text-amber-400 bg-amber-500/10 border-amber-500/20',
+  TAKEOFF:   'text-amber-400 bg-amber-500/10 border-amber-500/20',
+  LANDED:    'text-amber-400 bg-amber-500/10 border-amber-500/20',
   CANCELLED: 'text-gray-500 bg-gray-500/10 border-gray-500/20',
 };
 
@@ -50,6 +353,7 @@ export default function LogbookPage() {
   const { user } = useAuthStore();
   const [data, setData] = useState<{ flights: Flight[]; ad_context: { show_ad: boolean } } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Flight | null>(null);
   const isFreeAds = (user as { pilot_tier?: string })?.pilot_tier === 'FREE_ADS';
 
   useEffect(() => {
@@ -59,20 +363,21 @@ export default function LogbookPage() {
   }, []);
 
   const flights = data?.flights ?? [];
-  const totalHours = flights
-    .filter(f => f.status === 'COMPLETED')
-    .reduce((s, f) => s + (f.block_time_min ?? 0) / 60, 0);
+  const completed = flights.filter((f) => f.status === 'COMPLETED');
+  const totalHours = completed.reduce((s, f) => s + (f.block_time_min ?? 0) / 60, 0);
+  const totalNm = completed.reduce((s, f) => s + f.route.distance_nm, 0);
 
   if (loading) return <div className="p-8"><div className="glass-card rounded-2xl h-64 animate-pulse" /></div>;
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-1">Logbook</h1>
           <p className="text-gray-400 text-sm">
-            {flights.length} flights · {totalHours.toFixed(1)} hours
-            {isFreeAds && <span className="ml-2 text-amber-400 text-xs">· Showing last 10 flights</span>}
+            {completed.length} flights · {totalHours.toFixed(1)} hours · {totalNm.toLocaleString()} nm
+            {isFreeAds && <span className="ml-2 text-amber-400">· Last 10 flights</span>}
           </p>
         </div>
         <Link href="/dashboard/flights"
@@ -81,12 +386,27 @@ export default function LogbookPage() {
         </Link>
       </div>
 
-      {/* Ad banner for free tier */}
+      {/* Stat cards */}
+      {completed.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {[
+            { label: 'Flights', value: completed.length.toLocaleString() },
+            { label: 'Hours', value: totalHours.toFixed(1) },
+            { label: 'Distance', value: `${totalNm.toLocaleString()} nm` },
+            { label: 'Avg PAX Happiness', value: `${(completed.reduce((s, f) => s + Number(f.pax_happiness), 0) / completed.length).toFixed(0)}%` },
+          ].map((s) => (
+            <div key={s.label} className="glass-card rounded-2xl p-4 text-center">
+              <p className="text-xl font-bold text-aero">{s.value}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Free tier banner */}
       {isFreeAds && (
         <div className="glass-card rounded-2xl p-4 mb-6 border border-amber-500/20 flex items-center justify-between">
-          <p className="text-sm text-gray-400">
-            📋 Free pilots see their last 10 flights.
-          </p>
+          <p className="text-sm text-gray-400">Free pilots see their last 10 flights.</p>
           <Link href="/dashboard/billing" className="text-xs text-aero hover:underline">
             Upgrade for unlimited history →
           </Link>
@@ -106,34 +426,49 @@ export default function LogbookPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {flights.map((flight) => (
-            <div key={flight.id} className="glass-card rounded-2xl p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-mono font-bold">{flight.route.origin.icao}</span>
-                      <span className="text-gray-500 text-sm">→</span>
-                      <span className="font-mono font-bold">{flight.route.destination.icao}</span>
-                      <span className={cn('text-xs px-2 py-0.5 rounded-full border', STATUS_COLORS[flight.status] ?? 'text-gray-400 border-white/20')}>
-                        {flight.status.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-400">
-                      {flight.hull.registration} · {flight.hull.aircraft_type} · {flight.route.distance_nm.toLocaleString()} nm
-                    </p>
+            <button
+              key={flight.id}
+              onClick={() => flight.status === 'COMPLETED' ? setSelected(flight) : undefined}
+              className={cn(
+                'glass-card rounded-2xl p-5 text-left w-full transition',
+                flight.status === 'COMPLETED' ? 'hover:border-aero/20 border border-transparent cursor-pointer' : 'cursor-default border border-transparent',
+              )}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                    <span className="font-mono font-bold text-aero">{flight.route.origin.icao}</span>
+                    <span className="text-gray-500 text-sm">→</span>
+                    <span className="font-mono font-bold">{flight.route.destination.icao}</span>
+                    <span className={cn('text-xs px-2 py-0.5 rounded-full border', STATUS_COLORS[flight.status] ?? 'text-gray-400 border-white/20')}>
+                      {flight.status.replace(/_/g, ' ')}
+                    </span>
+                    {flight.status === 'COMPLETED' && (
+                      <span className="text-xs text-gray-600">tap to expand</span>
+                    )}
                   </div>
+                  <p className="text-xs text-gray-400">
+                    {flight.route.origin.name}
+                    {flight.route.origin.city ? ` (${flight.route.origin.city})` : ''} → {flight.route.destination.name}
+                    {flight.route.destination.city ? ` (${flight.route.destination.city})` : ''}
+                  </p>
                 </div>
-                <div className="text-right text-xs text-gray-500">
-                  {flight.arrived_at
-                    ? new Date(flight.arrived_at).toLocaleDateString()
-                    : flight.departed_at
-                    ? new Date(flight.departed_at).toLocaleDateString()
-                    : '—'}
+                <div className="text-right text-xs text-gray-500 flex-shrink-0 ml-3">
+                  <p>{formatDate(flight.arrived_at ?? flight.departed_at)}</p>
+                  <p className="font-mono">{formatTime(flight.departed_at)} → {formatTime(flight.arrived_at)}</p>
                 </div>
               </div>
 
+              <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+                <span className="font-mono">{flight.hull.registration}</span>
+                <span>{flight.hull.aircraft_type}</span>
+                <span>{flight.route.distance_nm.toLocaleString()} nm</span>
+                {flight.block_time_min && <span>{formatDuration(flight.block_time_min)}</span>}
+                {flight.airline && <span className="text-gray-600">{flight.airline.icao_code}</span>}
+              </div>
+
               {flight.status === 'COMPLETED' && (
-                <div className="flex items-center gap-6 pt-3 border-t border-white/5">
+                <div className="flex items-center gap-6 pt-3 border-t border-white/5 flex-wrap">
                   <div>
                     <p className="text-xs text-gray-500 mb-1">PAX Happiness</p>
                     <HappinessBar value={Number(flight.pax_happiness)} />
@@ -141,29 +476,39 @@ export default function LogbookPage() {
                   {flight.landing_vs_fpm !== null && (
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Landing VS</p>
-                      <p className={cn('text-xs font-mono font-bold',
-                        Math.abs(flight.landing_vs_fpm) <= 200 ? 'text-green-400'
-                        : Math.abs(flight.landing_vs_fpm) <= 400 ? 'text-amber-400' : 'text-red-400')}>
+                      <p className={cn('text-xs font-mono font-bold', vsColor(flight.landing_vs_fpm))}>
                         {flight.landing_vs_fpm} fpm
                       </p>
                     </div>
                   )}
-                  {flight.block_time_min && (
+                  {flight.fuel_used_kg && (
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Block Time</p>
-                      <p className="text-xs font-mono">{Math.floor(flight.block_time_min / 60)}h {flight.block_time_min % 60}m</p>
+                      <p className="text-xs text-gray-500 mb-1">Fuel</p>
+                      <p className="text-xs font-mono">{Number(flight.fuel_used_kg).toLocaleString()} kg</p>
+                    </div>
+                  )}
+                  {flight.max_g_force && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Max G</p>
+                      <p className={cn('text-xs font-mono font-bold',
+                        Number(flight.max_g_force) > 2 ? 'text-red-400' : Number(flight.max_g_force) > 1.5 ? 'text-amber-400' : 'text-green-400')}>
+                        {Number(flight.max_g_force).toFixed(2)}g
+                      </p>
                     </div>
                   )}
                   <div>
                     <p className="text-xs text-gray-500 mb-1">PAX</p>
-                    <p className="text-xs">{flight.pax_count}</p>
+                    <p className="text-xs font-mono">{flight.pax_count}</p>
                   </div>
                 </div>
               )}
-            </div>
+            </button>
           ))}
         </div>
       )}
+
+      {/* Flight detail modal */}
+      {selected && <FlightDetail flight={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }
