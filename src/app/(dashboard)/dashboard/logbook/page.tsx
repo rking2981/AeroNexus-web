@@ -1,10 +1,17 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+
+const FlightTrackMap = dynamic(
+  () => import('@/components/FlightTrackMap').then((m) => m.FlightTrackMap),
+  { ssr: false, loading: () => <div className="h-64 rounded-xl bg-white/5 animate-pulse" /> },
+);
 
 interface Flight {
   id: string;
@@ -86,127 +93,6 @@ function formatDuration(min: number) {
   return `${h}h ${m.toString().padStart(2, '0')}m`;
 }
 
-// ─── SVG flight track map ─────────────────────────────────────────────────────
-
-function FlightTrackMap({ track }: { track: TrackData }) {
-  const W = 600; const H = 280; const PAD = 32;
-
-  // Collect all points including origin/dest
-  const allLats: number[] = [Number(track.route.origin.latitude), Number(track.route.destination.latitude)];
-  const allLons: number[] = [Number(track.route.origin.longitude), Number(track.route.destination.longitude)];
-  const points = track.track_points.map((p) => ({ lat: Number(p.lat), lon: Number(p.lon), alt: p.alt_ft }));
-  points.forEach((p) => { allLats.push(p.lat); allLons.push(p.lon); });
-
-  const minLat = Math.min(...allLats); const maxLat = Math.max(...allLats);
-  const minLon = Math.min(...allLons); const maxLon = Math.max(...allLons);
-
-  // Add padding to bounding box
-  const latPad = (maxLat - minLat) * 0.2 || 1;
-  const lonPad = (maxLon - minLon) * 0.2 || 1;
-  const bMinLat = minLat - latPad; const bMaxLat = maxLat + latPad;
-  const bMinLon = minLon - lonPad; const bMaxLon = maxLon + lonPad;
-
-  function project(lat: number, lon: number): [number, number] {
-    const x = PAD + ((lon - bMinLon) / (bMaxLon - bMinLon)) * (W - PAD * 2);
-    // Invert Y (lat increases upward)
-    const y = PAD + ((bMaxLat - lat) / (bMaxLat - bMinLat)) * (H - PAD * 2);
-    return [x, y];
-  }
-
-  const originPt = project(Number(track.route.origin.latitude), Number(track.route.origin.longitude));
-  const destPt = project(Number(track.route.destination.latitude), Number(track.route.destination.longitude));
-
-  const hasTrack = points.length > 1;
-
-  // Build polyline from track points, or great-circle arc if no track yet
-  let pathD = '';
-  if (hasTrack) {
-    const coords = points.map((p) => project(p.lat, p.lon));
-    pathD = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c[0].toFixed(1)},${c[1].toFixed(1)}`).join(' ');
-  } else {
-    // Fallback: quadratic bezier arc between origin and dest
-    const mx = (originPt[0] + destPt[0]) / 2;
-    const my = Math.min(originPt[1], destPt[1]) - 40;
-    pathD = `M${originPt[0].toFixed(1)},${originPt[1].toFixed(1)} Q${mx.toFixed(1)},${my.toFixed(1)} ${destPt[0].toFixed(1)},${destPt[1].toFixed(1)}`;
-  }
-
-  // Altitude gradient — colour track by altitude
-  const maxAlt = Math.max(...points.map((p) => p.alt ?? 0), 1);
-
-  return (
-    <div className="w-full rounded-xl overflow-hidden border border-white/5 bg-[#080810]">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: '220px' }}>
-        <defs>
-          <linearGradient id="trackGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#00D1FF" stopOpacity="0.4" />
-            <stop offset="50%" stopColor="#00D1FF" stopOpacity="1" />
-            <stop offset="100%" stopColor="#00D1FF" stopOpacity="0.4" />
-          </linearGradient>
-          {/* Glow filter */}
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-
-        {/* Grid lines */}
-        {[0.25, 0.5, 0.75].map((f) => (
-          <g key={f}>
-            <line x1={PAD} y1={PAD + f * (H - PAD * 2)} x2={W - PAD} y2={PAD + f * (H - PAD * 2)}
-              stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-            <line x1={PAD + f * (W - PAD * 2)} y1={PAD} x2={PAD + f * (W - PAD * 2)} y2={H - PAD}
-              stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-          </g>
-        ))}
-
-        {/* Track glow */}
-        <path d={pathD} fill="none" stroke="#00D1FF" strokeWidth="6" strokeOpacity="0.08" strokeLinecap="round" />
-        {/* Main track */}
-        <path d={pathD} fill="none" stroke="url(#trackGrad)" strokeWidth="2.5"
-          strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)" />
-
-        {/* Altitude dots along track */}
-        {hasTrack && points.filter((_, i) => i % Math.max(1, Math.floor(points.length / 20)) === 0).map((p, i) => {
-          const [x, y] = project(p.lat, p.lon);
-          const altPct = (p.alt ?? 0) / maxAlt;
-          const opacity = 0.3 + altPct * 0.7;
-          return <circle key={i} cx={x} cy={y} r="2" fill="#00D1FF" opacity={opacity} />;
-        })}
-
-        {/* Origin marker */}
-        <circle cx={originPt[0]} cy={originPt[1]} r="6" fill="#0A0A0A" stroke="#00D1FF" strokeWidth="2" />
-        <circle cx={originPt[0]} cy={originPt[1]} r="2.5" fill="#00D1FF" />
-        <text x={originPt[0]} y={originPt[1] - 10} textAnchor="middle" fill="#00D1FF"
-          fontSize="10" fontFamily="monospace" fontWeight="700">
-          {track.route.origin.icao}
-        </text>
-
-        {/* Destination marker */}
-        <circle cx={destPt[0]} cy={destPt[1]} r="6" fill="#0A0A0A" stroke="#ffffff" strokeWidth="2" />
-        <circle cx={destPt[0]} cy={destPt[1]} r="2.5" fill="#ffffff" />
-        <text x={destPt[0]} y={destPt[1] - 10} textAnchor="middle" fill="#ffffff"
-          fontSize="10" fontFamily="monospace" fontWeight="700">
-          {track.route.destination.icao}
-        </text>
-
-        {/* No track message */}
-        {!hasTrack && (
-          <text x={W / 2} y={H - 10} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="9">
-            No ACARS track data recorded for this flight
-          </text>
-        )}
-
-        {/* Track point count */}
-        {hasTrack && (
-          <text x={W - PAD} y={H - 8} textAnchor="end" fill="rgba(255,255,255,0.2)" fontSize="9">
-            {points.length} track points
-          </text>
-        )}
-      </svg>
-    </div>
-  );
-}
-
 // ─── Flight detail panel ──────────────────────────────────────────────────────
 
 function FlightDetail({ flight, onClose }: { flight: Flight; onClose: () => void }) {
@@ -246,9 +132,14 @@ function FlightDetail({ flight, onClose }: { flight: Flight; onClose: () => void
         <div className="p-5 flex flex-col gap-5">
           {/* Map */}
           {trackLoading ? (
-            <div className="h-48 rounded-xl bg-white/5 animate-pulse" />
+            <div className="h-64 rounded-xl bg-white/5 animate-pulse" />
           ) : track ? (
-            <FlightTrackMap track={track} />
+            <FlightTrackMap
+              origin={track.route.origin}
+              destination={track.route.destination}
+              trackPoints={track.track_points}
+              height="280px"
+            />
           ) : null}
 
           {/* Info grid */}
