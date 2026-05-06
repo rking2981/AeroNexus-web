@@ -5,16 +5,24 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { useAuthStore } from '@/store/auth';
+import { api } from '@/lib/api';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, user, _hasHydrated } = useAuthStore();
+  const { isAuthenticated, user, setUser, _hasHydrated } = useAuthStore();
 
   useEffect(() => {
     if (_hasHydrated && !isAuthenticated()) {
       router.replace('/login');
     }
   }, [_hasHydrated, isAuthenticated, router]);
+
+  // Refresh user on every dashboard load to pick up latest email_verified status
+  useEffect(() => {
+    if (_hasHydrated && isAuthenticated()) {
+      api.post('/auth/me').then(({ data }) => setUser(data)).catch(() => {});
+    }
+  }, [_hasHydrated, isAuthenticated, setUser]);
 
   if (!_hasHydrated) return null;
   if (!isAuthenticated()) return null;
