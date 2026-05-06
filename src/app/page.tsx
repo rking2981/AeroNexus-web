@@ -34,9 +34,11 @@ interface NetworkStats {
   acars_reports: number;
 }
 
+const API = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'https://aeronexus-api-production.up.railway.app';
+
 async function getFoundersStatus(): Promise<FoundersStatus> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/founders-status`, {
+    const res = await fetch(`${API}/founders-status`, {
       next: { revalidate: 60 },
     });
     if (!res.ok) throw new Error('Failed');
@@ -48,7 +50,7 @@ async function getFoundersStatus(): Promise<FoundersStatus> {
 
 async function getNetworkStats(): Promise<NetworkStats> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/network-stats`, {
+    const res = await fetch(`${API}/network-stats`, {
       next: { revalidate: 60 },
     });
     if (!res.ok) throw new Error('Failed');
@@ -189,7 +191,7 @@ export default async function HomePage() {
         </div>
 
         {/* Social proof bar */}
-        {(stats.flights > 0 || stats.airlines > 0 || stats.pilots > 0) && (
+        {true && (
           <div className="relative z-10 mt-16 max-w-3xl mx-auto">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 rounded-2xl overflow-hidden border border-white/5">
               {[
