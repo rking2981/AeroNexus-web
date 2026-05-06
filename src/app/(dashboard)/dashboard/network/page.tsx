@@ -46,6 +46,7 @@ export default function NetworkPage() {
   const [hubSearch, setHubSearch] = useState('');
   const [hubResults, setHubResults] = useState<Airport[]>([]);
   const [addingHub, setAddingHub] = useState(false);
+  const [hubError, setHubError] = useState('');
 
   // Add route state
   const [showAddRoute, setShowAddRoute] = useState(false);
@@ -71,12 +72,15 @@ export default function NetworkPage() {
   }, []);
 
   async function addHub(airport: Airport, type: 'PRIMARY' | 'SECONDARY') {
-    setAddingHub(true);
+    setAddingHub(true); setHubError('');
     try {
       const { data } = await api.post('/network/hubs', { airport_id: airport.icao, type });
       setHubs([...hubs, data]);
       setHubSearch(''); setHubResults([]);
-    } catch { /* ignore */ } finally { setAddingHub(false); }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setHubError(msg ?? 'Failed to add hub.');
+    } finally { setAddingHub(false); }
   }
 
   async function deleteHub(id: string) {
@@ -173,6 +177,10 @@ export default function NetworkPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {hubError && (
+            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{hubError}</p>
           )}
 
           {hubs.length === 0 ? (
