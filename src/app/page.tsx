@@ -28,10 +28,10 @@ interface FoundersStatus {
 }
 
 interface NetworkStats {
-  flights: number;
-  airlines: number;
-  pilots: number;
-  acars_reports: number;
+  pilots_online: number;
+  active_airlines: number;
+  flights_today: number;
+  nm_this_week: number;
 }
 
 const API = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'https://aeronexus-api-production.up.railway.app';
@@ -56,7 +56,7 @@ async function getNetworkStats(): Promise<NetworkStats> {
     if (!res.ok) throw new Error('Failed');
     return res.json();
   } catch {
-    return { flights: 0, airlines: 0, pilots: 0, acars_reports: 0 };
+    return { pilots_online: 0, active_airlines: 0, flights_today: 0, nm_this_week: 0 };
   }
 }
 
@@ -190,24 +190,33 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* Social proof bar */}
-        {true && (
-          <div className="relative z-10 mt-16 max-w-3xl mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 rounded-2xl overflow-hidden border border-white/5">
-              {[
-                { value: stats.flights.toLocaleString(), label: 'Flights Completed' },
-                { value: stats.airlines.toLocaleString(), label: 'Active Airlines' },
-                { value: stats.pilots.toLocaleString(), label: 'Pilots Registered' },
-                { value: stats.acars_reports.toLocaleString(), label: 'ACARS Reports' },
-              ].map((s) => (
-                <div key={s.label} className="bg-black/40 px-6 py-5 text-center backdrop-blur-sm">
+        {/* Live stats bar */}
+        <div className="relative z-10 mt-16 max-w-3xl mx-auto">
+          <p className="text-[10px] text-gray-600 uppercase tracking-widest text-center mb-3 font-bold">
+            Live Network
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 rounded-2xl overflow-hidden border border-white/5">
+            {[
+              { value: stats.pilots_online.toLocaleString(), label: 'Pilots Online', pulse: stats.pilots_online > 0 },
+              { value: stats.active_airlines.toLocaleString(), label: 'Active Airlines', pulse: false },
+              { value: stats.flights_today.toLocaleString(), label: 'Flights Today', pulse: false },
+              { value: Number(stats.nm_this_week).toLocaleString(), label: 'nm This Week', pulse: false },
+            ].map((s) => (
+              <div key={s.label} className="bg-black/40 px-6 py-5 text-center backdrop-blur-sm">
+                <div className="flex items-center justify-center gap-2">
+                  {s.pulse && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-aero opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-aero" />
+                    </span>
+                  )}
                   <p className="text-xl font-extrabold text-aero">{s.value}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
                 </div>
-              ))}
-            </div>
+                <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
       </section>
 
       {/* Features */}
