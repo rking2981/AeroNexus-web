@@ -74,7 +74,46 @@ export default function AirlineSettingsPage() {
   const { user } = useAuthStore();
   const [airline, setAirline] = useState<Airline | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'general' | 'branding' | 'expenses'>('general');
+  const [tab, setTab] = useState<'general' | 'branding' | 'expenses' | 'transfer'>('general');
+
+  // Transfer ownership state
+  const [transferEmail, setTransferEmail] = useState('');
+  const [transferMessage, setTransferMessage] = useState('');
+  const [transferConfirm, setTransferConfirm] = useState(false);
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferError, setTransferError] = useState('');
+  const [transferSuccess, setTransferSuccess] = useState('');
+  const [myTransfers, setMyTransfers] = useState<{
+    initiated: { id: string; status: string; expires_at: string; to_user: { display_name: string; email: string }; airline: { name: string; icao_code: string } }[];
+    received: { id: string; status: string; from_user: { display_name: string }; airline: { name: string; icao_code: string; subscription_tier: string } }[];
+  } | null>(null);
+
+  async function fetchTransfers() {
+    try {
+      const { data } = await api.get('/founders/transfers');
+      setMyTransfers(data);
+    } catch { /* ignore */ }
+  }
+
+  async function initiateTransfer() {
+    setTransferLoading(true); setTransferError(''); setTransferSuccess('');
+    try {
+      await api.post('/founders/transfers', { to_email: transferEmail, message: transferMessage || undefined });
+      setTransferSuccess(`Transfer request sent to ${transferEmail}. They have 48 hours to accept.`);
+      setTransferEmail(''); setTransferMessage(''); setTransferConfirm(false);
+      fetchTransfers();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setTransferError(msg ?? 'Failed to send transfer request.');
+    } finally { setTransferLoading(false); }
+  }
+
+  async function cancelTransfer(id: string) {
+    try {
+      await api.delete(`/founders/transfers/${id}`);
+      fetchTransfers();
+    } catch { /* ignore */ }
+  }
 
   // General form
   const [general, setGeneral] = useState({ name: '', iata_code: '', hub_country: '', currency_code: '', currency_symbol: '' });
@@ -90,6 +129,7 @@ export default function AirlineSettingsPage() {
   const isEnterprise = airline?.subscription_tier === 'ENTERPRISE' || airline?.subscription_tier === 'FOUNDERS';
 
   useEffect(() => {
+    fetchTransfers();
     api.get('/airline').then((r) => {
       const a = r.data as Airline;
       setAirline(a);
@@ -196,11 +236,16 @@ export default function AirlineSettingsPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
-        {(['general', 'branding', 'expenses'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={cn('px-5 py-2 rounded-lg text-sm font-medium transition capitalize',
-              tab === t ? 'bg-aero text-black' : 'text-gray-400 hover:text-white')}>
-            {t}
+        {([
+          { key: 'general', label: 'General' },
+          { key: 'branding', label: 'Branding' },
+          { key: 'expenses', label: 'Expenses' },
+          { key: 'transfer', label: 'Transfer Ownership' },
+        ] as const).map((t) => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={cn('px-5 py-2 rounded-lg text-sm font-medium transition',
+              tab === t.key ? 'bg-aero text-black' : 'text-gray-400 hover:text-white')}>
+            {t.label}
           </button>
         ))}
       </div>
@@ -378,6 +423,118 @@ export default function AirlineSettingsPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Ownership tab */}
+      {tab === 'transfer' && (
+        <div className="flex flex-col gap-6 max-w-lg">
+          {/* Founder note */}
+          {user?.is_founder && (
+            <div className="glass-card rounded-2xl p-4 border border-purple-500/20 bg-purple-500/5">
+              <p className="text-sm text-purple-300 font-medium mb-1">Founder Transfer</p>
+              <p className="text-xs text-gray-400">
+                As a Founder, transferring this airline will also transfer your Founder status and the FOUNDERS subscription tier to the new owner. Your account will revert to a standard pilot.
+              </p>
+            </div>
+          )}
+
+          <div className="glass-card rounded-2xl p-6 border border-red-500/10">
+            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Transfer Airline Ownership</h2>
+            <p className="text-xs text-gray-500 mb-5">
+              Transfer <span className="text-white font-medium">{airline.name}</span> to another AeroNexus user. They will receive a transfer request by email and have 48 hours to accept. This action requires 30 days of ownership and cannot be undone.
+            </p>
+
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="text-sm text-gray-300 block mb-1.5">Recipient Email</label>
+                <input
+                  type="email"
+                  value={transferEmail}
+                  onChange={(e) => setTransferEmail(e.target.value)}
+                  placeholder="pilot@example.com"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-300 block mb-1.5">Message (optional)</label>
+                <textarea
+                  value={transferMessage}
+                  onChange={(e) => setTransferMessage(e.target.value)}
+                  placeholder="Add a personal message to the recipient..."
+                  rows={3}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition resize-none"
+                />
+              </div>
+
+              {transferError && (
+                <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{transferError}</p>
+              )}
+              {transferSuccess && (
+                <p className="text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">{transferSuccess}</p>
+              )}
+
+              <button
+                onClick={() => { setTransferConfirm(true); setTransferError(''); }}
+                disabled={!transferEmail || transferLoading}
+                className="border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold px-6 py-2.5 rounded-xl transition text-sm disabled:opacity-40"
+              >
+                Send Transfer Request
+              </button>
+            </div>
+          </div>
+
+          {/* Pending outgoing transfers */}
+          {myTransfers && myTransfers.initiated.filter((t) => t.status === 'PENDING').length > 0 && (
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Pending Outgoing Requests</h3>
+              {myTransfers.initiated.filter((t) => t.status === 'PENDING').map((t) => (
+                <div key={t.id} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">{t.to_user.display_name} <span className="text-gray-500 text-xs">({t.to_user.email})</span></p>
+                    <p className="text-xs text-gray-500">Expires {new Date(t.expires_at).toLocaleString()}</p>
+                  </div>
+                  <button onClick={() => cancelTransfer(t.id)}
+                    className="text-xs text-red-400 hover:text-red-300 border border-red-500/20 px-3 py-1 rounded-lg hover:bg-red-500/5 transition">
+                    Cancel
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Transfer confirm modal */}
+      {transferConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="glass-card rounded-2xl p-8 max-w-md w-full mx-4 border border-white/10">
+            <h3 className="text-lg font-bold mb-2">Confirm Transfer</h3>
+            <p className="text-gray-400 text-sm mb-6">
+              Are you sure you want to transfer <span className="text-white font-medium">{airline.name}</span> to{' '}
+              <span className="text-aero font-medium">{transferEmail}</span>?
+              {user?.is_founder && (
+                <span className="block mt-2 text-purple-300 text-xs">
+                  Your Founder status and FOUNDERS subscription will transfer with the airline.
+                </span>
+              )}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={initiateTransfer}
+                disabled={transferLoading}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-50"
+              >
+                {transferLoading ? 'Sending...' : 'Send Transfer'}
+              </button>
+              <button
+                onClick={() => setTransferConfirm(false)}
+                className="flex-1 border border-white/20 text-sm py-2.5 rounded-xl hover:bg-white/5 transition"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

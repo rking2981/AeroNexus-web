@@ -87,9 +87,7 @@ export default function ContractsPage() {
     cargo_kg: '',
     notes: '',
     pilot_pay: '',
-    airline_revenue: '',
     xp_bonus: '250',
-    board_expires_hours: '72',
   });
   const [postError, setPostError] = useState('');
   const [posting, setPosting] = useState(false);
@@ -179,14 +177,12 @@ export default function ContractsPage() {
         cargo_kg: postForm.cargo_kg ? Number(postForm.cargo_kg) : undefined,
         notes: postForm.notes || undefined,
         pilot_pay: Number(postForm.pilot_pay),
-        airline_revenue: Number(postForm.airline_revenue),
         xp_bonus: Number(postForm.xp_bonus),
-        board_expires_hours: Number(postForm.board_expires_hours),
       });
       setShowPost(false);
       setPostForm({
         origin_icao: '', destination_icao: '', required_aircraft_icao: '', aircraft_category: 'FIXED_WING',
-        cargo_kg: '', notes: '', pilot_pay: '', airline_revenue: '', xp_bonus: '250', board_expires_hours: '72',
+        cargo_kg: '', notes: '', pilot_pay: '', xp_bonus: '250',
       });
       await Promise.all([fetchBoard(), fetchMyContracts()]);
       setActiveTab('posted');
@@ -272,13 +268,6 @@ export default function ContractsPage() {
                 onChange={(e) => setPostForm({ ...postForm, pilot_pay: e.target.value })}
                 placeholder="1500.00" required className={inputCls} />
             </div>
-            {/* Airline Revenue */}
-            <div>
-              <label className="text-xs text-gray-400 block mb-1.5">Airline Revenue ($) *</label>
-              <input type="number" min="0" step="0.01" value={postForm.airline_revenue}
-                onChange={(e) => setPostForm({ ...postForm, airline_revenue: e.target.value })}
-                placeholder="5000.00" required className={inputCls} />
-            </div>
             {/* Aircraft Category */}
             <div>
               <label className="text-xs text-gray-400 block mb-1.5">Aircraft Category</label>
@@ -302,13 +291,6 @@ export default function ContractsPage() {
               <label className="text-xs text-gray-400 block mb-1.5">XP Bonus</label>
               <input type="number" min="0" value={postForm.xp_bonus}
                 onChange={(e) => setPostForm({ ...postForm, xp_bonus: e.target.value })}
-                className={inputCls} />
-            </div>
-            {/* Board Expiry */}
-            <div>
-              <label className="text-xs text-gray-400 block mb-1.5">Board Listing Duration (hours)</label>
-              <input type="number" min="1" max="168" value={postForm.board_expires_hours}
-                onChange={(e) => setPostForm({ ...postForm, board_expires_hours: e.target.value })}
                 className={inputCls} />
             </div>
             {/* Cargo */}
@@ -534,7 +516,7 @@ function ContractCard({
         </div>
         <div className="flex flex-wrap gap-4 text-sm">
           <span className="text-green-400 font-bold">${Number(c.pilot_pay).toLocaleString('en-US', { minimumFractionDigits: 2 })} pilot pay</span>
-          <span className="text-gray-400">${Number(c.airline_revenue).toLocaleString('en-US', { minimumFractionDigits: 2 })} revenue</span>
+          <span className="text-gray-500 text-xs">~${Number(c.airline_revenue).toLocaleString('en-US', { minimumFractionDigits: 2 })} est. revenue</span>
           <span className="text-purple-400">+{c.xp_bonus} XP</span>
         </div>
         {showExpiry && (

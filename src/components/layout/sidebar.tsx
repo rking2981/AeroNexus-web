@@ -8,7 +8,7 @@ import { useAuthStore } from '@/store/auth';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 
-const PILOT_NAV = [
+const PILOT_NAV_BASE = [
   { href: '/dashboard', label: 'Overview', icon: '🏠' },
   { href: '/dashboard/profile', label: 'My Profile', icon: '👤' },
   { href: '/dashboard/logbook', label: 'Logbook', icon: '📋' },
@@ -17,7 +17,6 @@ const PILOT_NAV = [
   { href: '/dashboard/airports', label: 'Airports', icon: '🏢' },
   { href: '/dashboard/stats', label: 'Stats', icon: '📈' },
   { href: '/dashboard/contracts', label: 'Contract Board', icon: '📄' },
-  { href: '/dashboard/founders', label: "Founder's Pass", icon: '🎖️' },
 ];
 
 const MANAGER_NAV = [
@@ -50,6 +49,10 @@ export function Sidebar() {
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
   const isAdmin = user?.role === 'PLATFORM_ADMIN';
 
+  const pilotNav = user?.is_founder
+    ? PILOT_NAV_BASE
+    : [...PILOT_NAV_BASE, { href: '/dashboard/founders', label: "Founder's Pass", icon: '🎖️' }];
+
   return (
     <aside className="w-64 flex-shrink-0 flex flex-col border-r border-white/5 bg-black/20 backdrop-blur-sm">
       {/* Logo */}
@@ -61,7 +64,7 @@ export function Sidebar() {
 
       {/* Nav sections */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-6">
-        <NavSection items={PILOT_NAV} pathname={pathname} />
+        <NavSection items={pilotNav} pathname={pathname} />
 
         {isManager && (
           <>
@@ -108,7 +111,7 @@ export function Sidebar() {
   );
 }
 
-function NavSection({ items, pathname }: { items: typeof PILOT_NAV; pathname: string }) {
+function NavSection({ items, pathname }: { items: { href: string; label: string; icon: string }[]; pathname: string }) {
   return (
     <ul className="flex flex-col gap-0.5">
       {items.map((item) => {
