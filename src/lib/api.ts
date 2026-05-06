@@ -74,7 +74,6 @@ api.interceptors.response.use(
     const original = error.config;
 
     if (error.response?.status !== 401 || original._retry) {
-      console.log(`[AeroNexus API] Request failed — status: ${error.response?.status}, url: ${original.url}`);
       return Promise.reject(error);
     }
 
@@ -92,14 +91,9 @@ api.interceptors.response.use(
     original._retry = true;
     isRefreshing = true;
 
-    console.log(`[AeroNexus API] 401 on ${original.url} — attempting token refresh`);
-
     try {
       const { refresh_token } = getTokens();
-      if (!refresh_token) {
-        console.warn('[AeroNexus API] No refresh token found in Zustand store');
-        throw new Error('no_refresh_token');
-      }
+      if (!refresh_token) throw new Error('no_refresh_token');
 
       const { data } = await axios.post(
         `${BASE_URL}/auth/refresh`,
@@ -107,7 +101,6 @@ api.interceptors.response.use(
         { headers: { Authorization: `Bearer ${refresh_token}` } },
       );
 
-      console.log('[AeroNexus API] Token refresh successful');
       setTokens(data.access_token, data.refresh_token);
 
       processQueue(data.access_token);
@@ -117,14 +110,8 @@ api.interceptors.response.use(
       refreshQueue = [];
 
       const refreshStatus = (refreshError as { response?: { status?: number } })?.response?.status;
-      console.error('[AeroNexus API] Token refresh failed', {
-        refreshStatus,
-        message: (refreshError as Error)?.message,
-        willLogout: refreshStatus === 401 || (refreshError as Error)?.message === 'no_refresh_token',
-      });
 
       if (refreshStatus === 401 || (refreshError as Error)?.message === 'no_refresh_token') {
-        console.warn('[AeroNexus API] ⚠️ Logging out — refresh token invalid or missing');
         clearTokens();
         if (typeof window !== 'undefined') window.location.href = '/login';
       }

@@ -10,35 +10,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const { isAuthenticated, user, _hasHydrated } = useAuthStore();
 
-  // Debug logger — remove once logout issue is resolved
   useEffect(() => {
-    console.group('[AeroNexus Auth] Dashboard layout mount');
-    console.log('_hasHydrated:', _hasHydrated);
-    console.log('isAuthenticated():', isAuthenticated());
-    console.log('access_token in localStorage:', typeof window !== 'undefined' ? !!localStorage.getItem('access_token') : 'SSR');
-    console.log('refresh_token in localStorage:', typeof window !== 'undefined' ? !!localStorage.getItem('refresh_token') : 'SSR');
-    console.log('Zustand store key in localStorage:', typeof window !== 'undefined' ? !!localStorage.getItem('aeronexus-auth') : 'SSR');
-    console.groupEnd();
-  }, []);
-
-  useEffect(() => {
-    console.log(`[AeroNexus Auth] State change — _hasHydrated: ${_hasHydrated}, isAuthenticated: ${isAuthenticated()}`);
     if (_hasHydrated && !isAuthenticated()) {
-      console.warn('[AeroNexus Auth] ⚠️ Redirecting to /login — reason: _hasHydrated=true but isAuthenticated()=false');
-      console.log('[AeroNexus Auth] localStorage aeronexus-auth:', typeof window !== 'undefined' ? localStorage.getItem('aeronexus-auth') : 'SSR');
       router.replace('/login');
     }
   }, [_hasHydrated, isAuthenticated, router]);
 
-  // Show nothing until Zustand has rehydrated from localStorage
-  if (!_hasHydrated) {
-    console.log('[AeroNexus Auth] Waiting for hydration...');
-    return null;
-  }
-  if (!isAuthenticated()) {
-    console.warn('[AeroNexus Auth] ⚠️ Not authenticated after hydration — rendering null');
-    return null;
-  }
+  if (!_hasHydrated) return null;
+  if (!isAuthenticated()) return null;
 
   const emailUnverified = user && !(user as { email_verified?: boolean }).email_verified;
 
