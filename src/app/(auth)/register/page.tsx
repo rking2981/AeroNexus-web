@@ -1,11 +1,11 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { api } from '@/lib/api';
+import { api, publicApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 
 export default function RegisterPage() {
@@ -28,8 +28,17 @@ function RegisterForm() {
     password: '',
     confirm_password: '',
   });
+  const [homeSearch, setHomeSearch] = useState('');
+  const [homeResults, setHomeResults] = useState<{ id: string; icao: string; name: string; city: string | null }[]>([]);
+  const [selectedHome, setSelectedHome] = useState<{ icao: string; name: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  const searchAirports = useCallback(async (q: string) => {
+    if (q.length < 2) { setHomeResults([]); return; }
+    const { data } = await publicApi.get(`/network/airports/search?q=${encodeURIComponent(q)}`);
+    setHomeResults(data);
+  }, []);
 
   function validate() {
     const e: Record<string, string> = {};
@@ -52,6 +61,7 @@ function RegisterForm() {
         email: form.email,
         password: form.password,
         display_name: form.display_name,
+        home_airport_icao: selectedHome?.icao ?? undefined,
       });
       setTokens(data.access_token, data.refresh_token);
 
@@ -125,6 +135,44 @@ function RegisterForm() {
           error={errors.password}
           autoComplete="new-password"
         />
+        {/* Home Airport */}
+        <div className="relative">
+          <label className="text-sm font-medium text-gray-300 block mb-1.5">
+            Home Airport <span className="text-gray-500 text-xs">(optional — can be set later)</span>
+          </label>
+          {selectedHome ? (
+            <div className="flex items-center justify-between rounded-xl border border-aero/40 bg-aero/5 px-4 py-3">
+              <div>
+                <span className="font-mono text-aero font-bold">{selectedHome.icao}</span>
+                <span className="text-gray-400 text-sm ml-2">— {selectedHome.name}</span>
+              </div>
+              <button type="button" onClick={() => { setSelectedHome(null); setHomeSearch(''); }}
+                className="text-gray-500 hover:text-white text-sm transition">Change</button>
+            </div>
+          ) : (
+            <input
+              type="text"
+              placeholder="Search by ICAO or airport name..."
+              value={homeSearch}
+              onChange={(e) => { setHomeSearch(e.target.value); searchAirports(e.target.value); }}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-[#00D1FF] focus:outline-none focus:ring-1 focus:ring-[#00D1FF] transition"
+            />
+          )}
+          {homeResults.length > 0 && !selectedHome && (
+            <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-[#111] shadow-2xl">
+              {homeResults.map((a) => (
+                <button key={a.id} type="button"
+                  onClick={() => { setSelectedHome({ icao: a.icao, name: a.name }); setHomeResults([]); setHomeSearch(''); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/5 border-b border-white/5 last:border-0">
+                  <span className="font-mono text-xs text-aero w-12">{a.icao}</span>
+                  <span className="text-sm text-white truncate">{a.name}</span>
+                  {a.city && <span className="text-xs text-gray-500 ml-auto">{a.city}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <Input
           label="Confirm Password"
           type="password"

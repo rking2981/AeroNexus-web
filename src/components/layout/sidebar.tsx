@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 
 const PILOT_NAV = [
   { href: '/dashboard', label: 'Overview', icon: '🏠' },
+  { href: '/dashboard/profile', label: 'My Profile', icon: '👤' },
   { href: '/dashboard/logbook', label: 'Logbook', icon: '📋' },
   { href: '/dashboard/flights', label: 'Book Flight', icon: '✈️' },
   { href: '/dashboard/map', label: 'Live Map', icon: '🗺️' },
