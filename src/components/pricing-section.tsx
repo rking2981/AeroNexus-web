@@ -101,7 +101,6 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
             <li>✓ Up to 5 Active Pilots</li>
             <li>✓ 10 Persistent Hulls</li>
             <li>✓ Basic Fleet Management</li>
-            <li className="text-gray-600 line-through">Custom Colors &amp; Branding</li>
           </ul>
           <Link href={`/register?plan=${yearly ? 'startup-yearly' : 'startup-monthly'}`} className="w-full border border-white/20 py-3 rounded-xl hover:bg-white/5 transition text-sm font-bold text-center block">
             Create Airline
@@ -126,7 +125,7 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
           </p>
           <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-sm leading-relaxed">
             <li>✓ 500 Pilots &amp; 200 Hulls</li>
-            <li>✓ Full Custom Branding</li>
+            <li>✓ Custom Colors &amp; Full Branding</li>
             <li>✓ Alliance Management</li>
             <li>✓ Public API Access</li>
           </ul>
