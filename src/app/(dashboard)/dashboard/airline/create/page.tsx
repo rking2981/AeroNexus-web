@@ -1,12 +1,26 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { api, publicApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { CURRENCIES } from '@/lib/currencies';
+
+const PLAN_PRICE_KEYS: Record<string, string> = {
+  'startup-monthly':    'STARTUP_MONTHLY',
+  'startup-yearly':     'STARTUP_ANNUAL',
+  'enterprise-monthly': 'ENTERPRISE_MONTHLY',
+  'enterprise-yearly':  'ENTERPRISE_ANNUAL',
+};
+
+const PLAN_LABELS: Record<string, string> = {
+  'startup-monthly':    'VA Startup — $4.99/mo',
+  'startup-yearly':     'VA Startup — $39.99/yr',
+  'enterprise-monthly': 'Enterprise — $14.99/mo',
+  'enterprise-yearly':  'Enterprise — $139.99/yr',
+};
 
 interface AirportResult {
   id: string;
@@ -18,7 +32,17 @@ interface AirportResult {
 }
 
 export default function CreateAirlinePage() {
+  return (
+    <Suspense fallback={<div className="p-8"><div className="glass-card rounded-2xl h-96 animate-pulse" /></div>}>
+      <CreateAirlineForm />
+    </Suspense>
+  );
+}
+
+function CreateAirlineForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const plan = searchParams.get('plan');
   const { setUser, setTokens, user } = useAuthStore();
 
   const [form, setForm] = useState({
@@ -119,6 +143,19 @@ export default function CreateAirlinePage() {
         type: 'PRIMARY',
       });
 
+      // If a paid plan was selected, redirect to Stripe checkout
+      if (plan && PLAN_PRICE_KEYS[plan]) {
+        const { data: prices } = await api.post('/v1/payments/prices');
+        const priceId = prices[PLAN_PRICE_KEYS[plan]];
+        const { data: session } = await api.post('/v1/payments/checkout', {
+          price_id: priceId,
+          success_url: `${window.location.origin}/dashboard/airline?subscription=success`,
+          cancel_url: `${window.location.origin}/dashboard/airline`,
+        });
+        window.location.href = session.url;
+        return;
+      }
+
       router.push('/dashboard/airline');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -139,6 +176,13 @@ export default function CreateAirlinePage() {
         <h1 className="text-3xl font-bold mb-2">Create Your Virtual Airline</h1>
         <p className="text-gray-400 text-sm">Set up your VA identity. You can update branding and settings after creation.</p>
       </div>
+
+      {plan && PLAN_LABELS[plan] && (
+        <div className="mb-6 rounded-xl border border-aero/30 bg-aero/10 px-4 py-3 text-sm text-aero">
+          ✈️ Selected plan: <strong>{PLAN_LABELS[plan]}</strong>
+          <span className="block text-xs text-gray-400 mt-1">After creating your airline you&apos;ll be taken to Stripe to complete your subscription.</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="glass-card rounded-2xl p-8 flex flex-col gap-6">
 
@@ -297,7 +341,7 @@ export default function CreateAirlinePage() {
         )}
 
         <Button type="submit" loading={loading}>
-          Create Airline
+          {plan && PLAN_PRICE_KEYS[plan] ? 'Create Airline & Go to Checkout →' : 'Create Airline'}
         </Button>
       </form>
     </div>

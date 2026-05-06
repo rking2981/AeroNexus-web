@@ -103,7 +103,7 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
             <li>✓ Basic Fleet Management</li>
             <li className="text-gray-600 line-through">Custom Colors &amp; Branding</li>
           </ul>
-          <Link href="/register" className="w-full border border-white/20 py-3 rounded-xl hover:bg-white/5 transition text-sm font-bold text-center block">
+          <Link href={`/register?plan=${yearly ? 'startup-yearly' : 'startup-monthly'}`} className="w-full border border-white/20 py-3 rounded-xl hover:bg-white/5 transition text-sm font-bold text-center block">
             Create Airline
           </Link>
         </div>
@@ -130,7 +130,7 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
             <li>✓ Alliance Management</li>
             <li>✓ Public API Access</li>
           </ul>
-          <Link href="/register" className="w-full bg-aero text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm text-center block">
+          <Link href={`/register?plan=${yearly ? 'enterprise-yearly' : 'enterprise-monthly'}`} className="w-full bg-aero text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm text-center block">
             Get Enterprise
           </Link>
         </div>

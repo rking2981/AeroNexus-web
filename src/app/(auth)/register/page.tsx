@@ -16,10 +16,27 @@ export default function RegisterPage() {
   );
 }
 
+const PLAN_LABELS: Record<string, string> = {
+  'startup-monthly':    'VA Startup — $4.99/mo',
+  'startup-yearly':     'VA Startup — $39.99/yr',
+  'enterprise-monthly': 'Enterprise — $14.99/mo',
+  'enterprise-yearly':  'Enterprise — $139.99/yr',
+  'founders':           "Founder's Pass — $199 lifetime",
+};
+
+const PLAN_PRICE_KEYS: Record<string, string> = {
+  'startup-monthly':    'STARTUP_MONTHLY',
+  'startup-yearly':     'STARTUP_ANNUAL',
+  'enterprise-monthly': 'ENTERPRISE_MONTHLY',
+  'enterprise-yearly':  'ENTERPRISE_ANNUAL',
+};
+
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const plan = searchParams.get('plan'); // 'founders' if coming from landing page
+  const plan = searchParams.get('plan');
+  const isPaidPlan = !!plan && plan !== '';
+  const isFounders = plan === 'founders';
   const { setTokens, setUser } = useAuthStore();
 
   const [form, setForm] = useState({
@@ -70,12 +87,18 @@ function RegisterForm() {
       });
       setUser(me);
 
-      // If they came from Founder's Pass, redirect to billing
-      if (plan === 'founders') {
-        router.push('/dashboard/billing?plan=founders');
-      } else {
-        router.push('/dashboard');
+      // For paid plans, send to airline creation first — subscription is attached to the airline
+      if (isPaidPlan && !isFounders) {
+        router.push(`/dashboard/airline/create?plan=${plan}`);
+        return;
       }
+
+      if (isFounders) {
+        router.push('/dashboard/founders?checkout=true');
+        return;
+      }
+
+      router.push('/dashboard');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setErrors({ general: msg ?? 'Registration failed. Please try again.' });
@@ -88,22 +111,29 @@ function RegisterForm() {
     <div className="glass-card rounded-2xl p-8">
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-bold mb-2">
-          {plan === 'founders' ? (
+          {isFounders ? (
             <>Join as a <span className="text-purple-400">Founder</span></>
           ) : (
             'Create your account'
           )}
         </h1>
         <p className="text-gray-400 text-sm">
-          {plan === 'founders'
+          {isFounders
             ? 'Secure your lifetime Enterprise access'
+            : isPaidPlan
+            ? 'Create your account, then complete checkout'
             : 'Start your AeroNexus journey'}
         </p>
       </div>
 
-      {plan === 'founders' && (
-        <div className="mb-6 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm text-purple-300 text-center">
-          🎖️ You&apos;re claiming a Founder&apos;s Pass — Lifetime Enterprise access for $199
+      {isPaidPlan && (
+        <div className={`mb-6 rounded-xl border px-4 py-3 text-sm text-center ${
+          isFounders
+            ? 'border-purple-500/30 bg-purple-500/10 text-purple-300'
+            : 'border-aero/30 bg-aero/10 text-aero'
+        }`}>
+          {isFounders ? '🎖️' : '✈️'} Selected plan: <strong>{PLAN_LABELS[plan!]}</strong>
+          {!isFounders && <span className="block text-xs text-gray-400 mt-1">You&apos;ll be redirected to Stripe to complete payment after account creation.</span>}
         </div>
       )}
 
@@ -192,9 +222,13 @@ function RegisterForm() {
         <Button
           type="submit"
           loading={loading}
-          className={plan === 'founders' ? 'bg-purple-600 hover:bg-purple-500 text-white' : ''}
+          className={isFounders ? 'bg-purple-600 hover:bg-purple-500 text-white' : ''}
         >
-          {plan === 'founders' ? 'Create Account & Secure My Spot' : 'Create Account'}
+          {isFounders
+            ? 'Create Account & Secure My Spot'
+            : isPaidPlan
+            ? 'Create Account & Go to Checkout →'
+            : 'Create Account'}
         </Button>
       </form>
 
