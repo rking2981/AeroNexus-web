@@ -149,7 +149,36 @@ export default function ProfilePage() {
   const { user: storeUser, setUser } = useAuthStore();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'finances'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'finances' | 'security'>('overview');
+
+  // Change password state
+  const [pwForm, setPwForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwError(''); setPwSuccess('');
+    if (pwForm.new_password !== pwForm.confirm_password) {
+      setPwError('New passwords do not match.'); return;
+    }
+    if (pwForm.new_password.length < 8) {
+      setPwError('New password must be at least 8 characters.'); return;
+    }
+    setPwSaving(true);
+    try {
+      await api.post('/auth/change-password', {
+        current_password: pwForm.current_password,
+        new_password: pwForm.new_password,
+      });
+      setPwSuccess('Password changed successfully.');
+      setPwForm({ current_password: '', new_password: '', confirm_password: '' });
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setPwError(msg ?? 'Failed to change password. Check your current password.');
+    } finally { setPwSaving(false); }
+  }
 
   // Edit state
   const [editing, setEditing] = useState(false);
@@ -323,7 +352,7 @@ export default function ProfilePage() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
-        {[{ key: 'overview', label: 'Overview' }, { key: 'finances', label: 'Pilot Finances' }].map((t) => (
+        {[{ key: 'overview', label: 'Overview' }, { key: 'finances', label: 'Pilot Finances' }, { key: 'security', label: 'Security' }].map((t) => (
           <button key={t.key} onClick={() => setActiveTab(t.key as typeof activeTab)}
             className={cn('px-5 py-2 rounded-lg text-sm font-medium transition',
               activeTab === t.key ? 'bg-aero text-black' : 'text-gray-400 hover:text-white')}>
@@ -430,6 +459,61 @@ export default function ProfilePage() {
             )}
           </div>
         </>
+      )}
+
+      {activeTab === 'security' && (
+        <div className="glass-card rounded-2xl p-6 max-w-md">
+          <h2 className="font-bold mb-1">Change Password</h2>
+          <p className="text-xs text-gray-500 mb-6">Update your login password. You will need to enter your current password to confirm.</p>
+          <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
+            <div>
+              <label className="text-sm text-gray-300 block mb-1.5">Current Password</label>
+              <input
+                type="password"
+                value={pwForm.current_password}
+                onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })}
+                required
+                autoComplete="current-password"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-gray-300 block mb-1.5">New Password</label>
+              <input
+                type="password"
+                value={pwForm.new_password}
+                onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })}
+                required
+                autoComplete="new-password"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-gray-300 block mb-1.5">Confirm New Password</label>
+              <input
+                type="password"
+                value={pwForm.confirm_password}
+                onChange={(e) => setPwForm({ ...pwForm, confirm_password: e.target.value })}
+                required
+                autoComplete="new-password"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition"
+              />
+            </div>
+            {pwError && (
+              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{pwError}</p>
+            )}
+            {pwSuccess && (
+              <p className="text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">{pwSuccess}</p>
+            )}
+            <button
+              type="submit"
+              disabled={pwSaving}
+              className="bg-aero text-black font-bold px-6 py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50 mt-1"
+            >
+              {pwSaving ? 'Updating...' : 'Update Password'}
+            </button>
+          </form>
+        </div>
       )}
 
       {activeTab === 'finances' && (
