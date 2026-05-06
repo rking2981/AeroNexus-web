@@ -24,7 +24,7 @@ const MANAGER_NAV = [
   { href: '/dashboard/network', label: 'Routes & Hubs', icon: '🌐' },
   { href: '/dashboard/crew', label: 'Crew Center', icon: '👥' },
   { href: '/dashboard/finances', label: 'Finances', icon: '💰' },
-  { href: '/dashboard/ads', label: 'Advertisements', icon: '📢' },
+  { href: '/dashboard/promotions', label: 'Promotions', icon: '📢' },
 ];
 
 const ADMIN_NAV = [

@@ -52,7 +52,7 @@ export default function DashboardPage() {
               { href: '/dashboard/network', label: 'Routes & Hubs', icon: '🌐', desc: 'Network map' },
               { href: '/dashboard/crew', label: 'Crew Center', icon: '👥', desc: 'Pilots & pay' },
               { href: '/dashboard/finances', label: 'Finances', icon: '💰', desc: 'P&L dashboard' },
-              { href: '/dashboard/ads', label: 'Advertisements', icon: '📢', desc: 'Promote your VA' },
+              { href: '/dashboard/promotions', label: 'Promotions', icon: '📢', desc: 'Promote your VA' },
             ].map((action) => (
               <Link
                 key={action.href}

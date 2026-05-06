@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 interface User {
   id: string;
@@ -17,6 +17,8 @@ interface AuthState {
   user: User | null;
   access_token: string | null;
   refresh_token: string | null;
+  _hasHydrated: boolean;
+  setHasHydrated: (value: boolean) => void;
   setTokens: (access: string, refresh: string) => void;
   setUser: (user: User) => void;
   logout: () => void;
@@ -29,6 +31,8 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       access_token: null,
       refresh_token: null,
+      _hasHydrated: false,
+      setHasHydrated: (value) => set({ _hasHydrated: value }),
       setTokens: (access, refresh) => set({ access_token: access, refresh_token: refresh }),
       setUser: (user) => set({ user }),
       logout: () => set({ user: null, access_token: null, refresh_token: null }),
@@ -36,11 +40,15 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'aeronexus-auth',
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         access_token: state.access_token,
         refresh_token: state.refresh_token,
         user: state.user,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );

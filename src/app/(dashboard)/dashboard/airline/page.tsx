@@ -87,7 +87,7 @@ export default function AirlinePage() {
           { href: '/dashboard/network', label: 'Routes & Hubs', icon: '🌐', desc: 'Build your network' },
           { href: '/dashboard/crew', label: 'Crew Center', icon: '👥', desc: 'Pilots & pay' },
           { href: '/dashboard/finances', label: 'Finances', icon: '💰', desc: 'P&L dashboard' },
-          { href: '/dashboard/ads', label: 'Advertisements', icon: '📢', desc: 'Promote your VA' },
+          { href: '/dashboard/promotions', label: 'Promotions', icon: '📢', desc: 'Promote your VA' },
           { href: '/dashboard/airline/settings', label: 'Branding', icon: '🎨', desc: 'Colors & logo' },
         ].map((item) => (
           <Link

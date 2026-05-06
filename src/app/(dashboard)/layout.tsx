@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
@@ -8,22 +8,16 @@ import { useAuthStore } from '@/store/auth';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, user } = useAuthStore();
-  const [hydrated, setHydrated] = useState(false);
-
-  // Wait for Zustand to rehydrate from localStorage before checking auth
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
+  const { isAuthenticated, user, _hasHydrated } = useAuthStore();
 
   useEffect(() => {
-    if (hydrated && !isAuthenticated()) {
+    if (_hasHydrated && !isAuthenticated()) {
       router.replace('/login');
     }
-  }, [hydrated, isAuthenticated, router]);
+  }, [_hasHydrated, isAuthenticated, router]);
 
-  // Show nothing until hydrated to prevent flash redirect
-  if (!hydrated) return null;
+  // Show nothing until Zustand has rehydrated from localStorage
+  if (!_hasHydrated) return null;
   if (!isAuthenticated()) return null;
 
   const emailUnverified = user && !(user as { email_verified?: boolean }).email_verified;
