@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -127,9 +128,10 @@ export default function FoundersPage() {
         <div className="flex items-center gap-3 mb-2">
           <h1 className="text-3xl font-bold">Founder's Pass</h1>
           {isFounder && (
-            <span className="text-xs font-bold text-purple-400 border border-purple-500/30 bg-purple-500/10 px-3 py-1 rounded-full">
-              🎖️ Active Founder
-            </span>
+            <div className="flex items-center gap-2 text-xs font-bold text-purple-400 border border-purple-500/30 bg-purple-500/10 px-3 py-1 rounded-full">
+              <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={20} height={20} />
+              Active Founder
+            </div>
           )}
         </div>
         <p className="text-gray-400 text-sm">Redeem a gift code, manage your codes, or transfer VA ownership.</p>
@@ -193,7 +195,9 @@ export default function FoundersPage() {
       {tab === 'redeem' && (
         <div className="glass-card rounded-2xl p-8">
           <div className="text-center mb-8">
-            <div className="text-5xl mb-4">🎖️</div>
+            <div className="flex justify-center mb-4">
+              <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={80} height={80} />
+            </div>
             <h2 className="text-xl font-bold mb-2">Redeem a Founder's Pass Code</h2>
             <p className="text-gray-400 text-sm max-w-md mx-auto">
               Enter your Founder's Pass code to unlock lifetime Enterprise access and your exclusive Founder badge.

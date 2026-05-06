@@ -2,6 +2,7 @@
 
 import { useAuthStore } from '@/store/auth';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -13,7 +14,9 @@ export default function DashboardPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-1">
           Welcome back, <span className="text-aero">{user?.display_name}</span>
-          {user?.is_founder && <span className="ml-2 text-purple-400 text-lg">🎖️</span>}
+          {user?.is_founder && (
+            <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={32} height={32} className="inline ml-2 align-middle" />
+          )}
         </h1>
         <p className="text-gray-400 text-sm">
           {isManager ? 'Airline Manager Dashboard' : 'Pilot Dashboard'} ·{' '}

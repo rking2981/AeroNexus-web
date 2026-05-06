@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
@@ -89,7 +90,7 @@ export function Sidebar() {
           <div className="min-w-0">
             <p className="text-sm font-medium truncate flex items-center gap-1">
               {user?.display_name}
-              {user?.is_founder && <span className="text-purple-400 text-xs">🎖️</span>}
+              {user?.is_founder && <Image src="/badges/founders-badge.png" alt="Founder" width={20} height={20} className="inline align-middle" />}
             </p>
             <p className="text-xs text-gray-500 truncate">{user?.email}</p>
           </div>

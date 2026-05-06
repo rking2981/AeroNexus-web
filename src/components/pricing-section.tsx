@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 interface FoundersStatus {
@@ -140,9 +141,12 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
 
           {founders.sold_out ? (
             <>
-              <h4 className="text-lg font-bold mb-1 text-purple-400">Founder&apos;s Pass</h4>
-              <div className="text-3xl font-extrabold mb-2 text-gray-500 line-through">$199</div>
-              <p className="text-[10px] text-purple-300 uppercase font-bold mb-6 tracking-wider">
+              <div className="flex justify-center mb-3">
+                <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={64} height={64} className="opacity-50 grayscale" />
+              </div>
+              <h4 className="text-lg font-bold mb-1 text-purple-400 text-center">Founder&apos;s Pass</h4>
+              <div className="text-3xl font-extrabold mb-2 text-gray-500 line-through text-center">$199</div>
+              <p className="text-[10px] text-purple-300 uppercase font-bold mb-6 tracking-wider text-center">
                 Sold Out — All 100 Claimed
               </p>
               <div className="flex-grow flex flex-col justify-center text-center py-4">
@@ -150,23 +154,26 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
                   Thank you to all who purchased the Founder&apos;s Pass. We have reached our limit.
                 </p>
                 <p className="text-purple-400/70 text-xs mt-4">
-                  🎖️ {founders.count} Founders are part of history.
+                  {founders.count} Founders are part of history.
                 </p>
               </div>
             </>
           ) : (
             <>
-              <h4 className="text-lg font-bold mb-1 text-purple-400">Founder&apos;s Pass</h4>
-              <div className="text-3xl font-extrabold mb-1">
+              <div className="flex justify-center mb-3">
+                <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={64} height={64} />
+              </div>
+              <h4 className="text-lg font-bold mb-1 text-purple-400 text-center">Founder&apos;s Pass</h4>
+              <div className="text-3xl font-extrabold mb-1 text-center">
                 $199<span className="text-xs font-normal text-gray-500">/once</span>
               </div>
-              <p className="text-[10px] text-purple-300 uppercase font-bold mb-4 tracking-wider">
+              <p className="text-[10px] text-purple-300 uppercase font-bold mb-4 tracking-wider text-center">
                 {founders.remaining} of {founders.cap} remaining
               </p>
               <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-xs">
                 <li>✓ <strong>Lifetime Enterprise Access</strong></li>
                 <li>✓ No Monthly Fees, Ever</li>
-                <li>✓ &quot;Founder&quot; Profile Badge</li>
+                <li>✓ Exclusive Founder&apos;s Badge</li>
                 <li>✓ Early Access to New Features</li>
                 <li>✓ Direct Dev Feedback Channel</li>
               </ul>
