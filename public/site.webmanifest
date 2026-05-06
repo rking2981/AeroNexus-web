@@ -1,0 +1,16 @@
+{
+  "name": "AeroNexus — Virtual Airline Management Platform",
+  "short_name": "AeroNexus",
+  "description": "The most advanced virtual airline platform for MSFS 2024 & X-Plane.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#00D1FF",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

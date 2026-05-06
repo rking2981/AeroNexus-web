@@ -1,5 +1,22 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PricingSection } from '@/components/pricing-section';
+
+export const metadata: Metadata = {
+  title: 'AeroNexus — Virtual Airline Management Platform for MSFS 2024 & X-Plane',
+  description:
+    'Create and manage your virtual airline with AeroNexus. Living economy, 85,289 airports, native helicopter & seaplane support, silent ACARS, real-time flight tracking. Free to start.',
+  alternates: {
+    canonical: 'https://aeronexus.app',
+  },
+  openGraph: {
+    title: 'AeroNexus — Virtual Airline Management Platform',
+    description:
+      'The most advanced virtual airline platform for MSFS 2024 & X-Plane. Start free — create routes, manage your fleet, track every flight.',
+    url: 'https://aeronexus.app',
+    type: 'website',
+  },
+};
 
 interface FoundersStatus {
   enabled: boolean;
@@ -22,11 +39,73 @@ async function getFoundersStatus(): Promise<FoundersStatus> {
   }
 }
 
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'AeroNexus',
+    url: 'https://aeronexus.app',
+    logo: 'https://aeronexus.app/og-image.png',
+    description:
+      'AeroNexus is the most advanced virtual airline management platform for Microsoft Flight Simulator 2024 and X-Plane, featuring a living economy, 85,289 airports, native helicopter support, and silent ACARS.',
+    sameAs: [],
+    contactPoint: {
+      '@type': 'ContactPoint',
+      contactType: 'customer support',
+      email: 'aeronexusapp@proton.me',
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'AeroNexus',
+    operatingSystem: 'Web, Windows',
+    applicationCategory: 'GameApplication',
+    applicationSubCategory: 'Virtual Airline Management',
+    description:
+      'Create and manage a virtual airline for MSFS 2024 or X-Plane. Features include a living economy with dynamic fuel prices, 85,289 airports and heliports, native rotorcraft and seaplane logic, silent ACARS flight tracking, crew management, fleet management, route planning, and real-time financial reporting.',
+    url: 'https://aeronexus.app',
+    offers: [
+      {
+        '@type': 'Offer',
+        name: 'Startup Plan',
+        price: '0',
+        priceCurrency: 'USD',
+        description: 'Free plan — up to 5 pilots and 10 aircraft',
+      },
+      {
+        '@type': 'Offer',
+        name: 'Enterprise Plan',
+        price: '29.99',
+        priceCurrency: 'USD',
+        description: 'Enterprise plan — unlimited pilots, full branding, advanced analytics',
+      },
+    ],
+    featureList: [
+      'Virtual airline creation and management',
+      'Real-time flight tracking with ACARS',
+      '85,289 airports, heliports, and seaplane bases',
+      'Native helicopter and rotorcraft support',
+      'Living economy with dynamic fuel prices',
+      'Pilot logbook and rank progression',
+      'Fleet management and aircraft market',
+      'Financial reporting and expense tracking',
+      'Route planning and hub management',
+      'MSFS 2024 and X-Plane integration',
+    ],
+    screenshot: 'https://aeronexus.app/og-image.png',
+  },
+];
+
 export default async function HomePage() {
   const founders = await getFoundersStatus();
 
   return (
     <div className="antialiased">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Nav */}
       <nav className="flex justify-between items-center px-8 py-6 max-w-7xl mx-auto">
         <div className="text-2xl font-bold tracking-tighter italic">
