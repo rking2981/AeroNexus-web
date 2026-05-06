@@ -17,14 +17,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [_hasHydrated, isAuthenticated, router]);
 
-  // Refresh user once after hydration only if email not yet verified in store
-  // This handles the case where user verified in a previous session
+  // Refresh user once after hydration to pick up latest server state
   useEffect(() => {
     if (_hasHydrated && isAuthenticated()) {
-      const emailVerified = (user as { email_verified?: boolean })?.email_verified;
-      if (!emailVerified) {
-        api.post('/auth/me').then(({ data }) => setUser(data)).catch(() => {});
-      }
+      api.post('/auth/me').then(({ data }) => setUser(data)).catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_hasHydrated]);
