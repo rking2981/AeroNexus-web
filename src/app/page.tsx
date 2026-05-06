@@ -153,7 +153,7 @@ export default async function HomePage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative overflow-hidden pt-16 pb-32 px-6 text-center">
+      <section className="relative overflow-hidden pt-16 pb-32 px-6 text-center select-none">
         {/* Animated background canvas */}
         <HeroCanvas />
 

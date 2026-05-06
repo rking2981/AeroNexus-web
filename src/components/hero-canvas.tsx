@@ -210,8 +210,8 @@ export function HeroCanvas() {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none"
-      style={{ opacity: 0.6 }}
+      className="absolute inset-0 w-full h-full pointer-events-none select-none"
+      style={{ opacity: 0.6, cursor: 'default' }}
       aria-hidden
     />
   );
