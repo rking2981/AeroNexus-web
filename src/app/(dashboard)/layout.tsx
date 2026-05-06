@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
@@ -9,11 +9,21 @@ import { useAuthStore } from '@/store/auth';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
+  const [hydrated, setHydrated] = useState(false);
+
+  // Wait for Zustand to rehydrate from localStorage before checking auth
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
-    if (!isAuthenticated()) router.replace('/login');
-  }, [isAuthenticated, router]);
+    if (hydrated && !isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [hydrated, isAuthenticated, router]);
 
+  // Show nothing until hydrated to prevent flash redirect
+  if (!hydrated) return null;
   if (!isAuthenticated()) return null;
 
   const emailUnverified = user && !(user as { email_verified?: boolean }).email_verified;
@@ -22,7 +32,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Email verification banner */}
         {emailUnverified && (
           <div className="flex-shrink-0 bg-amber-500/10 border-b border-amber-500/20 px-6 py-3 flex items-center justify-between">
             <p className="text-sm text-amber-300">
