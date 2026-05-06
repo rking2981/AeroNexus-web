@@ -48,6 +48,7 @@ export function Sidebar() {
 
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
   const isAdmin = user?.role === 'PLATFORM_ADMIN';
+  const isPilotWithoutAirline = user?.role === 'PILOT' && !user?.airline_id;
 
   const pilotNav = user?.is_founder
     ? PILOT_NAV_BASE
@@ -65,6 +66,29 @@ export function Sidebar() {
       {/* Nav sections */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-6">
         <NavSection items={pilotNav} pathname={pathname} />
+
+        {isPilotWithoutAirline && (
+          <>
+            <div className="h-px bg-white/5 mx-3" />
+            <div>
+              <p className="px-3 mb-2 text-[10px] text-gray-600 uppercase tracking-widest font-bold">
+                Virtual Airline
+              </p>
+              <Link
+                href="/dashboard/airline/create"
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition',
+                  pathname.startsWith('/dashboard/airline/create')
+                    ? 'bg-aero/10 text-aero font-medium'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5',
+                )}
+              >
+                <span className="text-base">🏢</span>
+                Create Airline
+              </Link>
+            </div>
+          </>
+        )}
 
         {isManager && (
           <>

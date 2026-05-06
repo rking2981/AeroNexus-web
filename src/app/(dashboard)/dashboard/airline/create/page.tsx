@@ -2,11 +2,13 @@
 
 import { useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { api, publicApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { CURRENCIES } from '@/lib/currencies';
+import { cn } from '@/lib/utils';
 
 const PLAN_PRICE_KEYS: Record<string, string> = {
   'startup-monthly':    'STARTUP_MONTHLY',
@@ -168,6 +170,101 @@ function CreateAirlineForm() {
   if (user?.airline_id) {
     router.replace('/dashboard/airline');
     return null;
+  }
+
+  // No plan selected — show plan picker first
+  if (!plan) {
+    return (
+      <div className="p-8 max-w-3xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Start Your Virtual Airline</h1>
+          <p className="text-gray-400 text-sm">Choose a plan to get started. You can upgrade at any time.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {[
+            {
+              key: 'startup-monthly',
+              label: 'VA Startup',
+              price: '$4.99/mo',
+              alt: 'or $39.99/yr',
+              altKey: 'startup-yearly',
+              features: ['Up to 5 pilots', '10 aircraft', 'Custom logo', 'Basic fleet management'],
+              cta: 'Start Monthly',
+              ctaAlt: 'Start Yearly',
+              highlight: false,
+            },
+            {
+              key: 'enterprise-monthly',
+              label: 'Enterprise',
+              price: '$14.99/mo',
+              alt: 'or $139.99/yr',
+              altKey: 'enterprise-yearly',
+              features: ['500 pilots & 200 aircraft', 'Full custom branding', 'Alliance management', 'Public API access'],
+              cta: 'Start Monthly',
+              ctaAlt: 'Start Yearly',
+              highlight: true,
+            },
+          ].map((p) => (
+            <div key={p.key} className={cn(
+              'glass-card rounded-2xl p-6 flex flex-col gap-4 border',
+              p.highlight ? 'border-aero/30' : 'border-white/10',
+            )}>
+              {p.highlight && (
+                <span className="text-[10px] text-aero font-bold tracking-widest uppercase">Most Popular</span>
+              )}
+              <div>
+                <h3 className={cn('text-lg font-bold', p.highlight && 'text-aero')}>{p.label}</h3>
+                <p className="text-2xl font-extrabold mt-1">{p.price}</p>
+                <p className="text-xs text-gray-500">{p.alt}</p>
+              </div>
+              <ul className="text-xs text-gray-400 space-y-1.5 flex-1">
+                {p.features.map((f) => <li key={f}>✓ {f}</li>)}
+              </ul>
+              <div className="flex flex-col gap-2">
+                <Link
+                  href={`/dashboard/airline/create?plan=${p.key}`}
+                  className={cn(
+                    'text-center text-sm font-bold py-2.5 rounded-xl transition',
+                    p.highlight
+                      ? 'bg-aero text-black hover:brightness-110'
+                      : 'border border-white/20 hover:bg-white/5',
+                  )}
+                >
+                  {p.cta}
+                </Link>
+                <Link
+                  href={`/dashboard/airline/create?plan=${p.altKey}`}
+                  className="text-center text-xs text-gray-500 hover:text-white transition py-1"
+                >
+                  {p.ctaAlt} (save ~22%)
+                </Link>
+              </div>
+            </div>
+          ))}
+
+          {/* Free / explore */}
+          <div className="glass-card rounded-2xl p-6 flex flex-col gap-4 border border-white/10">
+            <div>
+              <h3 className="text-lg font-bold">Explore Free</h3>
+              <p className="text-2xl font-extrabold mt-1">$0</p>
+              <p className="text-xs text-gray-500">No credit card needed</p>
+            </div>
+            <ul className="text-xs text-gray-400 space-y-1.5 flex-1">
+              <li>✓ Create airline</li>
+              <li>✓ Up to 5 pilots</li>
+              <li>✓ 10 aircraft</li>
+              <li className="text-gray-600">✗ No branding</li>
+            </ul>
+            <Link
+              href="/dashboard/airline/create?plan=free"
+              className="text-center text-sm font-bold py-2.5 rounded-xl border border-white/20 hover:bg-white/5 transition"
+            >
+              Continue Free
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
