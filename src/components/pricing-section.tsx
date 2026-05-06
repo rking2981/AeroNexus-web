@@ -70,7 +70,7 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
             $0<span className="text-xs font-normal text-gray-500">/mo</span>
           </div>
           <p className="text-xs text-gray-600 mb-4">&nbsp;</p>
-          <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-xs">
+          <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-sm leading-relaxed">
             <li>✓ Ad-Supported Briefings</li>
             <li>✓ Standard ACARS Access</li>
             <li>✓ Last 10 Flights History</li>
@@ -96,7 +96,7 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
               : <span className="text-gray-600">or {startup.yearly}/yr</span>
             }
           </p>
-          <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-xs">
+          <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-sm leading-relaxed">
             <li>✓ Custom Airline Logo</li>
             <li>✓ Up to 5 Active Pilots</li>
             <li>✓ 10 Persistent Hulls</li>
@@ -124,7 +124,7 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
               : <span className="text-gray-600">or {enterprise.yearly}/yr</span>
             }
           </p>
-          <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-xs">
+          <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-sm leading-relaxed">
             <li>✓ 500 Pilots &amp; 200 Hulls</li>
             <li>✓ Full Custom Branding</li>
             <li>✓ Alliance Management</li>
@@ -170,7 +170,7 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
               <p className="text-[10px] text-purple-300 uppercase font-bold mb-4 tracking-wider text-center">
                 {founders.remaining} of {founders.cap} remaining
               </p>
-              <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-xs">
+              <ul className="text-gray-400 space-y-3 mb-8 flex-grow text-sm leading-relaxed">
                 <li>✓ <strong>Lifetime Enterprise Access</strong></li>
                 <li>✓ No Monthly Fees, Ever</li>
                 <li>✓ Exclusive Founder&apos;s Badge</li>
