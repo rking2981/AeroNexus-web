@@ -197,10 +197,10 @@ export default async function HomePage() {
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 rounded-2xl overflow-hidden border border-white/5">
             {[
-              { value: stats.pilots_online.toLocaleString(), label: 'Pilots Online', pulse: stats.pilots_online > 0 },
-              { value: stats.active_airlines.toLocaleString(), label: 'Active Airlines', pulse: false },
-              { value: stats.flights_today.toLocaleString(), label: 'Flights Today', pulse: false },
-              { value: Number(stats.nm_this_week).toLocaleString(), label: 'nm This Week', pulse: false },
+              { value: (stats.pilots_online ?? 0).toLocaleString(), label: 'Pilots Online', pulse: (stats.pilots_online ?? 0) > 0 },
+              { value: (stats.active_airlines ?? 0).toLocaleString(), label: 'Active Airlines', pulse: false },
+              { value: (stats.flights_today ?? 0).toLocaleString(), label: 'Flights Today', pulse: false },
+              { value: Math.round(Number(stats.nm_this_week ?? 0)).toLocaleString(), label: 'nm This Week', pulse: false },
             ].map((s) => (
               <div key={s.label} className="bg-black/40 px-6 py-5 text-center backdrop-blur-sm">
                 <div className="flex items-center justify-center gap-2">
