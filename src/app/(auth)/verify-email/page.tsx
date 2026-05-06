@@ -8,7 +8,7 @@ import { useAuthStore } from '@/store/auth';
 
 export default function VerifyEmailPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,6 +46,9 @@ export default function VerifyEmailPage() {
 
     try {
       await api.post('/auth/verify-email', { code: fullCode });
+      // Refresh user in store so email_verified=true and banner disappears
+      const { data: me } = await api.post('/auth/me');
+      setUser(me);
       router.push('/dashboard');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
