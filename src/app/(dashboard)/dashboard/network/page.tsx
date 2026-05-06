@@ -146,32 +146,34 @@ export default function NetworkPage() {
         <div className="flex flex-col gap-4">
           {/* Add hub search */}
           {isManager && (
-            <div className="glass-card rounded-2xl p-4 relative">
-              <input type="text" placeholder="Search airport to add as hub..."
-                value={hubSearch}
-                onChange={(e) => { setHubSearch(e.target.value); searchAirports(e.target.value, setHubResults); }}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-[#00D1FF] focus:outline-none transition"
-              />
-              {hubResults.length > 0 && (
-                <div className="absolute z-20 left-4 right-4 mt-1 max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-[#111] shadow-2xl">
-                  {hubResults.map((a) => (
-                    <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-white/5 last:border-0">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-mono text-aero">{a.icao}</p>
-                        <p className="text-xs text-gray-400 truncate">{a.name}</p>
+            <div className="glass-card rounded-2xl p-4">
+              <div className="relative">
+                <input type="text" placeholder="Search airport to add as hub..."
+                  value={hubSearch}
+                  onChange={(e) => { setHubSearch(e.target.value); searchAirports(e.target.value, setHubResults); }}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-[#00D1FF] focus:outline-none transition"
+                />
+                {hubResults.length > 0 && (
+                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-[#111] shadow-2xl">
+                    {hubResults.map((a) => (
+                      <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-white/5 last:border-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-mono text-aero">{a.icao}</p>
+                          <p className="text-xs text-gray-400 truncate">{a.name}</p>
+                        </div>
+                        <button onClick={() => addHub(a, 'PRIMARY')} disabled={addingHub}
+                          className="text-xs text-aero border border-aero/30 px-2 py-1 rounded-lg hover:bg-aero/10 transition">
+                          Primary
+                        </button>
+                        <button onClick={() => addHub(a, 'SECONDARY')} disabled={addingHub}
+                          className="text-xs text-gray-400 border border-white/20 px-2 py-1 rounded-lg hover:bg-white/5 transition">
+                          Secondary
+                        </button>
                       </div>
-                      <button onClick={() => addHub(a, 'PRIMARY')} disabled={addingHub}
-                        className="text-xs text-aero border border-aero/30 px-2 py-1 rounded-lg hover:bg-aero/10 transition">
-                        Primary
-                      </button>
-                      <button onClick={() => addHub(a, 'SECONDARY')} disabled={addingHub}
-                        className="text-xs text-gray-400 border border-white/20 px-2 py-1 rounded-lg hover:bg-white/5 transition">
-                        Secondary
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
