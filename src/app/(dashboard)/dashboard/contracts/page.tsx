@@ -509,7 +509,7 @@ function ContractCard({
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-400 mb-2">
           <span>{c.distance_nm.toLocaleString()} nm</span>
-          <span>Posted by <span className="text-white">{c.airline.icao_code}</span></span>
+          <span>Posted by <span className="text-white">{c.airline?.icao_code ?? '—'}</span></span>
           {c.cargo_kg && <span>Cargo: {c.cargo_kg.toLocaleString()} kg</span>}
           {c.notes && <span className="italic text-gray-500 text-xs">"{c.notes}"</span>}
         </div>
