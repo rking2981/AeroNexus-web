@@ -19,7 +19,7 @@ interface AirportResult {
 
 export default function CreateAirlinePage() {
   const router = useRouter();
-  const { setUser, user } = useAuthStore();
+  const { setUser, setTokens, user } = useAuthStore();
 
   const [form, setForm] = useState({
     name: '',
@@ -97,22 +97,28 @@ export default function CreateAirlinePage() {
     setLoading(true);
 
     try {
-      // Create airline
-      const { data: airline } = await api.post('/airline', {
+      // Create airline — response includes fresh tokens with airline_id + VA_MANAGER role
+      const { data } = await api.post('/airline', {
         ...form,
         icao_code: form.icao_code.toUpperCase(),
         iata_code: form.iata_code.toUpperCase() || undefined,
       });
 
-      // Add starting hub
+      // Store fresh tokens immediately so subsequent requests use the new airline_id
+      if (data.access_token && data.refresh_token) {
+        setTokens(data.access_token, data.refresh_token);
+      }
+
+      // Fetch updated user profile with new role and airline_id
+      const { data: me } = await api.post('/auth/me');
+      setUser(me);
+
+      // Add starting hub — now the token has the correct airline_id
       await api.post('/network/hubs', {
         airport_id: selectedHub!.icao,
         type: 'PRIMARY',
       });
 
-      // Re-fetch user so airline_id and role are updated in store
-      const { data: me } = await api.post('/auth/me');
-      setUser(me);
       router.push('/dashboard/airline');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
