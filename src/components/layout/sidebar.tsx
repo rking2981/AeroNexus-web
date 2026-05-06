@@ -14,6 +14,7 @@ const PILOT_NAV = [
   { href: '/dashboard/map', label: 'Live Map', icon: '🗺️' },
   { href: '/dashboard/airports', label: 'Airports', icon: '🏢' },
   { href: '/dashboard/stats', label: 'Stats', icon: '📈' },
+  { href: '/dashboard/founders', label: "Founder's Pass", icon: '🎖️' },
 ];
 
 const MANAGER_NAV = [
