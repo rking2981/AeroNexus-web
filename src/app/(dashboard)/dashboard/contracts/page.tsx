@@ -15,7 +15,6 @@ interface Contract {
   cargo_kg: number | null;
   notes: string | null;
   pilot_pay: string;
-  airline_revenue: string;
   xp_bonus: number;
   status: string;
   accepted_by_id: string | null;
@@ -516,7 +515,6 @@ function ContractCard({
         </div>
         <div className="flex flex-wrap gap-4 text-sm">
           <span className="text-green-400 font-bold">${Number(c.pilot_pay).toLocaleString('en-US', { minimumFractionDigits: 2 })} pilot pay</span>
-          <span className="text-gray-500 text-xs">~${Number(c.airline_revenue).toLocaleString('en-US', { minimumFractionDigits: 2 })} est. revenue</span>
           <span className="text-purple-400">+{c.xp_bonus} XP</span>
         </div>
         {showExpiry && (
