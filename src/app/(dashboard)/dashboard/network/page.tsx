@@ -5,10 +5,32 @@ import { api, publicApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 
+interface Runway {
+  le_ident: string | null;
+  he_ident: string | null;
+  length_ft: number | null;
+  width_ft: number | null;
+  surface: string | null;
+  lighted: boolean;
+}
+
 interface Hub {
   id: string;
   type: 'PRIMARY' | 'SECONDARY';
-  airport: { icao: string; name: string; city: string | null; country: string; facility_type: string };
+  airport: {
+    icao: string;
+    iata: string | null;
+    name: string;
+    city: string | null;
+    country: string;
+    latitude: string;
+    longitude: string;
+    elevation_ft: number | null;
+    timezone: string;
+    facility_type: string;
+    has_helipad: boolean;
+    runways: Runway[];
+  };
 }
 
 interface Route {
@@ -189,51 +211,109 @@ export default function NetworkPage() {
               <p>No hubs added yet. Search above to add your first hub.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {hubs.map((hub) => (
-                <div key={hub.id} className={cn(
-                  'glass-card rounded-2xl p-5 flex flex-col gap-3 border',
-                  hub.type === 'PRIMARY' ? 'border-aero/20' : 'border-white/10',
-                )}>
-                  {/* Header */}
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="font-mono text-3xl font-extrabold tracking-tight text-white">
-                      {hub.airport.icao}
-                    </span>
-                    <span className={cn(
-                      'text-[10px] font-bold px-2 py-1 rounded-lg border flex-shrink-0 mt-1',
-                      hub.type === 'PRIMARY'
-                        ? 'text-aero border-aero/30 bg-aero/10'
-                        : 'text-gray-400 border-white/20 bg-white/5',
-                    )}>
-                      {hub.type}
-                    </span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {hubs.map((hub) => {
+                const a = hub.airport;
+                const lat = Number(a.latitude).toFixed(4);
+                const lon = Number(a.longitude).toFixed(4);
+                const longestRwy = a.runways[0];
+                return (
+                  <div key={hub.id} className={cn(
+                    'glass-card rounded-2xl p-5 flex flex-col gap-4 border',
+                    hub.type === 'PRIMARY' ? 'border-aero/25' : 'border-white/10',
+                  )}>
+                    {/* Header row */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-2xl font-extrabold text-white">{a.icao}</span>
+                          {a.iata && <span className="font-mono text-sm text-gray-500">/ {a.iata}</span>}
+                          <span className={cn(
+                            'text-[10px] font-bold px-2 py-0.5 rounded-lg border',
+                            hub.type === 'PRIMARY'
+                              ? 'text-aero border-aero/30 bg-aero/10'
+                              : 'text-gray-400 border-white/20 bg-white/5',
+                          )}>
+                            {hub.type}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-white mt-0.5 leading-snug">{a.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {a.city ? `${a.city}, ` : ''}{a.country}
+                        </p>
+                      </div>
+                      <p className="text-xs text-gray-600 uppercase tracking-widest flex-shrink-0 text-right">
+                        {a.facility_type.replace(/_/g, ' ')}
+                      </p>
+                    </div>
+
+                    {/* Detail grid */}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs border-t border-white/5 pt-3">
+                      <div>
+                        <p className="text-gray-500 mb-0.5">Coordinates</p>
+                        <p className="font-mono text-gray-300">{lat}° {lon}°</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 mb-0.5">Elevation</p>
+                        <p className="font-mono text-gray-300">
+                          {a.elevation_ft != null ? `${a.elevation_ft.toLocaleString()} ft` : '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 mb-0.5">Timezone</p>
+                        <p className="font-mono text-gray-300">{a.timezone}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 mb-0.5">Helipad</p>
+                        <p className={a.has_helipad ? 'text-aero' : 'text-gray-600'}>
+                          {a.has_helipad ? 'Yes' : 'No'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Runways */}
+                    {a.runways.length > 0 && (
+                      <div className="border-t border-white/5 pt-3">
+                        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">
+                          Runways ({a.runways.length})
+                        </p>
+                        <div className="flex flex-col gap-1.5">
+                          {a.runways.map((rwy, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                              <span className="font-mono text-gray-300">
+                                {rwy.le_ident ?? '?'}/{rwy.he_ident ?? '?'}
+                              </span>
+                              <span className="text-gray-500">
+                                {rwy.length_ft != null ? `${rwy.length_ft.toLocaleString()} ft` : '—'}
+                                {rwy.width_ft != null ? ` × ${rwy.width_ft} ft` : ''}
+                              </span>
+                              <span className="text-gray-600">
+                                {rwy.surface ?? '—'}
+                                {rwy.lighted ? ' · lit' : ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        {longestRwy?.length_ft && (
+                          <p className="text-[10px] text-gray-600 mt-1.5">
+                            Longest: {longestRwy.length_ft.toLocaleString()} ft
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Remove */}
+                    {isManager && (
+                      <button
+                        onClick={() => deleteHub(hub.id)}
+                        className="mt-auto text-xs text-red-400 hover:text-red-300 border border-red-500/20 hover:bg-red-500/5 px-3 py-1.5 rounded-lg w-full text-center transition"
+                      >
+                        Remove Hub
+                      </button>
+                    )}
                   </div>
-
-                  {/* Airport name & location */}
-                  <div>
-                    <p className="text-sm font-medium text-white leading-snug">{hub.airport.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {hub.airport.city ? `${hub.airport.city}, ` : ''}{hub.airport.country}
-                    </p>
-                  </div>
-
-                  {/* Facility type */}
-                  <p className="text-xs text-gray-600 uppercase tracking-widest">
-                    {hub.airport.facility_type?.replace(/_/g, ' ') ?? 'Airport'}
-                  </p>
-
-                  {/* Remove button */}
-                  {isManager && (
-                    <button
-                      onClick={() => deleteHub(hub.id)}
-                      className="mt-auto text-xs text-red-400 hover:text-red-300 transition border border-red-500/20 hover:bg-red-500/5 px-3 py-1.5 rounded-lg w-full text-center"
-                    >
-                      Remove Hub
-                    </button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
