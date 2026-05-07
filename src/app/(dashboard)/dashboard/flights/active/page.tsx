@@ -50,6 +50,7 @@ export default function ActiveFlightPage() {
   const [dispatching, setDispatching] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState('');
+  const [newCert, setNewCert] = useState<string | null>(null);
 
   useEffect(() => {
     api.get('/flights/active')
@@ -66,6 +67,27 @@ export default function ActiveFlightPage() {
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg ?? 'Dispatch failed.');
+    } finally { setDispatching(false); }
+  }
+
+  async function handleComplete() {
+    if (!flight) return;
+    setDispatching(true); setError('');
+    try {
+      const { data } = await api.patch(`/flights/${flight.id}/complete`, {
+        pax_happiness: 85,
+        block_time_min: Math.round(flight.route.distance_nm / 7.5),
+        landing_vs_fpm: -150,
+      });
+      if (data?.new_certification) {
+        setNewCert(data.new_certification);
+        setTimeout(() => router.push('/dashboard/logbook'), 3500);
+      } else {
+        router.push('/dashboard/logbook');
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Could not complete flight.');
     } finally { setDispatching(false); }
   }
 
@@ -101,6 +123,15 @@ export default function ActiveFlightPage() {
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
+      {newCert && (
+        <div className="glass-card rounded-2xl p-5 mb-6 border border-purple-500/40 bg-purple-500/10 flex items-center gap-4 animate-pulse">
+          <span className="text-3xl">🏅</span>
+          <div>
+            <p className="font-bold text-purple-300">Type Rating Earned!</p>
+            <p className="text-sm text-purple-200 mt-0.5">{newCert} has been added to your certifications.</p>
+          </div>
+        </div>
+      )}
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold mb-1">Active Flight</h1>
@@ -199,7 +230,13 @@ export default function ActiveFlightPage() {
             {cancelling ? 'Cancelling…' : 'Cancel Flight'}
           </button>
         )}
-        {flight.status !== 'BOARDING' && flight.status !== 'TAXI' && (
+        {flight.status === 'LANDED' && (
+          <button onClick={handleComplete} disabled={dispatching}
+            className="flex-1 bg-green-500 text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
+            {dispatching ? 'Completing…' : 'Complete Flight ✓'}
+          </button>
+        )}
+        {flight.status !== 'BOARDING' && flight.status !== 'TAXI' && flight.status !== 'LANDED' && (
           <div className="glass-card rounded-xl p-4 text-sm text-gray-400 flex-1">
             Flight is in progress via ACARS. Status updates automatically.
           </div>
