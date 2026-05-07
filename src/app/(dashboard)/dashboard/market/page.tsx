@@ -84,10 +84,12 @@ function AircraftDetailModal({
   type,
   onClose,
   isManager,
+  spendable,
 }: {
   type: AircraftType;
   onClose: () => void;
   isManager: boolean;
+  spendable: number | null;
 }) {
   const [mode, setMode] = useState<ModalState>('detail');
   const [reg, setReg] = useState('');
@@ -226,26 +228,38 @@ function AircraftDetailModal({
                 </div>
               )}
 
-              {isManager && type.base_price && (
+              {isManager && type.base_price && (() => {
+                const canAfford = spendable === null || spendable >= type.base_price!;
+                return (
                 <div className="flex flex-col gap-2">
+                  {!canAfford && (
+                    <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-2.5 flex items-center justify-between text-sm">
+                      <span className="text-red-400">Insufficient funds</span>
+                      <span className="text-gray-500 text-xs font-mono">
+                        Balance: {formatPrice(spendable ?? 0)} · Need: {formatPrice(type.base_price!)}
+                      </span>
+                    </div>
+                  )}
                   <input
                     type="text"
                     placeholder="Registration (e.g. N-TVAR1)"
                     value={reg}
                     onChange={e => setReg(e.target.value.toUpperCase())}
                     maxLength={12}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-aero focus:outline-none transition"
+                    disabled={!canAfford}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-aero focus:outline-none transition disabled:opacity-40"
                   />
                   {buyError && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{buyError}</p>}
                   <button
                     onClick={() => setMode('purchasing')}
-                    disabled={!reg.trim()}
-                    className="w-full bg-aero text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-40"
+                    disabled={!reg.trim() || !canAfford}
+                    className="w-full bg-aero text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Purchase {formatPrice(type.base_price)}
                   </button>
                 </div>
-              )}
+                );
+              })()}
             </>
           )}
 
@@ -394,6 +408,7 @@ export default function MarketPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [selected, setSelected] = useState<AircraftType | null>(null);
+  const [spendable, setSpendable] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -403,7 +418,14 @@ export default function MarketPage() {
       setNewAircraft(a.data);
       setListings(l.data);
     }).finally(() => setLoading(false));
-  }, []);
+
+    // Fetch airline balance for affordability check
+    if (isManager) {
+      api.get('/airline/finances').then(({ data }) => {
+        setSpendable(data.balance ?? null);
+      }).catch(() => {});
+    }
+  }, [isManager]);
 
   const filteredNew = newAircraft.filter((a) =>
     (!categoryFilter || a.aircraft_category === categoryFilter) &&
@@ -444,6 +466,7 @@ export default function MarketPage() {
           type={selected}
           onClose={() => setSelected(null)}
           isManager={isManager}
+          spendable={spendable}
         />
       )}
 
@@ -485,32 +508,44 @@ export default function MarketPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredNew.length === 0 ? (
             <div className="col-span-3 text-center text-gray-500 py-12">No aircraft found</div>
-          ) : filteredNew.map((type) => (
-            <button key={type.id} onClick={() => setSelected(type)}
-              className="glass-card rounded-2xl p-5 flex flex-col text-left hover:border-aero/30 hover:bg-aero/5 border border-transparent transition">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <span className="text-lg mr-2">{CATEGORY_ICON[type.aircraft_category] ?? '✈️'}</span>
-                  <span className="font-bold text-sm text-gray-300">{type.manufacturer}</span>
-                  <p className="font-bold text-base mt-0.5">{type.name}</p>
-                  <p className="text-xs text-gray-500 font-mono">{type.icao_code}</p>
+          ) : filteredNew.map((type) => {
+            const canAfford = !isManager || spendable === null || (type.base_price !== null && spendable >= type.base_price);
+            return (
+              <button key={type.id} onClick={() => setSelected(type)}
+                className={cn(
+                  'glass-card rounded-2xl p-5 flex flex-col text-left border transition',
+                  canAfford
+                    ? 'border-transparent hover:border-aero/30 hover:bg-aero/5'
+                    : 'border-red-500/10 opacity-60 hover:opacity-80',
+                )}>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <span className="text-lg mr-2">{CATEGORY_ICON[type.aircraft_category] ?? '✈️'}</span>
+                    <span className="font-bold text-sm text-gray-300">{type.manufacturer}</span>
+                    <p className="font-bold text-base mt-0.5">{type.name}</p>
+                    <p className="text-xs text-gray-500 font-mono">{type.icao_code}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className={cn('font-bold text-lg', canAfford ? 'text-aero' : 'text-red-400')}>
+                      {formatPrice(type.base_price ?? 0)}
+                    </p>
+                    {type.manufacturer_icao && (
+                      <p className="text-xs text-gray-500 mt-0.5 font-mono">{type.manufacturer_icao}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="font-bold text-aero text-lg">{formatPrice(type.base_price ?? 0)}</p>
-                  {type.manufacturer_icao && (
-                    <p className="text-xs text-gray-500 mt-0.5 font-mono">{type.manufacturer_icao}</p>
-                  )}
+                <div className="flex gap-3 text-xs text-gray-400 flex-wrap">
+                  {type.pax_capacity > 0 && <span>👥 {type.pax_capacity} pax</span>}
+                  {type.max_range_nm && <span>🗺️ {type.max_range_nm.toLocaleString()} nm</span>}
+                  {type.cruise_speed_kts && <span>💨 {type.cruise_speed_kts} kts</span>}
+                  <span>🔧 {type.engine_count}× {type.engine_type}</span>
                 </div>
-              </div>
-              <div className="flex gap-3 text-xs text-gray-400 flex-wrap">
-                {type.pax_capacity > 0 && <span>👥 {type.pax_capacity} pax</span>}
-                {type.max_range_nm && <span>🗺️ {type.max_range_nm.toLocaleString()} nm</span>}
-                {type.cruise_speed_kts && <span>💨 {type.cruise_speed_kts} kts</span>}
-                <span>🔧 {type.engine_count}× {type.engine_type}</span>
-              </div>
-              <p className="text-xs text-gray-600 mt-3">Click to view details →</p>
-            </button>
-          ))}
+                <p className={cn('text-xs mt-3', canAfford ? 'text-gray-600' : 'text-red-500')}>
+                  {canAfford ? 'Click to view details →' : '⚠️ Insufficient funds'}
+                </p>
+              </button>
+            );
+          })}
         </div>
       )}
 
