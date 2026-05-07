@@ -144,8 +144,8 @@ export default function MapPage() {
 
   return (
     <div className="flex flex-col" style={{ height: '100vh' }}>
-      {/* Map — fixed height */}
-      <div style={{ height: 'calc(100vh - 220px)', position: 'relative' }}>
+      {/* Map — explicit pixel height so MapLibre can measure it */}
+      <div style={{ height: 'calc(100vh - 220px)', position: 'relative', overflow: 'hidden' }}>
         <LiveMapInner
           flights={positioned}
           selected={selected}

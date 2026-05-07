@@ -12,41 +12,31 @@ interface Props {
 
 function createAircraftEl(hdg: number, category: string, selected: boolean): HTMLElement {
   const isHeli = category === 'HELICOPTER';
-  const color = selected ? '#ffffff' : '#00D1FF';
-  const size = selected ? 28 : 22;
+  const color = selected ? '#ff6600' : '#0066ff';
+  const size = selected ? 32 : 24;
   const el = document.createElement('div');
   el.style.cssText = `width:${size}px;height:${size}px;cursor:pointer;`;
   el.innerHTML = isHeli
-    ? `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg);filter:drop-shadow(0 0 4px ${color}88)">
+    ? `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg)">
         <circle cx="12" cy="12" r="3" fill="${color}"/>
         <line x1="2" y1="12" x2="22" y2="12" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
-        <line x1="12" y1="2" x2="12" y2="8" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
       </svg>`
-    : `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg);filter:drop-shadow(0 0 4px ${color}88)">
-        <path d="M12 2L8 10H4L6 12H8L7 17L5 18V20L12 18L19 20V18L17 17L16 12H18L20 10H16L12 2Z" fill="${color}" opacity="${selected ? 1 : 0.9}"/>
+    : `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg)">
+        <path d="M12 2L8 10H4L6 12H8L7 17L5 18V20L12 18L19 20V18L17 17L16 12H18L20 10H16L12 2Z" fill="${color}"/>
       </svg>`;
   return el;
 }
 
-// Generate a great-circle arc between two lon/lat points
-function greatCircleArc(
-  from: [number, number],
-  to: [number, number],
-  steps = 64,
-): [number, number][] {
+function greatCircleArc(from: [number, number], to: [number, number], steps = 64): [number, number][] {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const toDeg = (r: number) => (r * 180) / Math.PI;
-
   const [lon1, lat1] = from.map(toRad);
   const [lon2, lat2] = to.map(toRad);
-
   const d = 2 * Math.asin(Math.sqrt(
     Math.sin((lat2 - lat1) / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin((lon2 - lon1) / 2) ** 2,
   ));
-
   if (d === 0) return [from, to];
-
   return Array.from({ length: steps + 1 }, (_, i) => {
     const t = i / steps;
     const A = Math.sin((1 - t) * d) / Math.sin(d);
@@ -64,7 +54,6 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
   const markersRef = useRef<Map<string, { marker: maplibregl.Marker; el: HTMLElement }>>(new Map());
   const mapReadyRef = useRef(false);
 
-  // Init map once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -73,32 +62,18 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
       style: 'https://tiles.openfreemap.org/styles/positron',
       center: [0, 20],
       zoom: 2,
-      interactive: true,
       attributionControl: false,
     });
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 
     map.on('load', () => {
-      // Route arc source + layers (empty initially)
       map.addSource('route-arc', {
         type: 'geojson',
         data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} },
       });
-      map.addLayer({
-        id: 'route-arc-glow',
-        type: 'line',
-        source: 'route-arc',
-        paint: { 'line-color': '#00D1FF', 'line-width': 8, 'line-opacity': 0.1, 'line-blur': 6 },
-      });
-      map.addLayer({
-        id: 'route-arc-line',
-        type: 'line',
-        source: 'route-arc',
-        paint: { 'line-color': '#00D1FF', 'line-width': 1.5, 'line-opacity': 0.6, 'line-dasharray': [4, 4] },
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-      });
-
+      map.addLayer({ id: 'route-arc-glow', type: 'line', source: 'route-arc', paint: { 'line-color': '#0066ff', 'line-width': 6, 'line-opacity': 0.15 } });
+      map.addLayer({ id: 'route-arc-line', type: 'line', source: 'route-arc', paint: { 'line-color': '#0066ff', 'line-width': 2, 'line-opacity': 0.7, 'line-dasharray': [4, 4] }, layout: { 'line-cap': 'round' } });
       mapReadyRef.current = true;
     });
 
@@ -112,18 +87,13 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
     };
   }, []);
 
-  // Update markers
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
     const currentIds = new Set(flights.map((f) => f.id));
-
     markersRef.current.forEach((entry, id) => {
-      if (!currentIds.has(id)) {
-        entry.marker.remove();
-        markersRef.current.delete(id);
-      }
+      if (!currentIds.has(id)) { entry.marker.remove(); markersRef.current.delete(id); }
     });
 
     flights.forEach((flight) => {
@@ -143,122 +113,82 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
       } else {
         const el = createAircraftEl(hdg, flight.hull.aircraft_category, isSelected);
         el.addEventListener('click', (e) => { e.stopPropagation(); onSelect(isSelected ? null : flight); });
-        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([lng, lat])
-          .addTo(map);
+        const marker = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]).addTo(map);
         markersRef.current.set(flight.id, { marker, el });
       }
     });
   }, [flights, selected, onSelect]);
 
-  // Update arc + fly to selected
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReadyRef.current) return;
-
     const src = map.getSource('route-arc') as maplibregl.GeoJSONSource | undefined;
     if (!src) return;
 
     if (selected?.route) {
-      const from: [number, number] = [
-        Number(selected.route.origin.longitude),
-        Number(selected.route.origin.latitude),
-      ];
-      const to: [number, number] = [
-        Number(selected.route.destination.longitude),
-        Number(selected.route.destination.latitude),
-      ];
-      const arc = greatCircleArc(from, to);
-      src.setData({
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: arc },
-        properties: {},
-      });
-
-      // Fly to aircraft
+      const from: [number, number] = [Number(selected.route.origin.longitude), Number(selected.route.origin.latitude)];
+      const to: [number, number] = [Number(selected.route.destination.longitude), Number(selected.route.destination.latitude)];
+      src.setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: greatCircleArc(from, to) }, properties: {} });
       if (selected.current_lat && selected.current_lon) {
-        map.flyTo({
-          center: [Number(selected.current_lon), Number(selected.current_lat)],
-          zoom: Math.max(map.getZoom(), 5),
-          duration: 900,
-        });
+        map.flyTo({ center: [Number(selected.current_lon), Number(selected.current_lat)], zoom: Math.max(map.getZoom(), 5), duration: 900 });
       }
     } else {
-      // Clear arc
-      src.setData({
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: [] },
-        properties: {},
-      });
+      src.setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} });
     }
   }, [selected]);
 
   return (
-    <div className="absolute inset-0">
-      <div ref={containerRef} className="absolute inset-0" />
+    <>
+      {/* Map container — must have explicit width/height for MapLibre */}
+      <div
+        ref={containerRef}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }}
+      />
 
-      {/* Detail card — top left when flight selected */}
+      {/* Detail card */}
       {selected && (
-        <div className="absolute top-4 left-4 z-10 glass-card rounded-2xl p-4 min-w-[260px] border border-aero/20 shadow-xl">
-          <div className="flex items-start justify-between mb-3">
+        <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(0,102,255,0.3)', borderRadius: 16, padding: 16, minWidth: 260 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
             <div>
-              <p className="font-mono font-bold text-aero text-lg leading-tight">
+              <p style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0066ff', fontSize: 18, margin: 0 }}>
                 {selected.route?.origin.icao ?? '?'} → {selected.route?.destination.icao ?? '?'}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p style={{ color: '#6B7280', fontSize: 11, margin: '2px 0 0' }}>
                 {selected.route?.origin.name} → {selected.route?.destination.name}
               </p>
             </div>
-            <button onClick={() => onSelect(null)} className="text-gray-500 hover:text-white text-lg leading-none ml-3 mt-0.5">✕</button>
+            <button onClick={() => onSelect(null)} style={{ color: '#6B7280', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', marginLeft: 12 }}>✕</button>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs border-t border-white/5 pt-3">
-            <div>
-              <p className="text-gray-500 mb-0.5">Aircraft</p>
-              <p className="font-mono text-white">{selected.hull.registration}</p>
-              <p className="text-gray-400">{selected.hull.aircraft_type}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 mb-0.5">Pilot</p>
-              <p className="text-white">{selected.pilot.display_name}</p>
-              {selected.airline && <p className="text-gray-400">{selected.airline.name}</p>}
-            </div>
-            {selected.current_alt_ft != null && (
-              <div>
-                <p className="text-gray-500 mb-0.5">Altitude</p>
-                <p className="font-mono text-white">FL{Math.round(selected.current_alt_ft / 100).toString().padStart(3, '0')}</p>
-                <p className="text-gray-400">{selected.current_alt_ft.toLocaleString()} ft</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 12, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 12 }}>
+            {[
+              { label: 'Aircraft', value: `${selected.hull.registration}\n${selected.hull.aircraft_type}` },
+              { label: 'Pilot', value: `${selected.pilot.display_name}${selected.airline ? '\n' + selected.airline.name : ''}` },
+              selected.current_alt_ft != null ? { label: 'Altitude', value: `FL${Math.round(selected.current_alt_ft / 100).toString().padStart(3, '0')}\n${selected.current_alt_ft.toLocaleString()} ft` } : null,
+              selected.current_spd_kts != null ? { label: 'Speed', value: `${selected.current_spd_kts} kts` } : null,
+              selected.current_hdg != null ? { label: 'Heading', value: `${selected.current_hdg.toString().padStart(3, '0')}°` } : null,
+              { label: 'Status', value: selected.status },
+            ].filter(Boolean).map((row) => (
+              <div key={row!.label}>
+                <p style={{ color: '#6B7280', margin: '0 0 2px', fontSize: 10 }}>{row!.label}</p>
+                {row!.value.split('\n').map((line, i) => (
+                  <p key={i} style={{ color: i === 0 ? '#fff' : '#9CA3AF', margin: 0, fontFamily: 'monospace', fontSize: 12 }}>{line}</p>
+                ))}
               </div>
-            )}
-            {selected.current_spd_kts != null && (
-              <div>
-                <p className="text-gray-500 mb-0.5">Speed</p>
-                <p className="font-mono text-white">{selected.current_spd_kts} kts</p>
-              </div>
-            )}
-            {selected.current_hdg != null && (
-              <div>
-                <p className="text-gray-500 mb-0.5">Heading</p>
-                <p className="font-mono text-white">{selected.current_hdg.toString().padStart(3, '0')}°</p>
-              </div>
-            )}
-            <div>
-              <p className="text-gray-500 mb-0.5">Status</p>
-              <p className="text-aero font-bold uppercase text-[10px] tracking-widest">{selected.status}</p>
-            </div>
+            ))}
           </div>
         </div>
       )}
 
       {/* Empty state */}
       {flights.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="glass-card rounded-2xl p-8 text-center max-w-xs">
-            <p className="text-4xl mb-3">🌍</p>
-            <p className="font-bold mb-1">No Active Flights</p>
-            <p className="text-gray-500 text-sm">The skies are quiet. Start a flight to appear on the map.</p>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <div style={{ background: 'rgba(10,10,10,0.85)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: '32px 40px', textAlign: 'center' }}>
+            <p style={{ fontSize: 32, margin: '0 0 12px' }}>🌍</p>
+            <p style={{ color: '#fff', fontWeight: 700, margin: '0 0 4px' }}>No Active Flights</p>
+            <p style={{ color: '#6B7280', fontSize: 13, margin: 0 }}>The skies are quiet. Start a flight to appear on the map.</p>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
