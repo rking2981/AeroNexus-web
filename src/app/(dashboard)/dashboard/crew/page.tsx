@@ -202,7 +202,7 @@ export default function CrewPage() {
             <div>
               <h2 className="font-bold text-lg">Rank Structure</h2>
               <p className="text-sm text-gray-400 mt-0.5">
-                {isCustomRanks ? 'Custom rank tiers for your airline.' : 'Using AeroNexus system defaults. Customize below.'}
+                {isCustomRanks ? 'Custom rank tiers for your airline.' : 'Using AeroNexus system defaults.'}
               </p>
             </div>
             {isCustomRanks && isManager && (
@@ -215,6 +215,33 @@ export default function CrewPage() {
               </button>
             )}
           </div>
+
+          {/* System defaults preview — shown only when not customised */}
+          {!isCustomRanks && (
+            <div className="glass-card rounded-2xl overflow-hidden mb-4 border border-white/5">
+              <div className="px-4 py-2.5 border-b border-white/5">
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">System Default Ranks</p>
+              </div>
+              {rankTiers.map((tier, i) => (
+                <div key={i} className="grid px-4 py-2.5 border-b border-white/5 last:border-0 items-center"
+                  style={{ gridTemplateColumns: '32px 1fr 110px 110px' }}>
+                  <span className="text-xs text-gray-600 font-mono">{i + 1}</span>
+                  <span className="text-sm text-white font-medium">{tier.rank}</span>
+                  <span className="text-sm font-mono text-gray-400 text-right">{tier.min_hours}h</span>
+                  <span className="text-sm font-mono text-gray-400 text-right">{tier.min_flights} flights</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Separator + customize prompt */}
+          {!isCustomRanks && isManager && (
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px bg-white/5 flex-1" />
+              <span className="text-xs text-gray-600 uppercase tracking-widest">Customize for your airline</span>
+              <div className="h-px bg-white/5 flex-1" />
+            </div>
+          )}
 
           <div className="glass-card rounded-2xl overflow-hidden mb-4">
             {/* Header */}
