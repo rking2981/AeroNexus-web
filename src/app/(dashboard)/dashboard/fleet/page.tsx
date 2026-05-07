@@ -373,6 +373,127 @@ function CabinEditor({ hull, onSaved }: { hull: Hull; onSaved: (configs: CabinCo
   );
 }
 
+// ─── Maintenance Panel ────────────────────────────────────────────────────────
+
+interface CheckStatus {
+  type: string;
+  label: string;
+  due_hours: number;
+  due_cycles?: number;
+  cost: number;
+  overdue: boolean;
+}
+
+interface MaintenanceStatus {
+  hull: { registration: string; aircraft_type: string; maintenance_grade: string };
+  checks: CheckStatus[];
+}
+
+function MaintenancePanel({ hull, onDone }: { hull: Hull; onDone: () => void }) {
+  const [status, setStatus] = useState<MaintenanceStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [performing, setPerforming] = useState<string | null>(null);
+  const [completing, setCompleting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get(`/fleet/${hull.id}/maintenance`)
+      .then(r => setStatus(r.data))
+      .catch(() => setError('Failed to load maintenance status'))
+      .finally(() => setLoading(false));
+  }, [hull.id]);
+
+  async function performCheck(checkType: string, cost: number) {
+    if (!confirm(`Perform ${checkType} on ${hull.registration}?\nCost: $${cost.toLocaleString()}\n\nThis will deduct the cost from your airline balance.`)) return;
+    setPerforming(checkType); setError('');
+    try {
+      await api.post(`/fleet/${hull.id}/maintenance/perform`, { check_type: checkType });
+      const r = await api.get(`/fleet/${hull.id}/maintenance`);
+      setStatus(r.data);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Failed to perform check.');
+    } finally { setPerforming(null); }
+  }
+
+  async function completeAndReturn() {
+    setCompleting(true); setError('');
+    try {
+      await api.patch(`/fleet/${hull.id}/maintenance/complete`);
+      onDone();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Failed to complete maintenance.');
+    } finally { setCompleting(false); }
+  }
+
+  const gradeColor = (g: string) => ({ A: 'text-green-400', B: 'text-green-400', C: 'text-amber-400', D: 'text-amber-400', E: 'text-red-400', F: 'text-red-400' }[g] ?? 'text-gray-400');
+
+  if (loading) return <div className="mt-4 border-t border-white/5 pt-4 h-24 animate-pulse rounded-xl bg-white/5" />;
+
+  return (
+    <div className="mt-4 border-t border-white/5 pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-bold">Maintenance Status</h4>
+        {status && (
+          <span className={cn('text-xs font-bold', gradeColor(status.hull.maintenance_grade))}>
+            Grade {status.hull.maintenance_grade}
+          </span>
+        )}
+      </div>
+
+      {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
+
+      <div className="flex flex-col gap-2 mb-4">
+        {status?.checks.map(check => (
+          <div key={check.type} className={cn(
+            'flex items-center justify-between px-3 py-2.5 rounded-xl border text-xs',
+            check.overdue ? 'border-red-500/30 bg-red-500/5' : 'border-white/5 bg-white/3',
+          )}>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className={cn('font-medium', check.overdue ? 'text-red-400' : 'text-white')}>{check.label}</span>
+                {check.overdue && <span className="text-[10px] font-bold text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded-full">OVERDUE</span>}
+              </div>
+              {!check.overdue && (
+                <p className="text-gray-500 mt-0.5">
+                  {check.due_hours.toFixed(0)} hrs remaining
+                  {check.due_cycles !== undefined ? ` · ${check.due_cycles.toFixed(0)} cycles` : ''}
+                </p>
+              )}
+            </div>
+            {hull.status === 'MAINTENANCE' && (
+              <button
+                onClick={() => performCheck(check.type, check.cost)}
+                disabled={!!performing}
+                className={cn(
+                  'flex-shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border transition ml-3 disabled:opacity-50',
+                  check.overdue
+                    ? 'border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20'
+                    : 'border-white/15 text-gray-300 hover:bg-white/5',
+                )}
+              >
+                {performing === check.type ? '…' : `Perform · $${(check.cost / 1000).toFixed(0)}k`}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {hull.status === 'MAINTENANCE' && (
+        <button onClick={completeAndReturn} disabled={completing}
+          className="w-full bg-green-500/20 border border-green-500/30 text-green-400 font-bold px-4 py-2.5 rounded-xl text-xs hover:bg-green-500/30 transition disabled:opacity-50">
+          {completing ? 'Completing…' : 'Return Aircraft to Service (Mark Active)'}
+        </button>
+      )}
+
+      {hull.status !== 'MAINTENANCE' && (
+        <p className="text-xs text-gray-600 text-center">Schedule maintenance to perform checks.</p>
+      )}
+    </div>
+  );
+}
+
 function WearBar({ label, value }: { label: string; value: number }) {
   const pct = Math.min(100, Number(value));
   const color = pct >= 90 ? 'bg-red-500' : pct >= 75 ? 'bg-amber-500' : 'bg-aero';
@@ -409,6 +530,7 @@ export default function FleetPage() {
   const [hulls, setHulls] = useState<Hull[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedCabin, setExpandedCabin] = useState<string | null>(null);
+  const [expandedMaintenance, setExpandedMaintenance] = useState<string | null>(null);
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
   useEffect(() => {
@@ -536,29 +658,43 @@ export default function FleetPage() {
                   </div>
                   {isManager && (
                     <div className="flex gap-2">
-                      {hull.status === 'ACTIVE' && (
+                      <button
+                        onClick={() => {
+                          setExpandedMaintenance(expandedMaintenance === hull.id ? null : hull.id);
+                          setExpandedCabin(null);
+                        }}
+                        className={cn('text-xs border px-2 py-1 rounded-lg transition',
+                          hull.status === 'MAINTENANCE'
+                            ? 'text-amber-400 border-amber-500/20 hover:bg-amber-500/10'
+                            : 'text-gray-400 border-white/10 hover:bg-white/5')}
+                      >
+                        {expandedMaintenance === hull.id ? 'Close' : hull.status === 'MAINTENANCE' ? 'Perform Checks' : 'Maintenance'}
+                      </button>
+                      {hull.status === 'ACTIVE' && isManager && (
                         <button
-                          onClick={() => api.patch(`/fleet/${hull.id}/maintenance/schedule`).then(() =>
-                            setHulls(hulls.map(h => h.id === hull.id ? { ...h, status: 'MAINTENANCE' } : h))
-                          )}
+                          onClick={() => api.patch(`/fleet/${hull.id}/maintenance/schedule`).then(() => {
+                            setHulls(hulls.map(h => h.id === hull.id ? { ...h, status: 'MAINTENANCE' } : h));
+                            setExpandedMaintenance(hull.id);
+                          })}
                           className="text-xs text-amber-400 hover:text-amber-300 transition px-2 py-1 border border-amber-500/20 rounded-lg"
                         >
-                          Schedule Maintenance
-                        </button>
-                      )}
-                      {hull.status === 'MAINTENANCE' && (
-                        <button
-                          onClick={() => api.patch(`/fleet/${hull.id}/maintenance/complete`).then(() =>
-                            setHulls(hulls.map(h => h.id === hull.id ? { ...h, status: 'ACTIVE', engine_wear_percent: 0, rotor_wear_percent: 0 } : h))
-                          )}
-                          className="text-xs text-green-400 hover:text-green-300 transition px-2 py-1 border border-green-500/20 rounded-lg"
-                        >
-                          Complete Maintenance
+                          Schedule
                         </button>
                       )}
                     </div>
                   )}
                 </div>
+
+                {/* Inline maintenance panel */}
+                {expandedMaintenance === hull.id && (
+                  <MaintenancePanel
+                    hull={hull}
+                    onDone={() => {
+                      setHulls(hulls.map(h => h.id === hull.id ? { ...h, status: 'ACTIVE' } : h));
+                      setExpandedMaintenance(null);
+                    }}
+                  />
+                )}
 
                 {/* Inline cabin editor */}
                 {expandedCabin === hull.id && (
