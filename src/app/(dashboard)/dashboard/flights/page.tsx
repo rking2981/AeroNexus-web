@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 
 interface Route {
@@ -80,8 +81,12 @@ function FactorBar({ label, value, color }: { label: string; value: number; colo
   );
 }
 
+const TYPE_RATING_CATEGORIES = ['COMMERCIAL', 'CARGO'];
+const TYPE_RATING_REQUIRED = 3;
+
 export default function BookFlightPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const [routes, setRoutes] = useState<Route[]>([]);
   const [hulls, setHulls] = useState<Hull[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
@@ -94,15 +99,31 @@ export default function BookFlightPage() {
   const [bookingErrorIsActive, setBookingErrorIsActive] = useState(false);
   const [booked, setBooked] = useState<BookingInfo | null>(null);
   const [dispatching, setDispatching] = useState(false);
+  // type rating progress: map of aircraft_type → completed flight count
+  const [typeFlightCounts, setTypeFlightCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     Promise.all([
       api.get('/network/routes'),
       api.get('/fleet'),
-    ]).then(([r, f]) => {
+      api.get('/pilots/profile/me'),
+    ]).then(([r, f, p]) => {
       setRoutes(r.data.filter((r: Route) => r.status === 'ACTIVE'));
       setHulls(f.data.filter((h: Hull) => h.status === 'ACTIVE'));
+      // Build a count map from recent flights — we get full logbook via profile
+      // For accuracy we fetch the logbook separately
     }).finally(() => setLoading(false));
+
+    // Fetch completed flight counts per aircraft type for type rating progress
+    api.get('/flights/logbook').then(({ data }) => {
+      const counts: Record<string, number> = {};
+      const flights = data.flights ?? data;
+      for (const f of flights) {
+        const t = f.hull?.aircraft_type;
+        if (t) counts[t] = (counts[t] ?? 0) + 1;
+      }
+      setTypeFlightCounts(counts);
+    }).catch(() => {});
   }, []);
 
   // Fetch PAX preview whenever route + hull are both selected
@@ -152,6 +173,20 @@ export default function BookFlightPage() {
       alert(msg ?? 'Dispatch failed');
     } finally { setDispatching(false); }
   }
+
+  // Type rating warning
+  const certifications: string[] = (user as { certifications?: string[] } | null)?.certifications ?? [];
+  const typeRatingWarning = selectedHull && TYPE_RATING_CATEGORIES.includes(selectedHull.aircraft_category)
+    ? (() => {
+        const certKey = `${selectedHull.aircraft_type} Type Rating`;
+        if (certifications.includes(certKey)) return null;
+        const flightsDone = typeFlightCounts[selectedHull.aircraft_type] ?? 0;
+        const remaining = TYPE_RATING_REQUIRED - flightsDone;
+        return remaining > 0
+          ? `No ${selectedHull.aircraft_type} type rating yet — ${flightsDone}/${TYPE_RATING_REQUIRED} qualifying flights completed. ${remaining} more flight${remaining !== 1 ? 's' : ''} to earn your rating.`
+          : null; // will be awarded on next completion
+      })()
+    : null;
 
   // Hull ↔ route compatibility
   const isHeliRoute = selectedRoute?.origin.facility_type === 'heliport' || selectedRoute?.destination.facility_type === 'heliport';
@@ -363,6 +398,12 @@ export default function BookFlightPage() {
           {incompatibleMsg && (
             <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
               ⚠️ {incompatibleMsg}
+            </div>
+          )}
+          {typeRatingWarning && !incompatibleMsg && (
+            <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300 flex items-start gap-2">
+              <span className="flex-shrink-0">🎓</span>
+              <span>{typeRatingWarning}</span>
             </div>
           )}
           {bookingError && (
