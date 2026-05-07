@@ -24,6 +24,63 @@ interface Hull {
 
 type CabinClass = 'FIRST' | 'BUSINESS' | 'PREMIUM_ECONOMY' | 'ECONOMY';
 
+// ─── Aircraft cabin layout detection ────────────────────────────────────────
+
+interface CabinLayout {
+  cols: number[];      // seat positions left of aisle (0-based) + gap + right
+  aisle: number;       // px gap for aisle
+  label: string;       // e.g. "3+3", "2+2"
+}
+
+function getLayout(aircraftType: string, category: string): CabinLayout {
+  const t = aircraftType.toLowerCase();
+
+  // Helicopter — single or double row
+  if (category === 'HELICOPTER') return { cols: [0, 2], aisle: 6, label: '1+1' };
+
+  // Seaplane
+  if (category === 'SEAPLANE') return { cols: [0, 2], aisle: 6, label: '1+1' };
+
+  // Very large — A380, L-1011, DC-10, B747
+  if (t.includes('a380') || t.includes('l-1011') || t.includes('dc-10') || t.includes('747'))
+    return { cols: [0, 1, 2, 4, 5, 6, 8, 9, 10], aisle: 8, label: '3+3+3' };
+
+  // Wide-body — B777, B787, A330, A350, B767-400, B757-300
+  if (t.includes('777') || t.includes('787') || t.includes('a330') || t.includes('a350') ||
+      t.includes('767-4') || t.includes('757-3'))
+    return { cols: [0, 1, 2, 4, 5, 6, 7, 9, 10, 11], aisle: 8, label: '3+4+3' };
+
+  // Medium wide — B767, B757
+  if (t.includes('767') || t.includes('757'))
+    return { cols: [0, 1, 4, 5, 6], aisle: 8, label: '2+3' };
+
+  // Narrow-body — A320 family, B737, A220, MD-80/90, B717, Concorde
+  if (t.includes('a320') || t.includes('a321') || t.includes('a319') || t.includes('a318') ||
+      t.includes('737') || t.includes('a220') || t.includes('md-8') || t.includes('md-9') ||
+      t.includes('b717') || t.includes('concorde') || t.includes('b717'))
+    return { cols: [0, 1, 2, 4, 5, 6], aisle: 8, label: '3+3' };
+
+  // Regional jets — CRJ, E-jet, Dash 8 Q400, Saab 2000, BAe 146
+  if (t.includes('crj') || t.includes('embraer e1') || t.includes('embraer e2') ||
+      t.includes('dash 8') || t.includes('saab 2000') || t.includes('atr'))
+    return { cols: [0, 1, 3, 4], aisle: 8, label: '2+2' };
+
+  // Small regional — E170, E175, Saab 340, JS41, DC-3, Dash 8-100/300
+  if (t.includes('e170') || t.includes('e175') || t.includes('saab 340') ||
+      t.includes('jetstream') || t.includes('dc-3') || t.includes('1900'))
+    return { cols: [0, 1, 3, 4], aisle: 8, label: '2+2' };
+
+  // Bizjet / turboprop — everything else over 8 pax
+  if (t.includes('global') || t.includes('gulfstream') || t.includes('falcon') ||
+      t.includes('challenger') || t.includes('citation sovereign') || t.includes('citation x') ||
+      t.includes('citation longitude') || t.includes('phenom 300') || t.includes('pc-24') ||
+      t.includes('avanti') || t.includes('king air 200') || t.includes('king air 350'))
+    return { cols: [0, 2], aisle: 10, label: '1+1' };
+
+  // Small bizjet / GA
+  return { cols: [0, 2], aisle: 10, label: '1+1' };
+}
+
 const CABIN_CLASSES: { key: CabinClass; label: string; defaultMultiplier: number; color: string }[] = [
   { key: 'FIRST',           label: 'First Class',       defaultMultiplier: 4.0, color: '#a855f7' },
   { key: 'BUSINESS',        label: 'Business',          defaultMultiplier: 2.5, color: '#00D1FF' },
@@ -33,9 +90,14 @@ const CABIN_CLASSES: { key: CabinClass; label: string; defaultMultiplier: number
 
 // ─── Cabin diagram ────────────────────────────────────────────────────────────
 
-function CabinDiagram({ rows }: { rows: { key: CabinClass; enabled: boolean; seats: number }[] }) {
+function CabinDiagram({ rows, aircraftType, category }: {
+  rows: { key: CabinClass; enabled: boolean; seats: number }[];
+  aircraftType: string;
+  category: string;
+}) {
   const activeRows = rows.filter((r) => r.enabled && r.seats > 0);
   const totalSeats = activeRows.reduce((s, r) => s + r.seats, 0);
+  const layout = getLayout(aircraftType, category);
 
   if (totalSeats === 0) {
     return (
@@ -45,12 +107,16 @@ function CabinDiagram({ rows }: { rows: { key: CabinClass; enabled: boolean; sea
     );
   }
 
-  // Layout: 3 seats per side (aisle in middle) — like a narrow-body 3-3
-  // For each class render its rows of seats
-  const SEATS_PER_ROW = 6; // 3+3 layout
+  const COL_POSITIONS = layout.cols;
+  const SEATS_PER_ROW = COL_POSITIONS.length;
   const SEAT_W = 10; const SEAT_H = 12; const SEAT_GAP = 2;
-  const AISLE = 8; const PAD_X = 24; const PAD_Y = 16;
-  const COL_POSITIONS = [0, 1, 2, 4, 5, 6]; // skip col 3 for aisle
+  const AISLE = layout.aisle; const PAD_X = 24; const PAD_Y = 16;
+
+  // Determine which cols are "right of aisle" — cols after the gap
+  // Find the largest gap between consecutive col values
+  const maxCol = Math.max(...COL_POSITIONS);
+  const numAisles = layout.label.split('+').length - 1;
+  void maxCol; // used in svgW calculation below
 
   // Build list of seat rows per section
   const sections: { key: CabinClass; color: string; seatRows: number }[] = activeRows.map((r) => ({
@@ -62,15 +128,31 @@ function CabinDiagram({ rows }: { rows: { key: CabinClass; enabled: boolean; sea
   const totalRows = sections.reduce((s, sec) => s + sec.seatRows, 0);
   const ROW_H = SEAT_H + SEAT_GAP;
   const svgH = PAD_Y * 2 + totalRows * ROW_H + (sections.length - 1) * 6;
-  const svgW = PAD_X * 2 + 6 * SEAT_W + AISLE + 5 * SEAT_GAP;
+  // SVG width: max col index × (SEAT_W + GAP) + numAisles × AISLE + padding
+  const svgW = PAD_X * 2 + (maxCol + 1) * (SEAT_W + SEAT_GAP) + numAisles * AISLE;
+
+  // Pre-compute x positions for each column index
+  // Find aisle breakpoints (largest gaps between consecutive col values)
+  const sortedCols = [...COL_POSITIONS].sort((a, b) => a - b);
+  const gaps = sortedCols.slice(1).map((c, i) => ({ gap: c - sortedCols[i], after: sortedCols[i] }));
+  gaps.sort((a, b) => b.gap - a.gap);
+  const aisleAfter = new Set(gaps.slice(0, numAisles).map(g => g.after));
+
+  function colX(col: number): number {
+    let x = PAD_X + col * (SEAT_W + SEAT_GAP);
+    let aisleCount = 0;
+    for (const c of sortedCols) {
+      if (c >= col) break;
+      if (aisleAfter.has(c)) aisleCount++;
+    }
+    return x + aisleCount * AISLE;
+  }
 
   // Build SVG rows
   const elements: React.ReactNode[] = [];
   let y = PAD_Y;
-  let rowIndex = 0;
 
   sections.forEach((sec, si) => {
-    // Section label
     elements.push(
       <text key={`lbl-${si}`} x={svgW / 2} y={y + 8} textAnchor="middle"
         fontSize="6" fill={sec.color} fontWeight="700" letterSpacing="1">
@@ -83,7 +165,7 @@ function CabinDiagram({ rows }: { rows: { key: CabinClass; enabled: boolean; sea
       COL_POSITIONS.forEach((col, ci) => {
         const seatNum = r * SEATS_PER_ROW + ci;
         const seatExists = seatNum < (activeRows.find(a => a.key === sec.key)?.seats ?? 0);
-        const x = PAD_X + col * (SEAT_W + SEAT_GAP) + (col >= 3 ? AISLE : 0);
+        const x = colX(col);
         elements.push(
           <rect key={`seat-${si}-${r}-${ci}`}
             x={x} y={y + r * ROW_H}
@@ -94,7 +176,6 @@ function CabinDiagram({ rows }: { rows: { key: CabinClass; enabled: boolean; sea
           />
         );
       });
-      rowIndex++;
     }
 
     y += sec.seatRows * ROW_H;
@@ -188,7 +269,11 @@ function CabinEditor({ hull, onSaved }: { hull: Hull; onSaved: (configs: CabinCo
 
       {/* Live diagram */}
       <div className="mb-4">
-        <CabinDiagram rows={rows} />
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-xs text-gray-500">Cabin layout</p>
+          <p className="text-xs text-gray-600 font-mono">{getLayout(hull.aircraft_type, hull.aircraft_category).label} · {hull.aircraft_type}</p>
+        </div>
+        <CabinDiagram rows={rows} aircraftType={hull.aircraft_type} category={hull.aircraft_category} />
       </div>
 
       <div className="flex flex-col gap-2 mb-3">
