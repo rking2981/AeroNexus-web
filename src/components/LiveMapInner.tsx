@@ -91,6 +91,18 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
     const map = mapRef.current;
     if (!map) return;
 
+    // If map isn't loaded yet, wait for it then re-run
+    if (!map.isStyleLoaded()) {
+      map.once('load', () => {
+        // Re-trigger by forcing a re-render isn't ideal — just add markers directly
+        addMarkers(map);
+      });
+      return;
+    }
+
+    addMarkers(map);
+
+    function addMarkers(map: maplibregl.Map) {
     const currentIds = new Set(flights.map((f) => f.id));
     markersRef.current.forEach((entry, id) => {
       if (!currentIds.has(id)) { entry.marker.remove(); markersRef.current.delete(id); }
@@ -117,6 +129,7 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
         markersRef.current.set(flight.id, { marker, el });
       }
     });
+    } // end addMarkers
   }, [flights, selected, onSelect]);
 
   useEffect(() => {
