@@ -9,6 +9,8 @@ interface FinanceSummary {
   total_revenue: number;
   total_expenses: number;
   net_profit: number;
+  capital_expenditure: number;
+  capital_proceeds: number;
   filtered: boolean;
   currency: { code: string; symbol: string };
 }
@@ -28,8 +30,12 @@ const EXPENSE_ICONS: Record<string, string> = {
   FUEL: '⛽', LANDING_FEE: '🛬', PILOT_PAY: '👨‍✈️', CATERING: '🍽️',
   PASSENGER_SERVICES: '🎫', COMPENSATION: '💸', MAINTENANCE: '🔧',
   GATE_SLOT: '🚪', INSURANCE: '🛡️', STAFF_OVERHEAD: '👥',
-  AIRCRAFT_LEASE: '✈️', ESCROW_FREEZE: '🔒', ESCROW_RELEASE: '🔓',
+  AIRCRAFT_LEASE: '🛩️', ESCROW_FREEZE: '🔒', ESCROW_RELEASE: '🔓',
+  TAX: '🏛️', STORAGE_FEE: '🏭', ENTERPRISE_CREDIT: '⭐',
 };
+
+// Capital / balance-sheet types shown with amber colour instead of red
+const CAPITAL_TYPES = new Set(['AIRCRAFT_LEASE', 'ESCROW_FREEZE', 'ESCROW_RELEASE', 'ENTERPRISE_CREDIT']);
 
 function fmt(value: number, symbol: string) {
   return `${symbol}${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -198,7 +204,7 @@ export default function FinancesPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
         <div className="glass-card rounded-2xl p-6">
           <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">
             {filterMode === 'all' ? 'Current Balance' : 'Balance'}
@@ -210,9 +216,33 @@ export default function FinancesPage() {
             <p className="text-xs text-gray-600 mt-1">Balance is always current</p>
           )}
         </div>
-        <StatCard label={`Revenue${filterMode !== 'all' ? ` (${filterLabel()})` : ''}`} value={summary.total_revenue} symbol={symbol} color="green" />
-        <StatCard label={`Expenses${filterMode !== 'all' ? ` (${filterLabel()})` : ''}`} value={summary.total_expenses} symbol={symbol} color="red" />
-        <StatCard label="Net Profit" value={summary.net_profit} symbol={symbol} color="auto" />
+        <StatCard label={`Operating Revenue${filterMode !== 'all' ? ` (${filterLabel()})` : ''}`} value={summary.total_revenue} symbol={symbol} color="green" />
+        <div className="glass-card rounded-2xl p-6">
+          <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Net Profit</p>
+          <p className={cn('text-2xl font-bold', summary.net_profit >= 0 ? 'text-green-400' : 'text-red-400')}>
+            {fmt(summary.net_profit, symbol)}
+          </p>
+          <p className="text-[10px] text-gray-600 mt-1">Operating revenue minus operating expenses</p>
+        </div>
+      </div>
+
+      {/* Operating expenses + CapEx row */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+        <StatCard label={`Operating Expenses${filterMode !== 'all' ? ` (${filterLabel()})` : ''}`} value={summary.total_expenses} symbol={symbol} color="red" />
+        {summary.capital_expenditure > 0 && (
+          <div className="glass-card rounded-2xl p-6">
+            <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Capital Expenditure</p>
+            <p className="text-2xl font-bold text-amber-400">{fmt(summary.capital_expenditure, symbol)}</p>
+            <p className="text-[10px] text-gray-600 mt-1">Aircraft purchases — not in Net Profit</p>
+          </div>
+        )}
+        {summary.capital_proceeds > 0 && (
+          <div className="glass-card rounded-2xl p-6">
+            <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Asset Sales</p>
+            <p className="text-2xl font-bold text-blue-400">{fmt(summary.capital_proceeds, symbol)}</p>
+            <p className="text-[10px] text-gray-600 mt-1">Aircraft sold — not in Net Profit</p>
+          </div>
+        )}
       </div>
 
       {/* Transactions */}
@@ -248,10 +278,17 @@ export default function FinancesPage() {
                       {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
-                  <p className={cn('font-mono font-bold text-sm flex-shrink-0',
-                    isCredit ? 'text-green-400' : 'text-red-400')}>
-                    {isCredit ? '+' : '-'}{fmt(tx.amount, symbol)}
-                  </p>
+                  <div className="flex-shrink-0 text-right">
+                    <p className={cn('font-mono font-bold text-sm',
+                      isCredit ? 'text-green-400'
+                      : tx.expense_type && CAPITAL_TYPES.has(tx.expense_type) ? 'text-amber-400'
+                      : 'text-red-400')}>
+                      {isCredit ? '+' : '-'}{fmt(tx.amount, symbol)}
+                    </p>
+                    {tx.expense_type && CAPITAL_TYPES.has(tx.expense_type) && (
+                      <p className="text-[10px] text-gray-600">CapEx</p>
+                    )}
+                  </div>
                 </div>
               );
             })}
