@@ -13,7 +13,7 @@ interface Hull {
   registration: string;
   aircraft_type: string;
   aircraft_category: string;
-  status: 'ACTIVE' | 'MAINTENANCE' | 'RETIRED';
+  status: 'ACTIVE' | 'MAINTENANCE' | 'RETIRED' | 'FOR_SALE';
   airframe_hours: number;
   engine_wear_percent: number;
   rotor_wear_percent: number;
@@ -580,18 +580,105 @@ function WearBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
   ACTIVE: 'bg-green-500/10 text-green-400 border-green-500/20',
   MAINTENANCE: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
   RETIRED: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
+  FOR_SALE: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
 };
 
 const CATEGORY_ICON: Record<string, string> = {
-  FIXED_WING: '✈️',
-  HELICOPTER: '🚁',
-  SEAPLANE: '🛥️',
-  BALLOON: '🎈',
+  FIXED_WING: '✈️', COMMERCIAL: '✈️', CARGO: '📦', PRIVATE: '🛩️',
+  HELICOPTER: '🚁', SEAPLANE: '🛥️', BALLOON: '🎈', SPECIAL_USE: '⭐',
 };
+
+function formatPrice(n: number) {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n.toLocaleString()}`;
+}
+
+function SellPanel({ hull, onListed, onClose }: {
+  hull: Hull;
+  onListed: () => void;
+  onClose: () => void;
+}) {
+  const [fairValue, setFairValue] = useState<number | null>(null);
+  const [askingPrice, setAskingPrice] = useState('');
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get(`/market/fair-value/${hull.id}`).then(({ data }) => {
+      setFairValue(data.fair_value);
+      setAskingPrice(String(data.fair_value));
+    }).catch(() => setFairValue(null)).finally(() => setLoading(false));
+  }, [hull.id]);
+
+  async function handleList() {
+    const price = parseFloat(askingPrice);
+    if (!price || price <= 0) { setError('Enter a valid asking price'); return; }
+    setSubmitting(true); setError('');
+    try {
+      await api.post(`/market/sell/${hull.id}`, { asking_price: price, notes: notes || undefined });
+      onListed();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Failed to list aircraft');
+    } finally { setSubmitting(false); }
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-white/5">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-bold text-sm">List for Sale</h4>
+        <button onClick={onClose} className="text-gray-500 hover:text-white text-sm transition">✕</button>
+      </div>
+
+      {loading ? (
+        <div className="h-8 bg-white/5 rounded-xl animate-pulse" />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {fairValue !== null && (
+            <div className="glass-card rounded-xl p-3 flex justify-between text-sm">
+              <span className="text-gray-400">Estimated Fair Value</span>
+              <span className="font-bold text-aero">{formatPrice(fairValue)}</span>
+            </div>
+          )}
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-gray-500 block mb-1">Asking Price ($)</label>
+              <input
+                type="number"
+                value={askingPrice}
+                onChange={e => setAskingPrice(e.target.value)}
+                placeholder="e.g. 45000000"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:border-aero focus:outline-none transition"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs text-gray-500 block mb-1">Notes (optional)</label>
+              <input
+                type="text"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="e.g. Well maintained, low hours"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:border-aero focus:outline-none transition"
+              />
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{error}</p>}
+          <button onClick={handleList} disabled={submitting}
+            className="bg-aero text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
+            {submitting ? 'Listing…' : 'List on Used Market'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function FleetPage() {
   const { user } = useAuthStore();
@@ -599,6 +686,7 @@ export default function FleetPage() {
   const [loading, setLoading] = useState(true);
   const [expandedCabin, setExpandedCabin] = useState<string | null>(null);
   const [expandedMaintenance, setExpandedMaintenance] = useState<string | null>(null);
+  const [expandedSell, setExpandedSell] = useState<string | null>(null);
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
   useEffect(() => {
@@ -758,6 +846,26 @@ export default function FleetPage() {
                           Schedule
                         </button>
                       )}
+                      {hull.status === 'ACTIVE' && !hull.is_leased && isManager && (
+                        <button
+                          onClick={() => {
+                            setExpandedSell(expandedSell === hull.id ? null : hull.id);
+                            setExpandedCabin(null);
+                            setExpandedMaintenance(null);
+                          }}
+                          className={cn('text-xs border px-2 py-1 rounded-lg transition',
+                            expandedSell === hull.id
+                              ? 'text-green-400 border-green-500/30 bg-green-500/10'
+                              : 'text-gray-400 border-white/10 hover:text-green-400 hover:border-green-500/20')}
+                        >
+                          {expandedSell === hull.id ? 'Cancel' : 'Sell'}
+                        </button>
+                      )}
+                      {hull.status === 'FOR_SALE' && (
+                        <span className="text-xs text-green-400 border border-green-500/20 bg-green-500/5 px-2 py-1 rounded-lg">
+                          Listed for Sale
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -770,6 +878,18 @@ export default function FleetPage() {
                       setHulls(hulls.map(h => h.id === hull.id ? { ...h, status: 'ACTIVE' } : h));
                       setExpandedMaintenance(null);
                     }}
+                  />
+                )}
+
+                {/* Inline sell panel */}
+                {expandedSell === hull.id && (
+                  <SellPanel
+                    hull={hull}
+                    onListed={() => {
+                      setHulls(hulls.map(h => h.id === hull.id ? { ...h, status: 'FOR_SALE' as never } : h));
+                      setExpandedSell(null);
+                    }}
+                    onClose={() => setExpandedSell(null)}
                   />
                 )}
 
