@@ -310,6 +310,11 @@ export default async function HomePage() {
       {/* Footer */}
       <footer className="py-12 text-center text-gray-600 text-sm border-t border-white/5">
         <p>&copy; 2026 AeroNexus Ecosystem. Built for MSFS 2024 &amp; X-Plane.</p>
+        <div className="flex items-center justify-center gap-6 mt-3">
+          <Link href="/terms" className="hover:text-gray-400 transition">Terms of Use</Link>
+          <Link href="/privacy" className="hover:text-gray-400 transition">Privacy Policy</Link>
+          <a href="mailto:terms@aeronexus.app" className="hover:text-gray-400 transition">Legal Contact</a>
+        </div>
       </footer>
     </div>
   );
