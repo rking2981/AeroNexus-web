@@ -10,21 +10,19 @@ interface Props {
   onSelect: (f: LiveFlight | null) => void;
 }
 
-function createAircraftEl(hdg: number, category: string, selected: boolean): HTMLElement {
+function buildSvg(hdg: number, category: string, sel: boolean): string {
   const isHeli = category === 'HELICOPTER';
-  const color = selected ? '#ffffff' : '#00D1FF';
-  const size = selected ? 32 : 24;
-  const el = document.createElement('div');
-  el.style.cssText = `width:${size}px;height:${size}px;cursor:pointer;`;
-  el.innerHTML = isHeli
-    ? `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg)">
+  const color = sel ? '#ffffff' : '#00D1FF';
+  const size = sel ? 32 : 24;
+  return isHeli
+    ? `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg);filter:drop-shadow(0 0 4px ${color}88)">
         <circle cx="12" cy="12" r="3" fill="${color}"/>
         <line x1="2" y1="12" x2="22" y2="12" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+        <line x1="12" y1="2" x2="12" y2="8" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
       </svg>`
-    : `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg)">
-        <path d="M12 2L8 10H4L6 12H8L7 17L5 18V20L12 18L19 20V18L17 17L16 12H18L20 10H16L12 2Z" fill="${color}"/>
+    : `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg);filter:drop-shadow(0 0 4px ${color}88)">
+        <path d="M12 2L8 10H4L6 12H8L7 17L5 18V20L12 18L19 20V18L17 17L16 12H18L20 10H16L12 2Z" fill="${color}" opacity="${sel ? 1 : 0.9}"/>
       </svg>`;
-  return el;
 }
 
 function greatCircleArc(from: [number, number], to: [number, number], steps = 64): [number, number][] {
@@ -53,6 +51,9 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, { marker: maplibregl.Marker; el: HTMLElement }>>(new Map());
   const mapReadyRef = useRef(false);
+  // Stable ref so click handlers never have stale closure over `selected`
+  const selectedRef = useRef<LiveFlight | null>(selected);
+  useEffect(() => { selectedRef.current = selected; }, [selected]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -102,33 +103,45 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
 
     addMarkers(map);
 
-    function addMarkers(map: maplibregl.Map) {
-    const currentIds = new Set(flights.map((f) => f.id));
-    markersRef.current.forEach((entry, id) => {
-      if (!currentIds.has(id)) { entry.marker.remove(); markersRef.current.delete(id); }
-    });
+    function addMarkers(m: maplibregl.Map) {
+      const currentIds = new Set(flights.map((f) => f.id));
 
-    flights.forEach((flight) => {
-      if (!flight.current_lat || !flight.current_lon) return;
-      const lng = Number(flight.current_lon);
-      const lat = Number(flight.current_lat);
-      const hdg = flight.current_hdg ?? 0;
-      const isSelected = selected?.id === flight.id;
-      const existing = markersRef.current.get(flight.id);
+      // Remove stale markers
+      markersRef.current.forEach((entry, id) => {
+        if (!currentIds.has(id)) { entry.marker.remove(); markersRef.current.delete(id); }
+      });
 
-      if (existing) {
-        existing.marker.setLngLat([lng, lat]);
-        const newEl = createAircraftEl(hdg, flight.hull.aircraft_category, isSelected);
-        newEl.addEventListener('click', (e) => { e.stopPropagation(); onSelect(isSelected ? null : flight); });
-        existing.marker.getElement().replaceWith(newEl);
-        markersRef.current.set(flight.id, { marker: existing.marker, el: newEl });
-      } else {
-        const el = createAircraftEl(hdg, flight.hull.aircraft_category, isSelected);
-        el.addEventListener('click', (e) => { e.stopPropagation(); onSelect(isSelected ? null : flight); });
-        const marker = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]).addTo(map);
-        markersRef.current.set(flight.id, { marker, el });
-      }
-    });
+      flights.forEach((flight) => {
+        if (!flight.current_lat || !flight.current_lon) return;
+        const lng = Number(flight.current_lon);
+        const lat = Number(flight.current_lat);
+        const hdg = flight.current_hdg ?? 0;
+        const isSelected = selected?.id === flight.id;
+        const existing = markersRef.current.get(flight.id);
+
+        if (existing) {
+          // Update position
+          existing.marker.setLngLat([lng, lat]);
+          // Update appearance IN-PLACE — never use replaceWith (breaks MapLibre's internal el ref)
+          existing.el.innerHTML = buildSvg(hdg, flight.hull.aircraft_category, isSelected);
+          existing.el.style.width = isSelected ? '32px' : '24px';
+          existing.el.style.height = isSelected ? '32px' : '24px';
+        } else {
+          // Create new marker with stable click handler
+          const el = document.createElement('div');
+          el.style.cssText = `width:24px;height:24px;cursor:pointer;`;
+          el.innerHTML = buildSvg(hdg, flight.hull.aircraft_category, false);
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Read current selection from the ref to avoid stale closure
+            onSelect(selectedRef.current?.id === flight.id ? null : flight);
+          });
+          const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+            .setLngLat([lng, lat])
+            .addTo(m);
+          markersRef.current.set(flight.id, { marker, el });
+        }
+      });
     } // end addMarkers
   }, [flights, selected, onSelect]);
 
