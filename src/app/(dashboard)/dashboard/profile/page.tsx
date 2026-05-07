@@ -150,7 +150,7 @@ export default function ProfilePage() {
   const { user: storeUser, setUser } = useAuthStore();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'finances' | 'security'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'finances'>('overview');
 
   // Change password state
   const [pwForm, setPwForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
@@ -243,11 +243,6 @@ export default function ProfilePage() {
 
       {/* Header card */}
       <div className="glass-card rounded-2xl p-6 mb-6 relative overflow-hidden">
-        {u.is_founder && (
-          <div className="absolute top-4 right-4 opacity-80">
-            <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={48} height={48} />
-          </div>
-        )}
         <div className="flex items-start gap-5">
           {/* Avatar */}
           <div className={cn(
@@ -263,9 +258,12 @@ export default function ProfilePage() {
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <h1 className="text-2xl font-bold">{displayedName}</h1>
               {u.is_founder && (
-                <span className="text-xs text-purple-400 border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 rounded-full font-bold">
-                  Founder
-                </span>
+                <>
+                  <span className="text-xs text-purple-400 border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 rounded-full font-bold">
+                    Founder
+                  </span>
+                  <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={28} height={28} className="opacity-90" />
+                </>
               )}
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-400">
@@ -379,12 +377,38 @@ export default function ProfilePage() {
             className="bg-aero text-black font-bold px-6 py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
+
+          {/* Change Password — inside Edit Profile */}
+          <div className="mt-6 pt-6 border-t border-white/5">
+            <h3 className="font-bold mb-1 text-sm">Change Password</h3>
+            <p className="text-xs text-gray-500 mb-4">Enter your current password to set a new one.</p>
+            <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
+              <input type="password" value={pwForm.current_password}
+                onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })}
+                required autoComplete="current-password" placeholder="Current password"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition" />
+              <input type="password" value={pwForm.new_password}
+                onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })}
+                required autoComplete="new-password" placeholder="New password (min 8 characters)"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition" />
+              <input type="password" value={pwForm.confirm_password}
+                onChange={(e) => setPwForm({ ...pwForm, confirm_password: e.target.value })}
+                required autoComplete="new-password" placeholder="Confirm new password"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition" />
+              {pwError && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{pwError}</p>}
+              {pwSuccess && <p className="text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">{pwSuccess}</p>}
+              <button type="submit" disabled={pwSaving}
+                className="border border-white/20 text-sm font-bold px-6 py-2.5 rounded-xl hover:bg-white/5 transition disabled:opacity-50 w-fit">
+                {pwSaving ? 'Updating...' : 'Update Password'}
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
-        {[{ key: 'overview', label: 'Overview' }, { key: 'finances', label: 'Pilot Finances' }, { key: 'security', label: 'Security' }].map((t) => (
+        {[{ key: 'overview', label: 'Overview' }, { key: 'finances', label: 'Pilot Finances' }].map((t) => (
           <button key={t.key} onClick={() => setActiveTab(t.key as typeof activeTab)}
             className={cn('px-5 py-2 rounded-lg text-sm font-medium transition',
               activeTab === t.key ? 'bg-aero text-black' : 'text-gray-400 hover:text-white')}>
@@ -493,60 +517,6 @@ export default function ProfilePage() {
         </>
       )}
 
-      {activeTab === 'security' && (
-        <div className="glass-card rounded-2xl p-6 max-w-md">
-          <h2 className="font-bold mb-1">Change Password</h2>
-          <p className="text-xs text-gray-500 mb-6">Update your login password. You will need to enter your current password to confirm.</p>
-          <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
-            <div>
-              <label className="text-sm text-gray-300 block mb-1.5">Current Password</label>
-              <input
-                type="password"
-                value={pwForm.current_password}
-                onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })}
-                required
-                autoComplete="current-password"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-300 block mb-1.5">New Password</label>
-              <input
-                type="password"
-                value={pwForm.new_password}
-                onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })}
-                required
-                autoComplete="new-password"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-300 block mb-1.5">Confirm New Password</label>
-              <input
-                type="password"
-                value={pwForm.confirm_password}
-                onChange={(e) => setPwForm({ ...pwForm, confirm_password: e.target.value })}
-                required
-                autoComplete="new-password"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition"
-              />
-            </div>
-            {pwError && (
-              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{pwError}</p>
-            )}
-            {pwSuccess && (
-              <p className="text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">{pwSuccess}</p>
-            )}
-            <button
-              type="submit"
-              disabled={pwSaving}
-              className="bg-aero text-black font-bold px-6 py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50 mt-1"
-            >
-              {pwSaving ? 'Updating...' : 'Update Password'}
-            </button>
-          </form>
-        </div>
-      )}
 
       {activeTab === 'finances' && (
         <div className="flex flex-col gap-6">
