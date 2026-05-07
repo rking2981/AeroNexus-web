@@ -294,7 +294,7 @@ export default function CrewPage() {
           <div className="glass-card rounded-2xl p-4 mt-6 border border-white/5">
             <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-2">How Ranks Work</p>
             <p className="text-xs text-gray-400 leading-relaxed">
-              Pilots are automatically promoted when they meet <strong className="text-white">both</strong> the minimum hours and minimum flights for the next tier.
+              Pilots are automatically promoted when they meet <strong className="text-white">both</strong>{' '}the minimum hours and minimum flights for the next tier.
               Ranks are re-evaluated after every completed flight. You can also manually override a pilot&apos;s rank from their profile in the Roster tab.
             </p>
           </div>
