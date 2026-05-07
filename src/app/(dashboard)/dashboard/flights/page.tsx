@@ -14,8 +14,8 @@ interface Route {
   status: string;
   base_ticket_price: number;
   effective_ticket_price: number;
-  origin: { icao: string; name: string; city: string | null };
-  destination: { icao: string; name: string; city: string | null };
+  origin: { icao: string; name: string; city: string | null; facility_type: string };
+  destination: { icao: string; name: string; city: string | null; facility_type: string };
 }
 
 interface Hull {
@@ -147,6 +147,19 @@ export default function BookFlightPage() {
       alert(msg ?? 'Dispatch failed');
     } finally { setDispatching(false); }
   }
+
+  // Hull ↔ route compatibility
+  const isHeliRoute = selectedRoute?.origin.facility_type === 'heliport' || selectedRoute?.destination.facility_type === 'heliport';
+  const isSeaplaneRoute = selectedRoute?.origin.facility_type === 'seaplane_base' || selectedRoute?.destination.facility_type === 'seaplane_base';
+  const incompatibleMsg = selectedRoute && selectedHull
+    ? isHeliRoute && selectedHull.aircraft_category !== 'HELICOPTER'
+      ? `${isHeliRoute ? (selectedRoute.origin.facility_type === 'heliport' ? selectedRoute.origin.icao : selectedRoute.destination.icao) : ''} is a heliport — requires a helicopter hull`
+      : isSeaplaneRoute && selectedHull.aircraft_category !== 'SEAPLANE'
+      ? `${selectedRoute.origin.facility_type === 'seaplane_base' ? selectedRoute.origin.icao : selectedRoute.destination.icao} is a seaplane base — requires a seaplane hull`
+      : selectedHull.aircraft_category === 'SEAPLANE' && !isSeaplaneRoute
+      ? `${selectedHull.registration} is a seaplane — origin or destination must be a seaplane base`
+      : null
+    : null;
 
   if (loading) return <div className="p-8"><div className="glass-card rounded-2xl h-64 animate-pulse" /></div>;
 
@@ -342,10 +355,15 @@ export default function BookFlightPage() {
             </div>
           </div>
 
+          {incompatibleMsg && (
+            <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              ⚠️ {incompatibleMsg}
+            </div>
+          )}
           <button
             onClick={handleBook}
-            disabled={booking || previewLoading}
-            className="mt-5 bg-aero text-black font-bold px-8 py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50"
+            disabled={booking || previewLoading || !!incompatibleMsg}
+            className="mt-4 bg-aero text-black font-bold px-8 py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50"
           >
             {booking ? 'Booking...' : `Book Flight${preview ? ` · ~${preview.estimated_pax} PAX` : ''}`}
           </button>
