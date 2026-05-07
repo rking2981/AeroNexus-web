@@ -8,6 +8,20 @@ interface Props {
   flights: LiveFlight[];
   selected: LiveFlight | null;
   onSelect: (f: LiveFlight | null) => void;
+  pollIntervalMs?: number;
+}
+
+// Per-marker interpolation state
+interface MarkerState {
+  marker: maplibregl.Marker;
+  el: HTMLElement;
+  fromLng: number;
+  fromLat: number;
+  fromHdg: number;
+  toLng: number;
+  toLat: number;
+  toHdg: number;
+  interpStart: number; // timestamp when this interpolation began
 }
 
 function buildSvg(hdg: number, category: string, sel: boolean): string {
@@ -23,6 +37,17 @@ function buildSvg(hdg: number, category: string, sel: boolean): string {
     : `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg);filter:drop-shadow(0 0 4px ${color}88)">
         <path d="M12 2L8 10H4L6 12H8L7 17L5 18V20L12 18L19 20V18L17 17L16 12H18L20 10H16L12 2Z" fill="${color}" opacity="${sel ? 1 : 0.9}"/>
       </svg>`;
+}
+
+// Shortest-path heading interpolation (handles 359→1 wrap)
+function lerpHdg(a: number, b: number, t: number): number {
+  let diff = ((b - a + 540) % 360) - 180;
+  return (a + diff * t + 360) % 360;
+}
+
+// Smooth ease-in-out
+function easeInOut(t: number): number {
+  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
 function greatCircleArc(from: [number, number], to: [number, number], steps = 64): [number, number][] {
@@ -46,15 +71,16 @@ function greatCircleArc(from: [number, number], to: [number, number], steps = 64
   });
 }
 
-export default function LiveMapInner({ flights, selected, onSelect }: Props) {
+export default function LiveMapInner({ flights, selected, onSelect, pollIntervalMs = 10000 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<Map<string, { marker: maplibregl.Marker; el: HTMLElement }>>(new Map());
+  const markersRef = useRef<Map<string, MarkerState>>(new Map());
   const mapReadyRef = useRef(false);
-  // Stable ref so click handlers never have stale closure over `selected`
+  const rafRef = useRef<number | null>(null);
   const selectedRef = useRef<LiveFlight | null>(selected);
   useEffect(() => { selectedRef.current = selected; }, [selected]);
 
+  // ─── Map init ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -81,6 +107,7 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
     mapRef.current = map;
 
     return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
       map.remove();
       mapRef.current = null;
       markersRef.current.clear();
@@ -88,63 +115,99 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
     };
   }, []);
 
+  // ─── RAF interpolation loop ─────────────────────────────────────────────────
+  useEffect(() => {
+    function tick() {
+      const now = performance.now();
+      markersRef.current.forEach((state) => {
+        const elapsed = now - state.interpStart;
+        const t = easeInOut(Math.min(1, elapsed / pollIntervalMs));
+
+        const lng = state.fromLng + (state.toLng - state.fromLng) * t;
+        const lat = state.fromLat + (state.toLat - state.fromLat) * t;
+        const hdg = lerpHdg(state.fromHdg, state.toHdg, t);
+
+        state.marker.setLngLat([lng, lat]);
+
+        const isSelected = selectedRef.current?.id === state.marker.getElement().dataset.flightId;
+        state.el.innerHTML = buildSvg(hdg, state.el.dataset.category ?? '', isSelected);
+      });
+
+      rafRef.current = requestAnimationFrame(tick);
+    }
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [pollIntervalMs]);
+
+  // ─── Update marker targets when new flight data arrives ────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // If map isn't loaded yet, wait for it then re-run
-    if (!map.isStyleLoaded()) {
-      map.once('load', () => {
-        // Re-trigger by forcing a re-render isn't ideal — just add markers directly
-        addMarkers(map);
-      });
-      return;
-    }
-
-    addMarkers(map);
-
-    function addMarkers(m: maplibregl.Map) {
+    function applyFlights(m: maplibregl.Map) {
+      const now = performance.now();
       const currentIds = new Set(flights.map((f) => f.id));
 
       // Remove stale markers
-      markersRef.current.forEach((entry, id) => {
-        if (!currentIds.has(id)) { entry.marker.remove(); markersRef.current.delete(id); }
+      markersRef.current.forEach((state, id) => {
+        if (!currentIds.has(id)) { state.marker.remove(); markersRef.current.delete(id); }
       });
 
       flights.forEach((flight) => {
         if (!flight.current_lat || !flight.current_lon) return;
-        const lng = Number(flight.current_lon);
-        const lat = Number(flight.current_lat);
-        const hdg = flight.current_hdg ?? 0;
+        const toLng = Number(flight.current_lon);
+        const toLat = Number(flight.current_lat);
+        const toHdg = flight.current_hdg ?? 0;
         const isSelected = selected?.id === flight.id;
         const existing = markersRef.current.get(flight.id);
 
         if (existing) {
-          // Update position
-          existing.marker.setLngLat([lng, lat]);
-          // Update appearance IN-PLACE — never use replaceWith (breaks MapLibre's internal el ref)
-          existing.el.innerHTML = buildSvg(hdg, flight.hull.aircraft_category, isSelected);
+          // Snapshot current interpolated position as new "from"
+          const currentLngLat = existing.marker.getLngLat();
+          existing.fromLng = currentLngLat.lng;
+          existing.fromLat = currentLngLat.lat;
+          existing.fromHdg = lerpHdg(existing.fromHdg, existing.toHdg,
+            Math.min(1, (now - existing.interpStart) / pollIntervalMs));
+          existing.toLng = toLng;
+          existing.toLat = toLat;
+          existing.toHdg = toHdg;
+          existing.interpStart = now;
+          // Update size for selection state
           existing.el.style.width = isSelected ? '32px' : '24px';
           existing.el.style.height = isSelected ? '32px' : '24px';
         } else {
-          // Create new marker with stable click handler
+          // New marker — place immediately at target, no interpolation needed
           const el = document.createElement('div');
           el.style.cssText = `width:24px;height:24px;cursor:pointer;`;
-          el.innerHTML = buildSvg(hdg, flight.hull.aircraft_category, false);
+          el.dataset.flightId = flight.id;
+          el.dataset.category = flight.hull.aircraft_category;
+          el.innerHTML = buildSvg(toHdg, flight.hull.aircraft_category, false);
           el.addEventListener('click', (e) => {
             e.stopPropagation();
-            // Read current selection from the ref to avoid stale closure
             onSelect(selectedRef.current?.id === flight.id ? null : flight);
           });
           const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
-            .setLngLat([lng, lat])
+            .setLngLat([toLng, toLat])
             .addTo(m);
-          markersRef.current.set(flight.id, { marker, el });
+          markersRef.current.set(flight.id, {
+            marker, el,
+            fromLng: toLng, fromLat: toLat, fromHdg: toHdg,
+            toLng, toLat, toHdg,
+            interpStart: now,
+          });
         }
       });
-    } // end addMarkers
-  }, [flights, selected, onSelect]);
+    }
 
+    if (!map.isStyleLoaded()) {
+      map.once('load', () => applyFlights(map));
+    } else {
+      applyFlights(map);
+    }
+  }, [flights, selected, onSelect, pollIntervalMs]);
+
+  // ─── Route arc on selection ─────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReadyRef.current) return;
@@ -165,13 +228,11 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
 
   return (
     <>
-      {/* Map container — must have explicit width/height for MapLibre */}
       <div
         ref={containerRef}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }}
       />
 
-      {/* Detail card */}
       {selected && (
         <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(0,102,255,0.3)', borderRadius: 16, padding: 16, minWidth: 260 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -201,17 +262,6 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
                 ))}
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {flights.length === 0 && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <div style={{ background: 'rgba(10,10,10,0.85)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: '32px 40px', textAlign: 'center' }}>
-            <p style={{ fontSize: 32, margin: '0 0 12px' }}>🌍</p>
-            <p style={{ color: '#fff', fontWeight: 700, margin: '0 0 4px' }}>No Active Flights</p>
-            <p style={{ color: '#6B7280', fontSize: 13, margin: 0 }}>The skies are quiet. Start a flight to appear on the map.</p>
           </div>
         </div>
       )}
