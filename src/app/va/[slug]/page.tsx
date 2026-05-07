@@ -48,7 +48,7 @@ interface Route {
 }
 
 async function fetchVaData(slug: string) {
-  const res = await fetch(`${API_URL}/va-site/${slug}/public-data`, { next: { revalidate: 300 } });
+  const res = await fetch(`${API_URL}/va-site/${slug}/public-data`, { cache: 'no-store' });
   if (!res.ok) return { stats: null, pilots: [], routes: [] };
   const data = await res.json();
   return {
@@ -68,7 +68,7 @@ export default async function VaWebsitePage({ params }: { params: Promise<{ slug
   if (!airlineName) notFound();
 
   // Fetch full airline info + public data
-  const airlineRes = await fetch(`${API_URL}/va-site/${slug}`, { next: { revalidate: 300 } });
+  const airlineRes = await fetch(`${API_URL}/va-site/${slug}`, { cache: 'no-store' });
   if (!airlineRes.ok) notFound();
   const airline: AirlinePublic = await airlineRes.json();
 

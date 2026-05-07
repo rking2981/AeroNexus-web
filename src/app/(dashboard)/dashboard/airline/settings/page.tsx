@@ -514,18 +514,23 @@ export default function AirlineSettingsPage() {
     } catch { /* ignore */ } finally { setGeneralSaving(false); }
   }
 
+  const [brandingError, setBrandingError] = useState('');
+
   async function saveBranding() {
-    setBrandingSaving(true);
+    setBrandingSaving(true); setBrandingError('');
     try {
       await api.patch('/airline/branding', {
-        ...(branding.logo_url && { logo_url: branding.logo_url }),
-        ...(isEnterprise && branding.primary_color && { primary_color: branding.primary_color }),
-        ...(isEnterprise && branding.secondary_color && { secondary_color: branding.secondary_color }),
-        ...(isEnterprise && branding.banner_url && { banner_url: branding.banner_url }),
+        logo_url: branding.logo_url || undefined,
+        primary_color: branding.primary_color || undefined,
+        secondary_color: branding.secondary_color || undefined,
+        banner_url: branding.banner_url || undefined,
       });
       setBrandingSaved(true);
       setTimeout(() => setBrandingSaved(false), 3000);
-    } catch { /* ignore */ } finally { setBrandingSaving(false); }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setBrandingError(msg ?? 'Failed to save branding');
+    } finally { setBrandingSaving(false); }
   }
 
   async function saveSlug() {
@@ -738,6 +743,7 @@ export default function AirlineSettingsPage() {
               Save Branding
             </Button>
             {brandingSaved && <p className="text-green-400 text-sm">✓ Saved</p>}
+            {brandingError && <p className="text-red-400 text-sm">{brandingError}</p>}
           </div>
 
           {/* Website slug */}
