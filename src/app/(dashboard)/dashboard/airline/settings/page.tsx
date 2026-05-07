@@ -8,6 +8,116 @@ import { Button } from '@/components/ui/button';
 import { CURRENCIES } from '@/lib/currencies';
 import { cn } from '@/lib/utils';
 
+// ─── Subscription Tab ────────────────────────────────────────────────────────
+
+const TIER_FEATURES: Record<string, string[]> = {
+  STARTUP: [
+    'Up to 5 pilots', 'Up to 10 aircraft', 'Basic analytics',
+    'Custom logo', 'Contract board access',
+  ],
+  ENTERPRISE: [
+    'Unlimited pilots & aircraft', 'Advanced analytics',
+    'Custom branding & colors', 'Public API access',
+    'VA Website product', 'Priority support',
+  ],
+  FOUNDERS: [
+    'Everything in Enterprise', 'Founders badge & lifetime access',
+    'Locked-in founding price', 'Early access to new features',
+  ],
+};
+
+function SubscriptionTab({ tier, status }: { tier: string; status: string }) {
+  const [portalLoading, setPortalLoading] = useState(false);
+  const isFounder = tier === 'FOUNDERS';
+  const isCanceled = status === 'CANCELED';
+
+  async function openPortal() {
+    setPortalLoading(true);
+    try {
+      const { data } = await api.post('/v1/payments/portal', {
+        return_url: window.location.href,
+      });
+      window.location.href = data.url;
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      alert(msg ?? 'Could not open billing portal');
+    } finally { setPortalLoading(false); }
+  }
+
+  return (
+    <div className="flex flex-col gap-6 max-w-lg">
+      {/* Current plan */}
+      <div className="glass-card rounded-2xl p-6">
+        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Current Plan</h2>
+        <div className="flex items-center gap-3 mb-4">
+          <span className={cn('text-sm font-bold px-3 py-1.5 rounded-full border',
+            tier === 'FOUNDERS'   ? 'text-purple-400 border-purple-500/20 bg-purple-500/10' :
+            tier === 'ENTERPRISE' ? 'text-aero border-aero/20 bg-aero/10' :
+                                    'text-gray-400 border-white/10 bg-white/5')}>
+            {tier}
+          </span>
+          <span className={cn('text-xs px-2.5 py-1 rounded-full border',
+            status === 'ACTIVE'   ? 'text-green-400 border-green-500/20 bg-green-500/10' :
+            status === 'TRIALING' ? 'text-amber-400 border-amber-500/20 bg-amber-500/10' :
+            status === 'PAST_DUE' ? 'text-red-400 border-red-500/20 bg-red-500/10' :
+                                    'text-gray-500 border-white/10 bg-white/5')}>
+            {status}
+          </span>
+        </div>
+
+        {/* Features */}
+        <ul className="flex flex-col gap-1.5 mb-5">
+          {(TIER_FEATURES[tier] ?? []).map(f => (
+            <li key={f} className="flex items-center gap-2 text-sm text-gray-300">
+              <span className="text-green-400 text-xs">✓</span> {f}
+            </li>
+          ))}
+        </ul>
+
+        {isFounder ? (
+          <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 px-4 py-3 text-sm text-purple-300">
+            Your Founders Pass is a lifetime subscription and cannot be cancelled.
+          </div>
+        ) : isCanceled ? (
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-300">
+            Your subscription has been cancelled. Access will remain until the end of the billing period.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={openPortal}
+              disabled={portalLoading}
+              className="w-full bg-aero text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50"
+            >
+              {portalLoading ? 'Opening…' : 'Manage Subscription'}
+            </button>
+            <p className="text-xs text-gray-500 text-center">
+              Opens Stripe&apos;s secure billing portal — update payment method, view invoices, or cancel.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Cancel warning */}
+      {!isFounder && !isCanceled && (
+        <div className="glass-card rounded-2xl p-5 border border-red-500/10">
+          <h3 className="font-bold text-sm text-red-400 mb-1">Cancel Subscription</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            Cancelling will downgrade your airline at the end of the current billing period. Pilots and aircraft over the Startup limit will be locked until the roster is reduced.
+          </p>
+          <button
+            onClick={openPortal}
+            disabled={portalLoading}
+            className="border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold px-4 py-2 rounded-xl text-sm transition disabled:opacity-50"
+          >
+            {portalLoading ? 'Opening…' : 'Cancel Subscription'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Webhooks Panel ──────────────────────────────────────────────────────────
 
 const VALID_EVENTS = [
@@ -317,7 +427,7 @@ export default function AirlineSettingsPage() {
   const { user } = useAuthStore();
   const [airline, setAirline] = useState<Airline | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'general' | 'branding' | 'expenses' | 'transfer' | 'webhooks'>('general');
+  const [tab, setTab] = useState<'general' | 'branding' | 'expenses' | 'webhooks' | 'subscription' | 'transfer'>('general');
 
   // Transfer ownership state
   const [transferEmail, setTransferEmail] = useState('');
@@ -484,6 +594,7 @@ export default function AirlineSettingsPage() {
           { key: 'branding', label: 'Branding' },
           { key: 'expenses', label: 'Expenses' },
           { key: 'webhooks', label: 'Webhooks' },
+          { key: 'subscription', label: 'Subscription' },
           { key: 'transfer', label: 'Transfer Ownership' },
         ] as const).map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -673,6 +784,14 @@ export default function AirlineSettingsPage() {
 
       {/* Webhooks tab */}
       {tab === 'webhooks' && <WebhooksPanel />}
+
+      {/* Subscription tab */}
+      {tab === 'subscription' && (
+        <SubscriptionTab
+          tier={airline.subscription_tier}
+          status={airline.subscription_status}
+        />
+      )}
 
       {/* Transfer Ownership tab */}
       {tab === 'transfer' && (
