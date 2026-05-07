@@ -305,6 +305,18 @@ export default function CrewPage() {
                     <p className="text-xs text-gray-500">{app.pilot.email} · {app.pilot.auto_rank} · Rep {Number(app.pilot.reputation).toFixed(1)}</p>
                     <p className="text-xs text-gray-600 mt-0.5">Applied {new Date(app.created_at).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                   </div>
+                  {app.status === 'DECLINED' && isManager && (
+                    <button onClick={async () => {
+                      setAppActionLoading(app.id);
+                      try {
+                        await api.delete(`/applications/${app.id}`);
+                        setIncomingApps(incomingApps.filter(a => a.id !== app.id));
+                      } catch { /* ignore */ } finally { setAppActionLoading(null); }
+                    }} disabled={appActionLoading === app.id}
+                      className="text-xs font-bold px-3 py-1.5 rounded-xl border border-white/10 text-gray-500 hover:text-red-400 hover:border-red-500/30 transition disabled:opacity-50 flex-shrink-0">
+                      {appActionLoading === app.id ? '…' : 'Delete'}
+                    </button>
+                  )}
                   {app.status === 'PENDING' && isManager && (
                     <div className="flex gap-2 flex-shrink-0">
                       <button onClick={async () => {
