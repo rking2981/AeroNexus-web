@@ -194,7 +194,7 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
   }, [selected]);
 
   return (
-    <div className="relative w-full h-full">
+    <div className="absolute inset-0">
       <div ref={containerRef} className="absolute inset-0" />
 
       {/* Detail card — top left when flight selected */}

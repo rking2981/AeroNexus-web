@@ -144,8 +144,8 @@ export default function MapPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Map — takes ~60% of height */}
-      <div className="flex-1 min-h-0 relative">
+      {/* Map — always visible, takes remaining height */}
+      <div style={{ flex: '1 1 0', minHeight: '300px', position: 'relative' }}>
         <LiveMapInner
           flights={positioned}
           selected={selected}
@@ -153,8 +153,8 @@ export default function MapPage() {
         />
       </div>
 
-      {/* Flight board — bottom panel */}
-      <div className="flex-shrink-0 border-t border-white/10 bg-[#050508]" style={{ maxHeight: '40vh' }}>
+      {/* Flight board — bottom panel, fixed height */}
+      <div className="flex-shrink-0 border-t border-white/10 bg-[#050508]" style={{ height: '220px' }}>
 
         {/* Board header */}
         <div
@@ -177,7 +177,7 @@ export default function MapPage() {
         </div>
 
         {/* Rows */}
-        <div className="overflow-y-auto" style={{ maxHeight: 'calc(40vh - 36px)' }}>
+        <div className="overflow-y-auto" style={{ height: 'calc(220px - 36px)' }}>
           {positioned.length === 0 ? (
             <div className="py-10 text-center">
               <p className="text-gray-600 font-mono text-sm tracking-widest">NO ACTIVE FLIGHTS</p>
