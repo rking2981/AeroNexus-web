@@ -54,62 +54,116 @@ const LiveMapInner = dynamic(() => import('@/components/LiveMapInner'), {
   ),
 });
 
+// ─── Flip tile — single character cell ───────────────────────────────────────
+
+function FlipTile({ char, dim = false }: { char: string; dim?: boolean }) {
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: 22,
+      height: 30,
+      background: dim ? '#1a1a1a' : '#111',
+      color: dim ? '#444' : '#fff',
+      fontFamily: "'Oswald', 'Arial Black', Impact, sans-serif",
+      fontWeight: 700,
+      fontSize: 17,
+      letterSpacing: 0,
+      borderRadius: 3,
+      margin: '0 1px',
+      position: 'relative',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.8)',
+      flexShrink: 0,
+      userSelect: 'none',
+    }}>
+      {/* Crease line — the classic Solari split */}
+      <span style={{
+        position: 'absolute',
+        left: 0, right: 0,
+        top: '50%',
+        height: 1,
+        background: 'rgba(0,0,0,0.6)',
+        pointerEvents: 'none',
+      }} />
+      {char}
+    </span>
+  );
+}
+
+function FlipWord({ value, width, color }: { value: string; width: number; color?: string }) {
+  const chars = value.toUpperCase().padEnd(width).slice(0, width).split('');
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      {chars.map((c, i) => (
+        <FlipTile key={i} char={c === ' ' ? ' ' : c} dim={c === ' '} />
+      ))}
+    </div>
+  );
+}
+
 // ─── Flip board row ───────────────────────────────────────────────────────────
+
+const COLS = [
+  { key: 'flight',  label: 'FLIGHT',  width: 7  },
+  { key: 'origin',  label: 'ORIGIN',  width: 4  },
+  { key: 'dest',    label: 'DEST',    width: 4  },
+  { key: 'airline', label: 'AIRLINE', width: 6  },
+  { key: 'alt',     label: 'ALT',     width: 5  },
+  { key: 'spd',     label: 'SPD',     width: 5  },
+  { key: 'status',  label: 'STATUS',  width: 8  },
+];
 
 function FlipRow({ flight, selected, onClick }: {
   flight: LiveFlight;
   selected: boolean;
   onClick: () => void;
 }) {
+  const statusLabel = (STATUS_LABEL[flight.status] ?? flight.status).toUpperCase();
   const statusColor = STATUS_COLOR[flight.status] ?? '#6B7280';
-  const statusLabel = STATUS_LABEL[flight.status] ?? flight.status;
+
+  const alt = flight.current_alt_ft != null
+    ? `FL${Math.round(flight.current_alt_ft / 100).toString().padStart(3, '0')}`
+    : '-----';
+  const spd = flight.current_spd_kts != null
+    ? `${flight.current_spd_kts}KT`
+    : '-----';
+
+  const values: Record<string, string> = {
+    flight:  flight.hull.registration,
+    origin:  flight.route?.origin.icao ?? '----',
+    dest:    flight.route?.destination.icao ?? '----',
+    airline: flight.airline?.icao_code ?? '------',
+    alt,
+    spd,
+    status:  statusLabel,
+  };
 
   return (
     <button
       onClick={onClick}
-      className={cn(
-        'w-full text-left grid items-center gap-2 px-4 py-3 border-b border-white/5 transition-all duration-150 font-mono',
-        'hover:bg-white/5',
-        selected && 'bg-aero/5 border-l-2 border-l-aero',
-      )}
-      style={{ gridTemplateColumns: '90px 1fr 1fr 120px 80px 90px 90px' }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '6px 16px',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        background: selected ? 'rgba(0,209,255,0.06)' : 'transparent',
+        borderLeft: selected ? '2px solid #00D1FF' : '2px solid transparent',
+        cursor: 'pointer',
+        width: '100%',
+        transition: 'background 0.1s',
+      }}
     >
-      {/* Flight / registration */}
-      <span className="text-white font-bold text-sm tracking-wider truncate">
-        {flight.hull.registration}
-      </span>
-
-      {/* Origin */}
-      <span className="text-aero font-bold text-sm tracking-widest truncate">
-        {flight.route?.origin.icao ?? '—'}
-      </span>
-
-      {/* Destination */}
-      <span className="text-white text-sm tracking-widest truncate">
-        {flight.route?.destination.icao ?? '—'}
-      </span>
-
-      {/* Aircraft */}
-      <span className="text-gray-400 text-xs truncate">
-        {flight.hull.aircraft_type}
-      </span>
-
-      {/* Altitude */}
-      <span className="text-gray-400 text-xs text-right">
-        {flight.current_alt_ft != null
-          ? `FL${Math.round(flight.current_alt_ft / 100).toString().padStart(3, '0')}`
-          : '—'}
-      </span>
-
-      {/* Speed */}
-      <span className="text-gray-400 text-xs text-right">
-        {flight.current_spd_kts != null ? `${flight.current_spd_kts}kt` : '—'}
-      </span>
-
-      {/* Status */}
-      <span className="text-xs font-bold tracking-wider text-right" style={{ color: statusColor }}>
-        {statusLabel}
-      </span>
+      {COLS.map((col) => (
+        <div key={col.key} style={{ flexShrink: 0 }}>
+          <FlipWord
+            value={values[col.key]}
+            width={col.width}
+            color={col.key === 'status' ? statusColor : undefined}
+          />
+        </div>
+      ))}
     </button>
   );
 }
@@ -153,22 +207,33 @@ export default function MapPage() {
         />
       </div>
 
-      {/* Flight board — fixed 220px */}
-      <div className="flex-shrink-0 border-t border-white/10 bg-[#050508]" style={{ height: '220px' }}>
+      {/* Solari flip board — fixed 220px */}
+      <div style={{ height: '220px', flexShrink: 0, background: '#0a0a0a', borderTop: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
         {/* Board header */}
-        <div
-          className="grid items-center gap-2 px-4 py-2 border-b border-white/10 bg-black/60 font-mono"
-          style={{ gridTemplateColumns: '90px 1fr 1fr 120px 80px 90px 90px' }}
-        >
-          <span className="text-[10px] text-gray-600 uppercase tracking-widest">Flight</span>
-          <span className="text-[10px] text-gray-600 uppercase tracking-widest">Origin</span>
-          <span className="text-[10px] text-gray-600 uppercase tracking-widest">Destination</span>
-          <span className="text-[10px] text-gray-600 uppercase tracking-widest">Aircraft</span>
-          <span className="text-[10px] text-gray-600 uppercase tracking-widest text-right">Alt</span>
-          <span className="text-[10px] text-gray-600 uppercase tracking-widest text-right">Speed</span>
-          <div className="flex items-center justify-end gap-2">
-            <span className="text-[10px] text-gray-600 uppercase tracking-widest">Status</span>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '6px 16px',
+          background: '#050505',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          flexShrink: 0,
+        }}>
+          {COLS.map((col) => (
+            <div key={col.key} style={{ flexShrink: 0, width: col.width * 24 }}>
+              <span style={{
+                fontFamily: 'monospace',
+                fontSize: 9,
+                color: '#444',
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+              }}>{col.label}</span>
+            </div>
+          ))}
+          {/* Live indicator */}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#333', letterSpacing: 2 }}>LIVE</span>
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-aero opacity-75" />
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-aero" />
@@ -177,13 +242,15 @@ export default function MapPage() {
         </div>
 
         {/* Rows */}
-        <div className="overflow-y-auto" style={{ height: 'calc(220px - 36px)' }}>
+        <div style={{ overflowY: 'auto', flex: 1 }}>
           {positioned.length === 0 ? (
-            <div className="py-10 text-center">
-              <p className="text-gray-600 font-mono text-sm tracking-widest">NO ACTIVE FLIGHTS</p>
+            <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginBottom: 8 }}>
+                {'NO ACTIVE FLIGHTS'.split('').map((c, i) => <FlipTile key={i} char={c === ' ' ? ' ' : c} dim={c === ' '} />)}
+              </div>
               {lastUpdate && (
-                <p className="text-gray-700 text-xs mt-2 font-mono">
-                  LAST CHECKED {lastUpdate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                <p style={{ fontFamily: 'monospace', fontSize: 9, color: '#333', letterSpacing: 2, marginTop: 8 }}>
+                  UPDATED {lastUpdate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </p>
               )}
             </div>

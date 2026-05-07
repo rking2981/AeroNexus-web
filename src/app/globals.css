@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "maplibre-gl/dist/maplibre-gl.css";
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&display=swap');
 
 :root {
   --aero-cyan: #00D1FF;
