@@ -66,7 +66,7 @@ function FlipTile({ char, dim = false }: { char: string; dim?: boolean }) {
       height: 30,
       background: dim ? '#1a1a1a' : '#111',
       color: dim ? '#444' : '#fff',
-      fontFamily: "'Oswald', 'Arial Black', Impact, sans-serif",
+      fontFamily: "Impact, 'Arial Narrow', 'Arial Black', sans-serif",
       fontWeight: 700,
       fontSize: 17,
       letterSpacing: 0,
