@@ -361,6 +361,7 @@ interface Airline {
   currency_symbol: string;
   subscription_tier: string;
   subscription_status: string;
+  website_slug: string | null;
   branding: {
     primary_color?: string;
     secondary_color?: string;
@@ -468,6 +469,12 @@ export default function AirlineSettingsPage() {
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [brandingSaved, setBrandingSaved] = useState(false);
 
+  // Website slug
+  const [slug, setSlug] = useState('');
+  const [slugSaving, setSlugSaving] = useState(false);
+  const [slugSaved, setSlugSaved] = useState(false);
+  const [slugError, setSlugError] = useState('');
+
   const isEnterprise = airline?.subscription_tier === 'ENTERPRISE' || airline?.subscription_tier === 'FOUNDERS';
 
   useEffect(() => {
@@ -488,6 +495,7 @@ export default function AirlineSettingsPage() {
         secondary_color: a.branding?.secondary_color ?? '',
         banner_url: a.branding?.banner_url ?? '',
       });
+      setSlug(a.website_slug ?? '');
     }).finally(() => setLoading(false));
   }, []);
 
@@ -518,6 +526,20 @@ export default function AirlineSettingsPage() {
       setBrandingSaved(true);
       setTimeout(() => setBrandingSaved(false), 3000);
     } catch { /* ignore */ } finally { setBrandingSaving(false); }
+  }
+
+  async function saveSlug() {
+    setSlugSaving(true); setSlugError(''); setSlugSaved(false);
+    try {
+      const { data } = await api.patch('/airline/website-slug', { slug });
+      setSlug(data.website_slug);
+      setAirline(a => a ? { ...a, website_slug: data.website_slug } : a);
+      setSlugSaved(true);
+      setTimeout(() => setSlugSaved(false), 3000);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setSlugError(msg ?? 'Failed to save slug');
+    } finally { setSlugSaving(false); }
   }
 
   async function toggleExpense(config: ExpenseConfig) {
@@ -716,6 +738,32 @@ export default function AirlineSettingsPage() {
               Save Branding
             </Button>
             {brandingSaved && <p className="text-green-400 text-sm">✓ Saved</p>}
+          </div>
+
+          {/* Website slug */}
+          <div className="border-t border-white/5 pt-5 mt-1">
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">VA Website URL</h3>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-sm text-gray-500 flex-shrink-0">aeronexus.app/</span>
+              <input
+                value={slug}
+                onChange={e => { setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')); setSlugError(''); }}
+                placeholder="your-airline"
+                maxLength={32}
+                className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white font-mono focus:border-aero focus:outline-none transition"
+              />
+              <Button onClick={saveSlug} loading={slugSaving} className="w-auto px-6 flex-shrink-0">
+                Save
+              </Button>
+            </div>
+            {slug && !slugError && (
+              <p className="text-xs text-aero font-mono mt-1">
+                🌐 Your VA website: <span className="font-bold">https://{slug}.aeronexus.app</span>
+              </p>
+            )}
+            {slugError && <p className="text-xs text-red-400 mt-1">{slugError}</p>}
+            {slugSaved && <p className="text-xs text-green-400 mt-1">✓ URL saved</p>}
+            <p className="text-xs text-gray-600 mt-2">Lowercase letters, numbers, and hyphens only. 2–32 characters.</p>
           </div>
         </div>
       )}
