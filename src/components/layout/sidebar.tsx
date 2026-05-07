@@ -114,7 +114,7 @@ export function Sidebar() {
       <div className="px-4 py-4 border-t border-white/5">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-8 h-8 rounded-full bg-aero/20 flex items-center justify-center text-aero text-sm font-bold flex-shrink-0">
-            {user?.display_name?.[0]?.toUpperCase() ?? '?'}
+            {user?.display_name?.[0]?.toUpperCase() ?? ''}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium truncate flex items-center gap-1">
@@ -126,9 +126,14 @@ export function Sidebar() {
         </div>
         <button
           onClick={handleLogout}
-          className="w-full text-left text-xs text-gray-500 hover:text-white transition px-1 py-1"
+          className="w-full flex items-center justify-center gap-2 text-sm font-medium text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl px-4 py-2.5 transition"
         >
-          Sign out →
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          Sign Out
         </button>
       </div>
     </aside>
