@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://aeronexus-api-production.up.railway.app';
 
@@ -45,6 +46,34 @@ interface Route {
   base_ticket_price: number;
   origin: { icao: string; name: string; city: string | null };
   destination: { icao: string; name: string; city: string | null };
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const res = await fetch(`${API_URL}/va-site/${slug}`, { cache: 'no-store' });
+  if (!res.ok) return {};
+
+  const airline: AirlinePublic = await res.json();
+  const branding = airline.branding ?? {};
+  const description = `${airline.name} — Virtual Airline${airline.hub_country ? ` based in ${airline.hub_country}` : ''}. Powered by AeroNexus.`;
+  const image = branding.banner_url ?? branding.logo_url ?? null;
+
+  return {
+    title: airline.name,
+    description,
+    openGraph: {
+      title: airline.name,
+      description,
+      type: 'website',
+      ...(image && { images: [{ url: image, width: 1200, height: 630, alt: airline.name }] }),
+    },
+    twitter: {
+      card: image ? 'summary_large_image' : 'summary',
+      title: airline.name,
+      description,
+      ...(image && { images: [image] }),
+    },
+  };
 }
 
 async function fetchVaData(slug: string) {
