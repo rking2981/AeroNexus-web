@@ -83,7 +83,7 @@ export default function CrewPage() {
   const { user } = useAuthStore();
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
-  const [activeTab, setActiveTab] = useState<'roster' | 'banned' | 'ranks'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'banned' | 'ranks' | 'applications' | 'form'>('roster');
   const [airlineBans, setAirlineBans] = useState<AirlineBan[]>([]);
   const [banReason, setBanReason] = useState('');
   const [showBanReason, setShowBanReason] = useState<string | null>(null);
@@ -116,10 +116,40 @@ export default function CrewPage() {
   const [ranksError, setRanksError] = useState('');
   const [ranksSaved, setRanksSaved] = useState(false);
 
+  // Applications state
+  interface AppQuestion { id?: string; question: string; required: boolean; sort_order: number }
+  interface IncomingApp {
+    id: string; status: string; created_at: string;
+    pilot: { id: string; display_name: string; email: string; reputation: number; auto_rank: string };
+    answers: { question: { question: string }; answer: string }[];
+  }
+  const [incomingApps, setIncomingApps] = useState<IncomingApp[]>([]);
+  const [formTitle, setFormTitle] = useState('Join Our Airline');
+  const [formOpen, setFormOpen] = useState(true);
+  const [formQuestions, setFormQuestions] = useState<AppQuestion[]>([]);
+  const [formSaving, setFormSaving] = useState(false);
+  const [formSaved, setFormSaved] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [hasForm, setHasForm] = useState(false);
+  const [appActionLoading, setAppActionLoading] = useState<string | null>(null);
+  const [declineNote, setDeclineNote] = useState('');
+  const [decliningId, setDecliningId] = useState<string | null>(null);
+
   useEffect(() => {
     api.get('/pilots').then((r) => setPilots(r.data)).finally(() => setLoading(false));
     api.get('/pilots/ranks').then((r) => { setRankTiers(r.data.tiers); setIsCustomRanks(r.data.custom); });
-    if (isManager) api.get('/pilots/bans').then((r) => setAirlineBans(r.data)).catch(() => {});
+    if (isManager) {
+      api.get('/pilots/bans').then((r) => setAirlineBans(r.data)).catch(() => {});
+      api.get('/applications/form').then((r) => {
+        if (r.data) {
+          setHasForm(true);
+          setFormTitle(r.data.title);
+          setFormOpen(r.data.is_open);
+          setFormQuestions(r.data.questions);
+        }
+      }).catch(() => {});
+      api.get('/applications/incoming').then((r) => setIncomingApps(r.data)).catch(() => {});
+    }
   }, [isManager]);
 
   async function handleInvite(e: React.FormEvent) {
@@ -228,9 +258,11 @@ export default function CrewPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit flex-wrap">
         {[
           { key: 'roster', label: '👥 Roster' },
+          { key: 'applications', label: `📋 Applications${incomingApps.filter(a => a.status === 'PENDING').length > 0 ? ` (${incomingApps.filter(a => a.status === 'PENDING').length})` : ''}` },
+          { key: 'form', label: '📝 Application Form' },
           { key: 'banned', label: `🚫 Airline Bans${airlineBans.length > 0 ? ` (${airlineBans.length})` : ''}` },
           { key: 'ranks', label: '🏅 Rank Structure' },
         ].map((t) => (
@@ -241,6 +273,196 @@ export default function CrewPage() {
           </button>
         ))}
       </div>
+
+      {/* ── Applications tab ── */}
+      {activeTab === 'applications' && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-lg">Incoming Applications</h2>
+            <span className="text-xs text-gray-500">{incomingApps.length} total · {incomingApps.filter(a => a.status === 'PENDING').length} pending</span>
+          </div>
+
+          {incomingApps.length === 0 ? (
+            <div className="glass-card rounded-2xl p-12 text-center">
+              <p className="text-4xl mb-3">📋</p>
+              <p className="text-gray-400 text-sm">No applications yet. Make sure your application form is open.</p>
+            </div>
+          ) : (
+            incomingApps.map(app => (
+              <div key={app.id} className="glass-card rounded-2xl p-5 flex flex-col gap-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="font-medium text-white">{app.pilot.display_name}</span>
+                      <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border',
+                        app.status === 'PENDING' ? 'text-amber-400 border-amber-500/20 bg-amber-500/10' :
+                        app.status === 'ACCEPTED' ? 'text-green-400 border-green-500/20 bg-green-500/10' :
+                        'text-red-400 border-red-500/20 bg-red-500/10')}>
+                        {app.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">{app.pilot.email} · {app.pilot.auto_rank} · Rep {Number(app.pilot.reputation).toFixed(1)}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">Applied {new Date(app.created_at).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                  </div>
+                  {app.status === 'PENDING' && isManager && (
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button onClick={async () => {
+                        setAppActionLoading(app.id);
+                        try {
+                          await api.post(`/applications/${app.id}/accept`);
+                          setIncomingApps(incomingApps.map(a => a.id === app.id ? { ...a, status: 'ACCEPTED' } : a));
+                          // Refresh roster
+                          api.get('/pilots').then(r => setPilots(r.data));
+                        } catch { /* ignore */ } finally { setAppActionLoading(null); }
+                      }} disabled={appActionLoading === app.id}
+                        className="text-xs font-bold px-3 py-1.5 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition disabled:opacity-50">
+                        {appActionLoading === app.id ? '…' : 'Accept'}
+                      </button>
+                      {decliningId === app.id ? (
+                        <div className="flex gap-2 items-center">
+                          <input value={declineNote} onChange={e => setDeclineNote(e.target.value)}
+                            placeholder="Reason (optional)"
+                            className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white focus:border-red-400 focus:outline-none w-32" />
+                          <button onClick={async () => {
+                            setAppActionLoading(app.id);
+                            try {
+                              await api.post(`/applications/${app.id}/decline`, { note: declineNote || undefined });
+                              setIncomingApps(incomingApps.map(a => a.id === app.id ? { ...a, status: 'DECLINED' } : a));
+                              setDecliningId(null); setDeclineNote('');
+                            } catch { /* ignore */ } finally { setAppActionLoading(null); }
+                          }} disabled={appActionLoading === app.id}
+                            className="text-xs font-bold px-2 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition disabled:opacity-50">
+                            Confirm
+                          </button>
+                          <button onClick={() => { setDecliningId(null); setDeclineNote(''); }} className="text-xs text-gray-500 hover:text-white transition">✕</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setDecliningId(app.id)}
+                          className="text-xs font-bold px-3 py-1.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition">
+                          Decline
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Answers */}
+                {app.answers.length > 0 && (
+                  <div className="border-t border-white/5 pt-3 flex flex-col gap-2">
+                    {app.answers.map((ans, i) => (
+                      <div key={i}>
+                        <p className="text-xs text-gray-500 mb-0.5">{ans.question.question}</p>
+                        <p className="text-sm text-gray-200">{ans.answer}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ── Application Form builder tab ── */}
+      {activeTab === 'form' && (
+        <div className="max-w-2xl flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-bold text-lg">Application Form</h2>
+              <p className="text-sm text-gray-400 mt-0.5">Pilots browsing the airline directory will see this form when they apply.</p>
+            </div>
+            {hasForm && (
+              <button onClick={async () => {
+                if (!confirm('Delete this application form? All pending applications will remain.')) return;
+                await api.delete('/applications/form');
+                setHasForm(false); setFormTitle('Join Our Airline'); setFormOpen(true); setFormQuestions([]);
+              }} className="text-xs text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/5 transition">
+                Delete Form
+              </button>
+            )}
+          </div>
+
+          <div className="glass-card rounded-2xl p-5 flex flex-col gap-4">
+            <div>
+              <label className="text-xs text-gray-400 block mb-1.5">Form Title</label>
+              <input value={formTitle} onChange={e => setFormTitle(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-aero focus:outline-none transition" />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button onClick={() => setFormOpen(!formOpen)}
+                className={cn('w-10 h-6 rounded-full transition flex-shrink-0 relative', formOpen ? 'bg-aero' : 'bg-white/10')}>
+                <span className={cn('absolute top-1 w-4 h-4 rounded-full bg-white transition-all', formOpen ? 'left-5' : 'left-1')} />
+              </button>
+              <div>
+                <p className="text-sm font-medium">{formOpen ? 'Accepting Applications' : 'Applications Closed'}</p>
+                <p className="text-xs text-gray-500">Toggle to open or close your airline to new applicants</p>
+              </div>
+            </div>
+
+            {/* Questions */}
+            <div className="border-t border-white/5 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-bold">Questions</p>
+                <button onClick={() => setFormQuestions([...formQuestions, { question: '', required: true, sort_order: formQuestions.length }])}
+                  disabled={formQuestions.length >= 10}
+                  className="text-xs text-aero border border-aero/30 px-3 py-1.5 rounded-lg hover:bg-aero/10 transition disabled:opacity-40">
+                  + Add Question
+                </button>
+              </div>
+
+              {formQuestions.length === 0 && (
+                <p className="text-xs text-gray-600 text-center py-4">No questions yet — pilots will just submit their profile with no additional info.</p>
+              )}
+
+              <div className="flex flex-col gap-3">
+                {formQuestions.map((q, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <span className="text-xs text-gray-600 font-mono mt-3 w-5 flex-shrink-0">{i + 1}.</span>
+                    <div className="flex-1">
+                      <input value={q.question}
+                        onChange={e => setFormQuestions(formQuestions.map((fq, j) => j === i ? { ...fq, question: e.target.value } : fq))}
+                        placeholder="Enter your question..."
+                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-aero focus:outline-none transition mb-1" />
+                      <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+                        <input type="checkbox" checked={q.required}
+                          onChange={e => setFormQuestions(formQuestions.map((fq, j) => j === i ? { ...fq, required: e.target.checked } : fq))}
+                          className="accent-aero" />
+                        Required
+                      </label>
+                    </div>
+                    <button onClick={() => setFormQuestions(formQuestions.filter((_, j) => j !== i))}
+                      className="text-red-400 hover:text-red-300 mt-2.5 transition text-sm flex-shrink-0">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {formError && <p className="text-sm text-red-400">{formError}</p>}
+            {formSaved && <p className="text-sm text-green-400">✓ Form saved</p>}
+
+            <button onClick={async () => {
+              if (formQuestions.some(q => !q.question.trim())) { setFormError('All questions must have text.'); return; }
+              setFormSaving(true); setFormError(''); setFormSaved(false);
+              try {
+                await api.put('/applications/form', {
+                  title: formTitle,
+                  is_open: formOpen,
+                  questions: formQuestions.map((q, i) => ({ ...q, sort_order: i })),
+                });
+                setHasForm(true); setFormSaved(true);
+                setTimeout(() => setFormSaved(false), 3000);
+              } catch (err: unknown) {
+                const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                setFormError(msg ?? 'Failed to save form.');
+              } finally { setFormSaving(false); }
+            }} disabled={formSaving}
+              className="bg-aero text-black font-bold px-6 py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
+              {formSaving ? 'Saving...' : hasForm ? 'Update Form' : 'Create Form'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Airline Bans tab ── */}
       {activeTab === 'banned' && (

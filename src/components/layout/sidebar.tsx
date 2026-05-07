@@ -75,6 +75,18 @@ export function Sidebar() {
                 Virtual Airline
               </p>
               <Link
+                href="/dashboard/apply"
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition',
+                  pathname.startsWith('/dashboard/apply')
+                    ? 'bg-aero/10 text-aero font-medium'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5',
+                )}
+              >
+                <span className="text-base">✈️</span>
+                Join an Airline
+              </Link>
+              <Link
                 href="/dashboard/airline/create"
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition',
