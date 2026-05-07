@@ -338,6 +338,13 @@ export default function ProfilePage() {
                   className="text-xs text-red-400 hover:text-red-300 transition">Remove</button>
               </div>
             )}
+            <div className="mt-2 rounded-xl border border-white/5 bg-white/3 px-4 py-3 flex flex-col gap-1">
+              <p className="text-[11px] text-gray-500 font-medium mb-0.5">Where to get an image URL:</p>
+              <p className="text-[11px] text-gray-600">• <span className="text-gray-400">Gravatar</span> — gravatar.com · links to your email&apos;s avatar automatically</p>
+              <p className="text-[11px] text-gray-600">• <span className="text-gray-400">imgur</span> — imgur.com · free image hosting, right-click → copy image address</p>
+              <p className="text-[11px] text-gray-600">• <span className="text-gray-400">Discord</span> — right-click your avatar → Copy Image Address</p>
+              <p className="text-[11px] text-gray-600">• Any direct public image URL ending in .jpg, .png, or .webp</p>
+            </div>
           </div>
 
           <div className="mb-4">
