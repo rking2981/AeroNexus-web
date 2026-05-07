@@ -17,6 +17,7 @@ interface Hull {
   airframe_hours: number;
   engine_wear_percent: number;
   rotor_wear_percent: number;
+  aircraft_type_rel: { pax_capacity: number | null } | null;
   is_leased: boolean;
   value: number;
   cabin_configs: CabinConfig[];
@@ -274,19 +275,29 @@ function CabinEditor({ hull, onSaved }: { hull: Hull; onSaved: (configs: CabinCo
   }
 
   const totalSeats = rows.filter(r => r.enabled).reduce((s, r) => s + (r.seats || 0), 0);
+  const maxCapacity = hull.aircraft_type_rel?.pax_capacity ?? null;
+  const overCapacity = maxCapacity !== null && totalSeats > maxCapacity;
 
   return (
     <div className="mt-4 border-t border-white/5 pt-4">
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-bold">Cabin Configuration</h4>
-        <span className="text-xs text-gray-500">{totalSeats} total seats</span>
+        <div className="flex items-center gap-2">
+          <span className={cn('text-xs font-mono', overCapacity ? 'text-red-400 font-bold' : 'text-gray-500')}>
+            {totalSeats}{maxCapacity ? ` / ${maxCapacity}` : ''} seats
+          </span>
+          {overCapacity && <span className="text-[10px] text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded-full">Over max</span>}
+        </div>
       </div>
 
       {/* Live diagram */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1.5">
           <p className="text-xs text-gray-500">Cabin layout</p>
-          <p className="text-xs text-gray-600 font-mono">{getLayout(hull.aircraft_type, hull.aircraft_category).label} · {hull.aircraft_type}</p>
+          <p className="text-xs text-gray-600 font-mono">
+            {getLayout(hull.aircraft_type, hull.aircraft_category).label} · {hull.aircraft_type}
+            {maxCapacity ? ` · max ${maxCapacity} pax` : ''}
+          </p>
         </div>
         <CabinDiagram rows={rows} aircraftType={hull.aircraft_type} category={hull.aircraft_category} />
       </div>
@@ -315,11 +326,12 @@ function CabinEditor({ hull, onSaved }: { hull: Hull; onSaved: (configs: CabinCo
             {/* Seat count */}
             <div>
               <input
-                type="number" min={0} max={999}
+                type="number" min={0} max={maxCapacity ?? 999}
                 value={row.seats}
                 disabled={!row.enabled}
                 onChange={(e) => setRows(rows.map((r, j) => j === i ? { ...r, seats: parseInt(e.target.value) || 0 } : r))}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white text-center focus:border-aero focus:outline-none disabled:opacity-30 transition"
+                className={cn('w-full rounded-lg border bg-white/5 px-2 py-1 text-sm text-white text-center focus:outline-none disabled:opacity-30 transition',
+                  overCapacity ? 'border-red-500/40 focus:border-red-400' : 'border-white/10 focus:border-aero')}
                 placeholder="Seats"
               />
             </div>
@@ -347,12 +359,15 @@ function CabinEditor({ hull, onSaved }: { hull: Hull; onSaved: (configs: CabinCo
 
       <div className="flex items-center gap-3">
         <button
-          onClick={save} disabled={saving}
+          onClick={save} disabled={saving || overCapacity}
           className="bg-aero text-black font-bold px-4 py-2 rounded-xl text-xs hover:brightness-110 transition disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Cabin Config'}
         </button>
-        <p className="text-xs text-gray-600">Price multiplier applies to base ticket price per class.</p>
+        {overCapacity
+          ? <p className="text-xs text-red-400">Total seats ({totalSeats}) exceeds aircraft max ({maxCapacity}).</p>
+          : <p className="text-xs text-gray-600">Price multiplier applies to base ticket price per class.</p>
+        }
       </div>
     </div>
   );
