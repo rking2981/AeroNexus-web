@@ -72,7 +72,8 @@ export default function MarketPage() {
   const [buying, setBuying] = useState<AircraftType | null>(null);
   const [buyReg, setBuyReg] = useState('');
   const [buyLoading, setBuyLoading] = useState(false);
-  const [buyResult, setBuyResult] = useState<{ message: string; factory_airport: string | null } | null>(null);
+  const [buyResult, setBuyResult] = useState<{ message: string; factory_airport: string | null; delivery_fee?: number; delivery_distance_nm?: number; delivery_from?: string | null; delivery_to?: string | null } | null>(null);
+  const [deliveryEstimate, setDeliveryEstimate] = useState<{ fee: number; distance_nm: number; from: string | null; to: string | null } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -94,6 +95,18 @@ export default function MarketPage() {
     `${l.hull.aircraft_type} ${l.hull.registration}`.toLowerCase().includes(search.toLowerCase())
   );
 
+  async function handleSelectBuying(type: AircraftType) {
+    setBuying(type);
+    setBuyReg('');
+    setDeliveryEstimate(null);
+    if (type.manufacturer_icao) {
+      try {
+        const { data } = await api.get(`/market/delivery-estimate?aircraft_type_id=${type.id}`);
+        setDeliveryEstimate({ fee: data.fee, distance_nm: data.distance_nm, from: data.from, to: data.to });
+      } catch { /* ignore */ }
+    }
+  }
+
   async function handleBuyNew() {
     if (!buying || !buyReg.trim()) return;
     setBuyLoading(true);
@@ -103,9 +116,17 @@ export default function MarketPage() {
         registration: buyReg.toUpperCase(),
         payment_type: 'BUY',
       });
-      setBuyResult({ message: data.message, factory_airport: data.factory_airport });
+      setBuyResult({
+        message: data.message,
+        factory_airport: data.factory_airport,
+        delivery_fee: data.delivery_fee,
+        delivery_distance_nm: data.delivery_distance_nm,
+        delivery_from: data.delivery_from,
+        delivery_to: data.delivery_to,
+      });
       setBuying(null);
       setBuyReg('');
+      setDeliveryEstimate(null);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       alert(msg ?? 'Purchase failed');
@@ -142,9 +163,10 @@ export default function MarketPage() {
         <div className="glass-card rounded-2xl p-5 mb-6 border border-green-500/30 bg-green-500/5">
           <p className="text-green-400 font-bold mb-1">✅ Purchase Successful!</p>
           <p className="text-sm text-gray-300">{buyResult.message}</p>
-          {buyResult.factory_airport && (
+          {buyResult.delivery_fee && buyResult.delivery_fee > 0 && (
             <p className="text-xs text-amber-400 mt-2">
-              ✈️ Aircraft is waiting at <span className="font-mono font-bold">{buyResult.factory_airport}</span> — ferry it to your hub to start operations.
+              🚚 Delivery fee charged: <span className="font-bold">{formatPrice(buyResult.delivery_fee)}</span>
+              {buyResult.delivery_distance_nm ? ` (${buyResult.delivery_distance_nm.toLocaleString()} nm from ${buyResult.delivery_from} → ${buyResult.delivery_to})` : ''}
             </p>
           )}
           <button onClick={() => setBuyResult(null)} className="text-xs text-gray-500 mt-3 hover:text-white">Dismiss</button>
@@ -185,14 +207,44 @@ export default function MarketPage() {
       {/* Buy dialog */}
       {buying && (
         <div className="glass-card rounded-2xl p-6 mb-6 border border-aero/30">
-          <h3 className="font-bold mb-1">
-            Purchasing {buying.manufacturer} {buying.name}
-          </h3>
-          <p className="text-xs text-gray-400 mb-4">
-            {buying.manufacturer_icao
-              ? `Will be delivered to factory at ${buying.manufacturer_icao}`
-              : 'Will be added to your fleet immediately'}
-          </p>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="font-bold mb-0.5">Purchasing {buying.manufacturer} {buying.name}</h3>
+              <p className="text-xs text-gray-400">
+                {buying.manufacturer_icao ? `Factory: ${buying.manufacturer_icao}` : 'No factory location'}
+              </p>
+            </div>
+            <button onClick={() => { setBuying(null); setDeliveryEstimate(null); }} className="text-gray-500 hover:text-white transition text-lg leading-none">✕</button>
+          </div>
+
+          {/* Cost breakdown */}
+          <div className="glass-card rounded-xl p-4 mb-4 flex flex-col gap-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-400">Aircraft price</span>
+              <span className="font-mono">{formatPrice(buying.base_price ?? 0)}</span>
+            </div>
+            {deliveryEstimate ? (
+              <div className="flex justify-between">
+                <span className="text-gray-400">
+                  Delivery fee
+                  <span className="text-gray-600 text-xs ml-1">
+                    ({deliveryEstimate.from} → {deliveryEstimate.to ?? 'hub'}, {deliveryEstimate.distance_nm.toLocaleString()} nm)
+                  </span>
+                </span>
+                <span className="font-mono text-amber-400">{formatPrice(deliveryEstimate.fee)}</span>
+              </div>
+            ) : buying.manufacturer_icao ? (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Delivery fee</span>
+                <span className="text-gray-500 text-xs">Calculating…</span>
+              </div>
+            ) : null}
+            <div className="flex justify-between border-t border-white/10 pt-2 font-bold">
+              <span>Total</span>
+              <span className="text-aero">{formatPrice((buying.base_price ?? 0) + (deliveryEstimate?.fee ?? 0))}</span>
+            </div>
+          </div>
+
           <div className="flex gap-3 items-center">
             <input
               type="text"
@@ -207,9 +259,8 @@ export default function MarketPage() {
               disabled={buyLoading || !buyReg.trim()}
               className="bg-aero text-black font-bold px-6 py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50"
             >
-              {buyLoading ? 'Purchasing...' : `Buy ${formatPrice(buying.base_price ?? 0)}`}
+              {buyLoading ? 'Purchasing...' : `Confirm Purchase`}
             </button>
-            <button onClick={() => setBuying(null)} className="text-gray-400 hover:text-white text-sm transition">Cancel</button>
           </div>
         </div>
       )}
@@ -243,7 +294,7 @@ export default function MarketPage() {
               </div>
               {isManager && (
                 <button
-                  onClick={() => { setBuying(type); setBuyReg(''); }}
+                  onClick={() => handleSelectBuying(type)}
                   disabled={!type.base_price}
                   className="mt-auto w-full bg-aero text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-30"
                 >
