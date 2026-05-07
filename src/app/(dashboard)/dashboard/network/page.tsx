@@ -18,6 +18,7 @@ interface Hub { id: string; type: 'PRIMARY' | 'SECONDARY'; airport: AirportInfo 
 interface Waypoint { id?: string; icao: string; name?: string; sort_order: number }
 interface Route {
   id: string; distance_nm: number; aircraft_type: string; route_type: string;
+  flight_number: string | null;
   status: string; is_saturated: boolean; base_ticket_price: number;
   effective_ticket_price: number; estimated_block_min: number;
   origin: { icao: string; name: string; city: string | null; latitude: string; longitude: string; demand_index: string; timezone: string };
@@ -220,16 +221,22 @@ function MetarPanel({ icao }: { icao: string }) {
   );
 }
 
-function RouteCard({ route, isManager, onUpdate, onDelete }: {
+function RouteCard({ route, isManager, onUpdate, onDelete, onReverse }: {
   route: Route; isManager: boolean;
   onUpdate: (updated: Partial<Route> & { id: string }) => void;
   onDelete: (id: string) => void;
+  onReverse: (newRoute: Route) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editingWaypoints, setEditingWaypoints] = useState(false);
   const [wpInput, setWpInput] = useState(route.waypoints.map(w => w.icao).join(', '));
   const [savingWp, setSavingWp] = useState(false);
   const [savingType, setSavingType] = useState(false);
+  const [editingFn, setEditingFn] = useState(false);
+  const [fnInput, setFnInput] = useState(route.flight_number ?? '');
+  const [savingFn, setSavingFn] = useState(false);
+  const [creatingReverse, setCreatingReverse] = useState(false);
+  const [reverseError, setReverseError] = useState('');
 
   const rtInfo = ROUTE_TYPES.find(r => r.key === route.route_type) ?? ROUTE_TYPES[0];
   const demandAvg = (Number(route.origin.demand_index) + Number(route.destination.demand_index)) / 2;
@@ -239,6 +246,25 @@ function RouteCard({ route, isManager, onUpdate, onDelete }: {
     await api.patch(`/network/routes/${route.id}/type`, { route_type: newType });
     onUpdate({ id: route.id, route_type: newType });
     setSavingType(false);
+  }
+
+  async function saveFlightNumber() {
+    setSavingFn(true);
+    await api.patch(`/network/routes/${route.id}/flight-number`, { flight_number: fnInput || null });
+    onUpdate({ id: route.id, flight_number: fnInput || null });
+    setEditingFn(false);
+    setSavingFn(false);
+  }
+
+  async function createReverse() {
+    setCreatingReverse(true); setReverseError('');
+    try {
+      const { data } = await api.post(`/network/routes/${route.id}/reverse`);
+      onReverse(data);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setReverseError(msg ?? 'Failed to create reverse route.');
+    } finally { setCreatingReverse(false); }
   }
 
   async function saveWaypoints() {
@@ -262,6 +288,31 @@ function RouteCard({ route, isManager, onUpdate, onDelete }: {
         <div className="flex-1 min-w-0">
           {/* Top row: route + badges */}
           <div className="flex items-center gap-2 flex-wrap mb-1">
+            {/* Flight number */}
+            {editingFn ? (
+              <div className="flex items-center gap-1">
+                <input value={fnInput} onChange={e => setFnInput(e.target.value.toUpperCase())}
+                  placeholder="AN100" maxLength={8}
+                  className="w-20 rounded-lg border border-aero/40 bg-black/40 px-2 py-0.5 text-sm font-mono text-aero font-bold focus:outline-none" />
+                <button onClick={saveFlightNumber} disabled={savingFn}
+                  className="text-[10px] bg-aero text-black font-bold px-2 py-0.5 rounded disabled:opacity-50">
+                  {savingFn ? '…' : '✓'}
+                </button>
+                <button onClick={() => { setEditingFn(false); setFnInput(route.flight_number ?? ''); }}
+                  className="text-[10px] text-gray-500 hover:text-white px-1">✕</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => isManager && setEditingFn(true)}
+                className={cn('font-mono font-bold text-sm px-2 py-0.5 rounded border transition',
+                  route.flight_number
+                    ? 'text-aero border-aero/30 bg-aero/10 hover:bg-aero/20'
+                    : isManager ? 'text-gray-600 border-white/10 bg-white/3 hover:border-aero/20 hover:text-gray-400' : 'hidden')}
+                title={isManager ? 'Click to set flight number' : undefined}
+              >
+                {route.flight_number ?? '+ Flight #'}
+              </button>
+            )}
             <span className="font-mono font-bold text-aero">{route.origin.icao}</span>
             <span className="text-gray-500 text-sm">→</span>
             <span className="font-mono font-bold text-white">{route.destination.icao}</span>
@@ -341,11 +392,19 @@ function RouteCard({ route, isManager, onUpdate, onDelete }: {
                 className="text-[10px] text-aero border border-aero/20 px-2 py-1 rounded-lg hover:bg-aero/10 transition">
                 Waypoints
               </button>
+              <button onClick={createReverse} disabled={creatingReverse}
+                className="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded-lg hover:bg-white/5 transition disabled:opacity-40"
+                title="Create reverse route (swap origin/destination)">
+                {creatingReverse ? '…' : '⇄ Reverse'}
+              </button>
               <button onClick={() => onDelete(route.id)}
                 className="text-[10px] text-red-400 border border-red-500/20 px-2 py-1 rounded-lg hover:bg-red-500/10 transition">
                 Delete
               </button>
             </>
+          )}
+          {reverseError && (
+            <p className="text-[10px] text-red-400 max-w-24 text-right">{reverseError}</p>
           )}
         </div>
       </div>
@@ -410,7 +469,7 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
   const [destResults, setDestResults] = useState<Airport[]>([]);
   const [selectedOrigin, setSelectedOrigin] = useState<Airport | null>(null);
   const [selectedDest, setSelectedDest] = useState<Airport | null>(null);
-  const [form, setForm] = useState({ aircraft_type: '', base_ticket_price: '', route_type: 'SCHEDULED' });
+  const [form, setForm] = useState({ aircraft_type: '', base_ticket_price: '', route_type: 'SCHEDULED', flight_number: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -431,6 +490,7 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
         aircraft_type: form.aircraft_type,
         base_ticket_price: parseFloat(form.base_ticket_price),
         route_type: form.route_type,
+        flight_number: form.flight_number || undefined,
       });
       onAdd(data);
     } catch (err: unknown) {
@@ -505,12 +565,17 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
           <input type="number" placeholder="299" value={form.base_ticket_price} className={inputCls}
             onChange={e => setForm({ ...form, base_ticket_price: e.target.value })} />
         </div>
-        <div className="col-span-2">
+        <div>
           <label className="text-xs text-gray-400 block mb-1">Route Type</label>
           <select value={form.route_type} onChange={e => setForm({ ...form, route_type: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-[#111] px-3 py-2 text-sm text-white focus:border-aero focus:outline-none transition">
             {ROUTE_TYPES.map(rt => <option key={rt.key} value={rt.key}>{rt.icon} {rt.label}</option>)}
           </select>
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 block mb-1">Flight Number <span className="text-gray-600">(optional)</span></label>
+          <input value={form.flight_number} onChange={e => setForm({ ...form, flight_number: e.target.value.toUpperCase() })}
+            placeholder="AN100" maxLength={8} className={inputCls} />
         </div>
       </div>
       {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
@@ -614,6 +679,7 @@ export default function NetworkPage() {
               <RouteCard key={route.id} route={route} isManager={isManager}
                 onUpdate={upd => setRoutes(routes.map(r => r.id === upd.id ? { ...r, ...upd } : r))}
                 onDelete={id => { api.delete(`/network/routes/${id}`); setRoutes(routes.filter(r => r.id !== id)); }}
+                onReverse={newRoute => setRoutes(prev => [newRoute, ...prev])}
               />
             ))
           )}
