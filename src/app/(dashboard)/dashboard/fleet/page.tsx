@@ -6,6 +6,8 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 
+interface CabinConfig { cabin_class: string; seat_count: number; price_multiplier: number }
+
 interface Hull {
   id: string;
   registration: string;
@@ -17,7 +19,121 @@ interface Hull {
   rotor_wear_percent: number;
   is_leased: boolean;
   value: number;
-  cabin_configs: { cabin_class: string; seat_count: number; price_multiplier: number }[];
+  cabin_configs: CabinConfig[];
+}
+
+type CabinClass = 'FIRST' | 'BUSINESS' | 'PREMIUM_ECONOMY' | 'ECONOMY';
+
+const CABIN_CLASSES: { key: CabinClass; label: string; defaultMultiplier: number }[] = [
+  { key: 'FIRST',           label: 'First Class',       defaultMultiplier: 4.0 },
+  { key: 'BUSINESS',        label: 'Business',          defaultMultiplier: 2.5 },
+  { key: 'PREMIUM_ECONOMY', label: 'Premium Economy',   defaultMultiplier: 1.5 },
+  { key: 'ECONOMY',         label: 'Economy',           defaultMultiplier: 1.0 },
+];
+
+function CabinEditor({ hull, onSaved }: { hull: Hull; onSaved: (configs: CabinConfig[]) => void }) {
+  const [rows, setRows] = useState<{ key: CabinClass; enabled: boolean; seats: number; multiplier: number }[]>(
+    CABIN_CLASSES.map((cls) => {
+      const existing = hull.cabin_configs.find((c) => c.cabin_class === cls.key);
+      return {
+        key: cls.key,
+        enabled: !!existing,
+        seats: existing?.seat_count ?? 0,
+        multiplier: existing?.price_multiplier ?? cls.defaultMultiplier,
+      };
+    }),
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function save() {
+    const configs = rows
+      .filter((r) => r.enabled && r.seats > 0)
+      .map((r) => ({ cabin_class: r.key, seat_count: r.seats, price_multiplier: r.multiplier }));
+
+    setSaving(true); setError('');
+    try {
+      const { data } = await api.post(`/fleet/${hull.id}/cabin`, { configs });
+      onSaved(data.configs ?? configs);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Failed to save cabin config.');
+    } finally { setSaving(false); }
+  }
+
+  const totalSeats = rows.filter(r => r.enabled).reduce((s, r) => s + (r.seats || 0), 0);
+
+  return (
+    <div className="mt-4 border-t border-white/5 pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-bold">Cabin Configuration</h4>
+        <span className="text-xs text-gray-500">{totalSeats} total seats</span>
+      </div>
+      <div className="flex flex-col gap-2 mb-3">
+        {rows.map((row, i) => (
+          <div key={row.key} className={cn(
+            'grid items-center gap-3 px-3 py-2.5 rounded-xl border transition',
+            row.enabled ? 'border-aero/20 bg-aero/5' : 'border-white/5 bg-white/2',
+          )} style={{ gridTemplateColumns: '20px 140px 80px 1fr 60px' }}>
+            {/* Toggle */}
+            <button
+              type="button"
+              onClick={() => setRows(rows.map((r, j) => j === i ? { ...r, enabled: !r.enabled } : r))}
+              className={cn('w-4 h-4 rounded border transition flex-shrink-0',
+                row.enabled ? 'bg-aero border-aero' : 'border-white/20')}
+            >
+              {row.enabled && <span className="text-black text-[10px] flex items-center justify-center leading-none font-bold">✓</span>}
+            </button>
+
+            {/* Class label */}
+            <span className={cn('text-sm font-medium', row.enabled ? 'text-white' : 'text-gray-500')}>
+              {CABIN_CLASSES[i].label}
+            </span>
+
+            {/* Seat count */}
+            <div>
+              <input
+                type="number" min={0} max={999}
+                value={row.seats}
+                disabled={!row.enabled}
+                onChange={(e) => setRows(rows.map((r, j) => j === i ? { ...r, seats: parseInt(e.target.value) || 0 } : r))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white text-center focus:border-aero focus:outline-none disabled:opacity-30 transition"
+                placeholder="Seats"
+              />
+            </div>
+
+            {/* Price multiplier slider */}
+            <div className="flex items-center gap-2">
+              <input
+                type="range" min={1.0} max={8.0} step={0.1}
+                value={row.multiplier}
+                disabled={!row.enabled}
+                onChange={(e) => setRows(rows.map((r, j) => j === i ? { ...r, multiplier: parseFloat(e.target.value) } : r))}
+                className="flex-1 accent-[#00D1FF] disabled:opacity-30"
+              />
+            </div>
+
+            {/* Multiplier value */}
+            <span className={cn('text-xs font-mono text-right', row.enabled ? 'text-aero' : 'text-gray-600')}>
+              {row.multiplier.toFixed(1)}×
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={save} disabled={saving}
+          className="bg-aero text-black font-bold px-4 py-2 rounded-xl text-xs hover:brightness-110 transition disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Save Cabin Config'}
+        </button>
+        <p className="text-xs text-gray-600">Price multiplier applies to base ticket price per class.</p>
+      </div>
+    </div>
+  );
 }
 
 function WearBar({ label, value }: { label: string; value: number }) {
@@ -55,6 +171,7 @@ export default function FleetPage() {
   const { user } = useAuthStore();
   const [hulls, setHulls] = useState<Hull[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedCabin, setExpandedCabin] = useState<string | null>(null);
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
   useEffect(() => {
@@ -161,17 +278,23 @@ export default function FleetPage() {
 
                 {/* Cabin config & actions */}
                 <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                  <div className="flex gap-3 flex-wrap">
+                  <div className="flex gap-2 flex-wrap items-center">
                     {hull.cabin_configs.length > 0 ? (
                       hull.cabin_configs.map((c) => (
                         <span key={c.cabin_class} className="text-xs text-gray-400 glass-card px-2 py-1 rounded-lg">
-                          {c.cabin_class.replace('_', ' ')}: {c.seat_count} seats
+                          {c.cabin_class.replace('_', ' ')}: {c.seat_count}
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs text-gray-600">
-                        {totalSeats === 0 ? 'No cabin config' : `${totalSeats} seats`}
-                      </span>
+                      <span className="text-xs text-gray-600">No cabin config set</span>
+                    )}
+                    {isManager && (
+                      <button
+                        onClick={() => setExpandedCabin(expandedCabin === hull.id ? null : hull.id)}
+                        className="text-xs text-aero border border-aero/30 hover:bg-aero/10 px-2 py-1 rounded-lg transition"
+                      >
+                        {expandedCabin === hull.id ? 'Close' : hull.cabin_configs.length > 0 ? 'Edit Cabin' : 'Set Cabin Config'}
+                      </button>
                     )}
                   </div>
                   {isManager && (
@@ -199,6 +322,17 @@ export default function FleetPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Inline cabin editor */}
+                {expandedCabin === hull.id && (
+                  <CabinEditor
+                    hull={hull}
+                    onSaved={(configs) => {
+                      setHulls(hulls.map(h => h.id === hull.id ? { ...h, cabin_configs: configs } : h));
+                      setExpandedCabin(null);
+                    }}
+                  />
+                )}
               </div>
             );
           })}
