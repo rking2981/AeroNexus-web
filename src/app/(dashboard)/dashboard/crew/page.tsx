@@ -5,6 +5,14 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 
+interface AirlineBan {
+  id: string;
+  user_id: string;
+  reason: string | null;
+  banned_at: string;
+  user: { id: string; display_name: string; email: string };
+}
+
 interface RankTier {
   id?: string;
   rank: string;
@@ -72,7 +80,10 @@ export default function CrewPage() {
   const { user } = useAuthStore();
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
-  const [activeTab, setActiveTab] = useState<'roster' | 'ranks'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'banned' | 'ranks'>('roster');
+  const [airlineBans, setAirlineBans] = useState<AirlineBan[]>([]);
+  const [banReason, setBanReason] = useState('');
+  const [showBanReason, setShowBanReason] = useState<string | null>(null);
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Pilot | null>(null);
@@ -99,11 +110,9 @@ export default function CrewPage() {
 
   useEffect(() => {
     api.get('/pilots').then((r) => setPilots(r.data)).finally(() => setLoading(false));
-    api.get('/pilots/ranks').then((r) => {
-      setRankTiers(r.data.tiers);
-      setIsCustomRanks(r.data.custom);
-    });
-  }, []);
+    api.get('/pilots/ranks').then((r) => { setRankTiers(r.data.tiers); setIsCustomRanks(r.data.custom); });
+    if (isManager) api.get('/pilots/bans').then((r) => setAirlineBans(r.data)).catch(() => {});
+  }, [isManager]);
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -120,24 +129,25 @@ export default function CrewPage() {
     } finally { setInviteLoading(false); }
   }
 
-  async function handleSuspend(pilot: Pilot) {
+  async function handleAirlineBan(pilot: Pilot, reason: string) {
     setActionLoading(pilot.id); setActionError('');
     try {
-      await api.patch(`/pilots/${pilot.id}/suspend`);
-      setPilots(pilots.map(p => p.id === pilot.id ? { ...p, is_banned: true } : p));
-      setSelected(s => s?.id === pilot.id ? { ...s, is_banned: true } : s);
+      await api.post(`/pilots/${pilot.id}/airline-ban`, { reason: reason || undefined });
+      // Remove from active roster, add to bans list
+      setPilots(pilots.filter(p => p.id !== pilot.id));
+      setAirlineBans([{ id: Date.now().toString(), user_id: pilot.id, reason: reason || null, banned_at: new Date().toISOString(), user: { id: pilot.id, display_name: pilot.display_name, email: pilot.email } }, ...airlineBans]);
+      setSelected(null); setShowBanReason(null); setBanReason('');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setActionError(msg ?? 'Action failed.');
     } finally { setActionLoading(null); }
   }
 
-  async function handleReinstate(pilot: Pilot) {
-    setActionLoading(pilot.id); setActionError('');
+  async function handleAirlineUnban(ban: AirlineBan) {
+    setActionLoading(ban.user_id); setActionError('');
     try {
-      await api.patch(`/pilots/${pilot.id}/reinstate`);
-      setPilots(pilots.map(p => p.id === pilot.id ? { ...p, is_banned: false } : p));
-      setSelected(s => s?.id === pilot.id ? { ...s, is_banned: false } : s);
+      await api.delete(`/pilots/${ban.user_id}/airline-ban`);
+      setAirlineBans(airlineBans.filter(b => b.user_id !== ban.user_id));
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setActionError(msg ?? 'Action failed.');
@@ -157,8 +167,7 @@ export default function CrewPage() {
     } finally { setActionLoading(null); }
   }
 
-  const activePilots = pilots.filter(p => !p.is_banned);
-  const suspendedPilots = pilots.filter(p => p.is_banned);
+  const activePilots = pilots; // roster only contains active airline members now
 
   if (loading) return <div className="p-8"><div className="glass-card rounded-2xl h-64 animate-pulse" /></div>;
 
@@ -170,7 +179,7 @@ export default function CrewPage() {
           <h1 className="text-3xl font-bold mb-1">Crew Center</h1>
           <p className="text-gray-400 text-sm">
             {activePilots.length} active pilot{activePilots.length !== 1 ? 's' : ''}
-            {suspendedPilots.length > 0 && ` · ${suspendedPilots.length} suspended`}
+            {airlineBans.length > 0 && ` · ${airlineBans.length} airline ban${airlineBans.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         {isManager && (
@@ -185,6 +194,7 @@ export default function CrewPage() {
       <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
         {[
           { key: 'roster', label: '👥 Roster' },
+          { key: 'banned', label: `🚫 Airline Bans${airlineBans.length > 0 ? ` (${airlineBans.length})` : ''}` },
           { key: 'ranks', label: '🏅 Rank Structure' },
         ].map((t) => (
           <button key={t.key} onClick={() => setActiveTab(t.key as typeof activeTab)}
@@ -194,6 +204,40 @@ export default function CrewPage() {
           </button>
         ))}
       </div>
+
+      {/* ── Airline Bans tab ── */}
+      {activeTab === 'banned' && (
+        <div className="max-w-2xl flex flex-col gap-4">
+          <div>
+            <h2 className="font-bold text-lg mb-1">Airline Bans</h2>
+            <p className="text-sm text-gray-400">These pilots have been banned from your airline. They can still access AeroNexus and join other airlines.</p>
+          </div>
+
+          {airlineBans.length === 0 ? (
+            <div className="glass-card rounded-2xl p-10 text-center">
+              <p className="text-3xl mb-3">✅</p>
+              <p className="text-gray-400 text-sm">No airline bans on record.</p>
+            </div>
+          ) : (
+            airlineBans.map((ban) => (
+              <div key={ban.id} className="glass-card rounded-2xl p-4 flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="font-medium text-white text-sm">{ban.user.display_name}</p>
+                  <p className="text-xs text-gray-500">{ban.user.email}</p>
+                  {ban.reason && <p className="text-xs text-gray-600 mt-1 italic">"{ban.reason}"</p>}
+                  <p className="text-[10px] text-gray-700 mt-1">Banned {new Date(ban.banned_at).toLocaleDateString()}</p>
+                </div>
+                {isManager && (
+                  <button onClick={() => handleAirlineUnban(ban)} disabled={actionLoading === ban.user_id}
+                    className="flex-shrink-0 text-xs font-bold px-3 py-2 rounded-xl border border-green-500/30 text-green-400 hover:bg-green-500/10 transition disabled:opacity-50">
+                    {actionLoading === ban.user_id ? '...' : 'Lift Ban'}
+                  </button>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       {/* ── Rank Structure tab ── */}
       {activeTab === 'ranks' && (
@@ -452,36 +496,6 @@ export default function CrewPage() {
               </button>
             ))}
 
-            {/* Suspended pilots */}
-            {suspendedPilots.length > 0 && (
-              <>
-                <div className="flex items-center gap-3 mt-2">
-                  <div className="h-px bg-white/5 flex-1" />
-                  <span className="text-xs text-gray-600 uppercase tracking-widest">Suspended</span>
-                  <div className="h-px bg-white/5 flex-1" />
-                </div>
-                {suspendedPilots.map((pilot) => (
-                  <button key={pilot.id} onClick={() => setSelected(selected?.id === pilot.id ? null : pilot)}
-                    className={cn(
-                      'glass-card rounded-2xl p-4 text-left w-full transition border opacity-60',
-                      selected?.id === pilot.id ? 'border-red-500/30' : 'border-transparent',
-                    )}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center text-sm font-bold text-red-400 flex-shrink-0">
-                        {pilot.display_name[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-white text-sm">{pilot.display_name}</span>
-                          <span className="text-[10px] text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded-full">SUSPENDED</span>
-                        </div>
-                        <span className="text-xs text-gray-500">{pilot.email}</span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </>
-            )}
           </div>
 
           {/* Detail panel */}
@@ -564,15 +578,27 @@ export default function CrewPage() {
                 {/* Actions */}
                 {isManager && (
                   <div className="p-4 flex flex-col gap-2">
-                    {selected.is_banned ? (
-                      <button onClick={() => handleReinstate(selected)} disabled={!!actionLoading}
-                        className="w-full text-sm font-bold py-2 rounded-xl border border-green-500/30 text-green-400 hover:bg-green-500/10 transition disabled:opacity-50">
-                        {actionLoading === selected.id ? '...' : 'Reinstate Pilot'}
-                      </button>
+                    {/* Airline ban with optional reason */}
+                    {showBanReason === selected.id ? (
+                      <div className="flex flex-col gap-2">
+                        <input value={banReason} onChange={e => setBanReason(e.target.value)}
+                          placeholder="Reason (optional)"
+                          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white focus:border-red-400 focus:outline-none" />
+                        <div className="flex gap-2">
+                          <button onClick={() => handleAirlineBan(selected, banReason)} disabled={!!actionLoading}
+                            className="flex-1 text-xs font-bold py-2 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition disabled:opacity-50">
+                            {actionLoading === selected.id ? '...' : 'Confirm Ban'}
+                          </button>
+                          <button onClick={() => { setShowBanReason(null); setBanReason(''); }}
+                            className="text-xs px-3 py-2 rounded-xl border border-white/10 text-gray-400 hover:text-white transition">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
                     ) : (
-                      <button onClick={() => handleSuspend(selected)} disabled={!!actionLoading}
-                        className="w-full text-sm font-bold py-2 rounded-xl border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition disabled:opacity-50">
-                        {actionLoading === selected.id ? '...' : 'Suspend Pilot'}
+                      <button onClick={() => setShowBanReason(selected.id)} disabled={!!actionLoading}
+                        className="w-full text-sm font-bold py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition disabled:opacity-50">
+                        Ban from Airline
                       </button>
                     )}
                     <button onClick={() => handleRemove(selected)} disabled={!!actionLoading}
