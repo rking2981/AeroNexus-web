@@ -28,19 +28,16 @@ const CATEGORY_ICON: Record<string, string> = {
 export default function AddHullPage() {
   const router = useRouter();
   const [types, setTypes] = useState<AircraftType[]>([]);
+  const [airlineBalance, setAirlineBalance] = useState<{ balance: number; symbol: string } | null>(null);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<AircraftType | null>(null);
-  const [form, setForm] = useState({
-    registration: '',
-    is_leased: false,
-  });
+  const [form, setForm] = useState({ registration: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    publicApi.get('/aircraft-types')
-      .then((r) => setTypes(r.data))
-      .catch(() => {});
+    publicApi.get('/aircraft-types').then((r) => setTypes(r.data)).catch(() => {});
+    api.get('/airline/finances').then((r) => setAirlineBalance({ balance: r.data.balance, symbol: r.data.currency.symbol })).catch(() => {});
   }, []);
 
   const filtered = types.filter((t) =>
@@ -57,19 +54,15 @@ export default function AddHullPage() {
     setLoading(true);
 
     try {
-      await api.post('/fleet', {
-        registration: form.registration,
-        aircraft_type: `${selected!.manufacturer} ${selected!.name}`,
-        aircraft_category: selected!.aircraft_category,
+      await api.post('/market/buy/new', {
         aircraft_type_id: selected!.id,
-        value: selected!.base_price ?? 1000000,
-        max_range_nm: selected!.max_range_nm,
-        is_leased: form.is_leased,
+        registration: form.registration,
+        payment_type: 'BUY',
       });
       router.push('/dashboard/fleet');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setErrors({ general: msg ?? 'Failed to add aircraft.' });
+      setErrors({ general: msg ?? 'Failed to purchase aircraft.' });
     } finally {
       setLoading(false);
     }
@@ -97,21 +90,44 @@ export default function AddHullPage() {
           />
 
           {selected && (
-            <div className="flex items-center justify-between rounded-xl border border-aero/50 bg-aero/5 px-4 py-3 mb-4">
-              <div>
-                <p className="font-medium text-sm">
-                  {CATEGORY_ICON[selected.aircraft_category]} {selected.manufacturer} {selected.name}
-                  <span className="ml-2 font-mono text-xs text-gray-400">({selected.icao_code})</span>
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {selected.pax_capacity} pax · {selected.max_range_nm?.toLocaleString()} nm range ·
-                  {selected.engine_count}x {selected.engine_type}
-                </p>
+            <div className="rounded-xl border border-aero/30 bg-aero/5 px-4 py-4 mb-4 flex flex-col gap-2">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-medium text-sm">
+                    {CATEGORY_ICON[selected.aircraft_category]} {selected.manufacturer} {selected.name}
+                    <span className="ml-2 font-mono text-xs text-gray-400">({selected.icao_code})</span>
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {selected.pax_capacity} pax · {selected.max_range_nm?.toLocaleString()} nm range ·
+                    {selected.engine_count}x {selected.engine_type}
+                  </p>
+                </div>
+                <button type="button" onClick={() => setSelected(null)}
+                  className="text-gray-500 hover:text-white text-sm ml-4 transition flex-shrink-0">
+                  Change
+                </button>
               </div>
-              <button type="button" onClick={() => setSelected(null)}
-                className="text-gray-500 hover:text-white text-sm ml-4 transition">
-                Change
-              </button>
+              {selected.base_price && (
+                <div className="flex items-center justify-between pt-2 border-t border-white/5 text-sm">
+                  <span className="text-gray-400">Purchase Price</span>
+                  <span className="font-bold text-white">
+                    {airlineBalance?.symbol ?? '$'}{selected.base_price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
+              {airlineBalance && selected.base_price && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Airline Balance After</span>
+                  <span className={cn('font-bold', airlineBalance.balance - selected.base_price < 0 ? 'text-red-400' : 'text-green-400')}>
+                    {airlineBalance.symbol}{(airlineBalance.balance - selected.base_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
+              {airlineBalance && selected.base_price && airlineBalance.balance < selected.base_price && (
+                <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                  Insufficient funds. Current balance: {airlineBalance.symbol}{airlineBalance.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
+              )}
             </div>
           )}
 
@@ -159,21 +175,6 @@ export default function AddHullPage() {
               error={errors.registration}
               maxLength={12}
             />
-            <label className={cn(
-              'flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition',
-              form.is_leased ? 'border-purple-500/30 bg-purple-500/5' : 'border-white/10 hover:border-white/20'
-            )}>
-              <input
-                type="checkbox"
-                checked={form.is_leased}
-                onChange={(e) => setForm({ ...form, is_leased: e.target.checked })}
-                className="w-4 h-4 accent-purple-500"
-              />
-              <div>
-                <p className="text-sm font-medium">Leased Aircraft</p>
-                <p className="text-xs text-gray-500">Daily lease fees will be charged based on aircraft value and wear</p>
-              </div>
-            </label>
           </div>
         </div>
 
@@ -184,7 +185,12 @@ export default function AddHullPage() {
         )}
 
         <div className="flex gap-3">
-          <Button type="submit" loading={loading}>Add to Fleet</Button>
+          <Button type="submit" loading={loading}
+            disabled={!!(selected?.base_price && airlineBalance && airlineBalance.balance < selected.base_price)}>
+            {selected?.base_price
+              ? `Purchase for ${airlineBalance?.symbol ?? '$'}${selected.base_price.toLocaleString()}`
+              : 'Add to Fleet'}
+          </Button>
           <button type="button" onClick={() => router.back()}
             className="px-5 py-3 text-sm text-gray-400 hover:text-white transition">
             Cancel
