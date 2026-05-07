@@ -68,6 +68,15 @@ interface BookingInfo {
     pax_capacity: number | null;
   };
   fuel_price_per_unit: number | null;
+  weight_info: {
+    payload_kg: number;
+    gross_weight_kg: number;
+    fuel_weight_kg: number;
+    est_fuel_burn_kg: number;
+    mtow_kg: number | null;
+    fuel_capacity_exceeded: boolean;
+    est_fuel_cost: number | null;
+  } | null;
   pax_count: number;
 }
 
@@ -265,6 +274,10 @@ export default function BookFlightPage() {
               { label: 'Est. Duration', value: `${Math.floor(booked.route_info.estimated_duration_min / 60)}h ${booked.route_info.estimated_duration_min % 60}m` },
               { label: 'Passengers', value: booked.pax_count.toLocaleString() },
               { label: 'Fuel Price', value: booked.fuel_price_per_unit ? `$${booked.fuel_price_per_unit.toFixed(4)}/unit` : 'N/A' },
+              ...(booked.weight_info ? [
+                { label: 'Gross Weight', value: `${booked.weight_info.gross_weight_kg.toLocaleString()} kg${booked.weight_info.mtow_kg ? ` / ${booked.weight_info.mtow_kg.toLocaleString()} kg MTOW` : ''}` },
+                { label: 'Est. Fuel Burn', value: `${booked.weight_info.est_fuel_burn_kg.toLocaleString()} kg${booked.weight_info.est_fuel_cost ? ` · ~$${booked.weight_info.est_fuel_cost.toLocaleString()}` : ''}` },
+              ] : []),
               ...(selectedCargo ? [{ label: 'Cargo', value: `${selectedCargo.cargo_type} · ${selectedCargo.weight_kg.toLocaleString()} kg · +$${Number(selectedCargo.total_value).toLocaleString()}` }] : []),
             ].map((item) => (
               <div key={item.label} className="glass-card rounded-lg p-3">
