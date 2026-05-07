@@ -18,6 +18,8 @@ interface Hull {
   engine_wear_percent: number;
   rotor_wear_percent: number;
   aircraft_type_rel: { pax_capacity: number | null } | null;
+  wear_score: number;
+  maintenance_grade: string;
   is_leased: boolean;
   value: number;
   cabin_configs: CabinConfig[];
@@ -673,11 +675,20 @@ export default function FleetPage() {
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{CATEGORY_ICON[hull.aircraft_category] ?? '✈️'}</span>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-bold text-lg font-mono">{hull.registration}</h3>
                         <span className={cn('text-xs px-2 py-0.5 rounded-full border', STATUS_COLORS[hull.status])}>
                           {hull.status}
                         </span>
+                        {/* Wear score */}
+                        {hull.wear_score !== undefined && (
+                          <span className={cn('text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border',
+                            Number(hull.wear_score) >= 70 ? 'text-red-400 border-red-500/20 bg-red-500/5'
+                            : Number(hull.wear_score) >= 40 ? 'text-amber-400 border-amber-500/20 bg-amber-500/5'
+                            : 'text-green-400 border-green-500/20 bg-green-500/5')}>
+                            Grade {hull.maintenance_grade} · {Number(hull.wear_score).toFixed(0)}%
+                          </span>
+                        )}
                         {hull.is_leased && (
                           <span className="text-xs px-2 py-0.5 rounded-full border border-purple-500/20 text-purple-400 bg-purple-500/10">
                             LEASED
