@@ -343,7 +343,7 @@ export default function BookFlightPage() {
                     <FactorBar label={`Demand${preview.factors.competitors > 0 ? ` (${preview.factors.competitors} competitors)` : ''}`} value={preview.factors.demand} color="text-blue-400" />
                     <FactorBar label={`Price${preview.factors.competitors > 0 ? ' vs market' : ' (no competition)'}`} value={preview.factors.price} color="text-green-400" />
                     <FactorBar label={`Market share${preview.factors.concurrent_flights > 0 ? ` (${preview.factors.concurrent_flights} concurrent)` : ''}`} value={preview.factors.concurrent} color="text-amber-400" />
-                    <FactorBar label="Pilot reputation" value={preview.factors.reputation} color="text-purple-400" />
+                    <FactorBar label="Pilot reputation" value={Math.min(100, preview.factors.reputation)} color="text-purple-400" />
                   </div>
                   <p className="text-[10px] text-gray-600 mt-2">
                     Actual count may vary slightly — final PAX set at booking.
