@@ -23,6 +23,7 @@ interface Hull {
   is_leased: boolean;
   value: number;
   cabin_configs: CabinConfig[];
+  market_listing: { id: string; asking_price: number; notes: string | null; status: string } | null;
 }
 
 type CabinClass = 'FIRST' | 'BUSINESS' | 'PREMIUM_ECONOMY' | 'ECONOMY';
@@ -598,42 +599,58 @@ function formatPrice(n: number) {
   return `$${n.toLocaleString()}`;
 }
 
-function SellPanel({ hull, onListed, onClose }: {
+function SellPanel({ hull, onListed, onUpdated, onClose }: {
   hull: Hull;
   onListed: () => void;
+  onUpdated: (askingPrice: number, notes: string | null) => void;
   onClose: () => void;
 }) {
+  const isEditing = hull.status === 'FOR_SALE' && !!hull.market_listing;
   const [fairValue, setFairValue] = useState<number | null>(null);
-  const [askingPrice, setAskingPrice] = useState('');
-  const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [askingPrice, setAskingPrice] = useState(
+    isEditing ? String(hull.market_listing!.asking_price) : ''
+  );
+  const [notes, setNotes] = useState(
+    isEditing ? (hull.market_listing!.notes ?? '') : ''
+  );
+  const [loading, setLoading] = useState(!isEditing);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get(`/market/fair-value/${hull.id}`).then(({ data }) => {
-      setFairValue(data.fair_value);
-      setAskingPrice(String(data.fair_value));
-    }).catch(() => setFairValue(null)).finally(() => setLoading(false));
-  }, [hull.id]);
+    if (!isEditing) {
+      api.get(`/market/fair-value/${hull.id}`).then(({ data }) => {
+        setFairValue(data.fair_value);
+        setAskingPrice(String(data.fair_value));
+      }).catch(() => setFairValue(null)).finally(() => setLoading(false));
+    }
+  }, [hull.id, isEditing]);
 
-  async function handleList() {
+  async function handleSubmit() {
     const price = parseFloat(askingPrice);
     if (!price || price <= 0) { setError('Enter a valid asking price'); return; }
     setSubmitting(true); setError('');
     try {
-      await api.post(`/market/sell/${hull.id}`, { asking_price: price, notes: notes || undefined });
-      onListed();
+      if (isEditing) {
+        await api.patch(`/market/listings/${hull.market_listing!.id}`, {
+          asking_price: price,
+          notes: notes || undefined,
+        });
+        onUpdated(price, notes || null);
+      } else {
+        await api.post(`/market/sell/${hull.id}`, { asking_price: price, notes: notes || undefined });
+        onListed();
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? 'Failed to list aircraft');
+      setError(msg ?? (isEditing ? 'Failed to update listing' : 'Failed to list aircraft'));
     } finally { setSubmitting(false); }
   }
 
   return (
     <div className="mt-4 pt-4 border-t border-white/5">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="font-bold text-sm">List for Sale</h4>
+        <h4 className="font-bold text-sm">{isEditing ? 'Edit Listing' : 'List for Sale'}</h4>
         <button onClick={onClose} className="text-gray-500 hover:text-white text-sm transition">✕</button>
       </div>
 
@@ -641,7 +658,7 @@ function SellPanel({ hull, onListed, onClose }: {
         <div className="h-8 bg-white/5 rounded-xl animate-pulse" />
       ) : (
         <div className="flex flex-col gap-3">
-          {fairValue !== null && (
+          {fairValue !== null && !isEditing && (
             <div className="glass-card rounded-xl p-3 flex justify-between text-sm">
               <span className="text-gray-400">Estimated Fair Value</span>
               <span className="font-bold text-aero">{formatPrice(fairValue)}</span>
@@ -670,9 +687,9 @@ function SellPanel({ hull, onListed, onClose }: {
             </div>
           </div>
           {error && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{error}</p>}
-          <button onClick={handleList} disabled={submitting}
+          <button onClick={handleSubmit} disabled={submitting}
             className="bg-aero text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
-            {submitting ? 'Listing…' : 'List on Used Market'}
+            {submitting ? (isEditing ? 'Saving…' : 'Listing…') : (isEditing ? 'Save Changes' : 'List on Used Market')}
           </button>
         </div>
       )}
@@ -861,10 +878,34 @@ export default function FleetPage() {
                           {expandedSell === hull.id ? 'Cancel' : 'Sell'}
                         </button>
                       )}
-                      {hull.status === 'FOR_SALE' && (
-                        <span className="text-xs text-green-400 border border-green-500/20 bg-green-500/5 px-2 py-1 rounded-lg">
-                          Listed for Sale
-                        </span>
+                      {hull.status === 'FOR_SALE' && hull.market_listing && isManager && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setExpandedSell(expandedSell === hull.id ? null : hull.id);
+                              setExpandedCabin(null);
+                              setExpandedMaintenance(null);
+                            }}
+                            className={cn('text-xs border px-2 py-1 rounded-lg transition',
+                              expandedSell === hull.id
+                                ? 'text-blue-400 border-blue-500/30 bg-blue-500/10'
+                                : 'text-blue-400 border-blue-500/20 hover:bg-blue-500/10')}
+                          >
+                            {expandedSell === hull.id ? 'Close' : 'Edit Listing'}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Cancel listing for ${hull.registration}? It will return to Active status.`)) return;
+                              try {
+                                await api.delete(`/market/listings/${hull.market_listing!.id}`);
+                                setHulls(hulls.map(h => h.id === hull.id ? { ...h, status: 'ACTIVE' as never, market_listing: null } : h));
+                              } catch { /* ignore */ }
+                            }}
+                            className="text-xs border border-red-500/20 text-red-400 hover:bg-red-500/10 px-2 py-1 rounded-lg transition"
+                          >
+                            Cancel Listing
+                          </button>
+                        </>
                       )}
                     </div>
                   )}
@@ -887,6 +928,12 @@ export default function FleetPage() {
                     hull={hull}
                     onListed={() => {
                       setHulls(hulls.map(h => h.id === hull.id ? { ...h, status: 'FOR_SALE' as never } : h));
+                      setExpandedSell(null);
+                    }}
+                    onUpdated={(askingPrice, notes) => {
+                      setHulls(hulls.map(h => h.id === hull.id
+                        ? { ...h, market_listing: h.market_listing ? { ...h.market_listing, asking_price: askingPrice, notes } : null }
+                        : h));
                       setExpandedSell(null);
                     }}
                     onClose={() => setExpandedSell(null)}
