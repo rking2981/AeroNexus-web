@@ -118,12 +118,15 @@ function SubscriptionTab({ tier, status }: { tier: string; status: string }) {
   );
 }
 
-// ─── Webhooks Panel ──────────────────────────────────────────────────────────
+// ─── Discord Notifications Panel ─────────────────────────────────────────────
 
 const VALID_EVENTS = [
-  'flight.completed', 'flight.booked',
-  'pilot.joined', 'pilot.removed',
-  'application.accepted', 'application.declined',
+  { key: 'flight.completed',     label: 'Flight Completed',     desc: 'When a pilot finishes a flight' },
+  { key: 'flight.booked',        label: 'Flight Booked',        desc: 'When a pilot books a new flight' },
+  { key: 'pilot.joined',         label: 'Pilot Joined',         desc: 'When a pilot joins the airline' },
+  { key: 'pilot.removed',        label: 'Pilot Removed',        desc: 'When a pilot leaves or is removed' },
+  { key: 'application.accepted', label: 'Application Accepted', desc: 'When you accept an application' },
+  { key: 'application.declined', label: 'Application Declined', desc: 'When you decline an application' },
 ];
 
 interface WebhookEndpoint {
@@ -150,10 +153,9 @@ function WebhooksPanel() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [newUrl, setNewUrl] = useState('');
-  const [newEvents, setNewEvents] = useState<string[]>(['flight.completed']);
+  const [newEvents, setNewEvents] = useState<string[]>(VALID_EVENTS.map(e => e.key));
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
-  const [newSecret, setNewSecret] = useState('');
   const [deliveriesFor, setDeliveriesFor] = useState<string | null>(null);
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; status: number | null }>>({});
@@ -163,20 +165,19 @@ function WebhooksPanel() {
   }, []);
 
   async function handleCreate() {
-    setCreating(true); setCreateError(''); setNewSecret('');
+    setCreating(true); setCreateError('');
     try {
       const { data } = await api.post('/webhooks', { url: newUrl, events: newEvents });
-      setNewSecret(data.secret);
       setEndpoints(prev => [{ ...data, _count: { deliveries: 0 } }, ...prev]);
-      setNewUrl(''); setNewEvents(['flight.completed']); setShowCreate(false);
+      setNewUrl(''); setNewEvents(VALID_EVENTS.map(e => e.key)); setShowCreate(false);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setCreateError(msg ?? 'Failed to create webhook');
+      setCreateError(msg ?? 'Failed to add channel');
     } finally { setCreating(false); }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this webhook endpoint?')) return;
+    if (!confirm('Remove this Discord channel?')) return;
     await api.delete(`/webhooks/${id}`);
     setEndpoints(prev => prev.filter(e => e.id !== id));
   }
@@ -192,13 +193,8 @@ function WebhooksPanel() {
     setTimeout(() => setTestResult(prev => { const n = { ...prev }; delete n[id]; return n; }), 5000);
   }
 
-  async function handleRotateSecret(id: string) {
-    if (!confirm('Rotate the signing secret? Your existing integration will break until updated.')) return;
-    const { data } = await api.post(`/webhooks/${id}/rotate-secret`);
-    setNewSecret(data.secret);
-  }
-
   async function loadDeliveries(id: string) {
+    if (deliveriesFor === id) { setDeliveriesFor(null); return; }
     const { data } = await api.get(`/webhooks/${id}/deliveries`);
     setDeliveries(data);
     setDeliveriesFor(id);
@@ -213,44 +209,54 @@ function WebhooksPanel() {
     <div className="flex flex-col gap-6 max-w-2xl">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-bold text-lg">Webhooks</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Send real-time events to your server when things happen in AeroNexus.</p>
+          <h2 className="font-bold text-lg">Discord Notifications</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Post AeroNexus events directly to a Discord channel.</p>
         </div>
-        <button onClick={() => setShowCreate(!showCreate)}
-          className="bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition">
-          + Add Endpoint
-        </button>
+        {!showCreate && (
+          <button onClick={() => setShowCreate(true)}
+            className="bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition">
+            + Add Channel
+          </button>
+        )}
       </div>
 
-      {/* Secret display (after create or rotate) */}
-      {newSecret && (
-        <div className="glass-card rounded-xl p-4 border border-amber-500/30 bg-amber-500/5">
-          <p className="text-xs text-amber-300 font-bold mb-1">⚠️ Copy your signing secret — it won&apos;t be shown again</p>
-          <code className="text-xs text-amber-200 break-all font-mono">{newSecret}</code>
-          <button onClick={() => setNewSecret('')} className="block text-xs text-gray-500 hover:text-white mt-2 transition">Dismiss</button>
+      {/* How to get the URL */}
+      {!showCreate && endpoints.length === 0 && (
+        <div className="glass-card rounded-2xl p-5 border border-white/5">
+          <p className="font-bold text-sm mb-3">How to set up</p>
+          <ol className="flex flex-col gap-2 text-sm text-gray-400">
+            <li className="flex gap-2"><span className="text-aero font-bold flex-shrink-0">1.</span> Open Discord and go to the channel you want notifications in</li>
+            <li className="flex gap-2"><span className="text-aero font-bold flex-shrink-0">2.</span> Click the ⚙️ gear icon next to the channel → <span className="text-white">Integrations</span> → <span className="text-white">Webhooks</span></li>
+            <li className="flex gap-2"><span className="text-aero font-bold flex-shrink-0">3.</span> Click <span className="text-white">New Webhook</span>, give it a name, then click <span className="text-white">Copy Webhook URL</span></li>
+            <li className="flex gap-2"><span className="text-aero font-bold flex-shrink-0">4.</span> Paste that URL below and choose which events to post</li>
+          </ol>
         </div>
       )}
 
       {/* Create form */}
       {showCreate && (
         <div className="glass-card rounded-2xl p-5 border border-aero/20">
-          <h3 className="font-bold mb-3 text-sm">New Endpoint</h3>
-          <div className="flex flex-col gap-3">
+          <h3 className="font-bold mb-1 text-sm">Add Discord Channel</h3>
+          <p className="text-xs text-gray-500 mb-4">Paste the Webhook URL from Discord → Channel Settings → Integrations → Webhooks.</p>
+          <div className="flex flex-col gap-4">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">URL</label>
+              <label className="text-xs text-gray-500 block mb-1">Discord Webhook URL</label>
               <input value={newUrl} onChange={e => setNewUrl(e.target.value)}
-                placeholder="https://yourserver.com/webhooks/aeronexus"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-aero focus:outline-none transition" />
+                placeholder="https://discord.com/api/webhooks/..."
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-aero focus:outline-none transition font-mono" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-2">Events to subscribe</label>
-              <div className="flex flex-wrap gap-2">
+              <label className="text-xs text-gray-500 block mb-2">Notify me when…</label>
+              <div className="flex flex-col gap-2">
                 {VALID_EVENTS.map(ev => (
-                  <label key={ev} className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={newEvents.includes(ev)}
-                      onChange={e => setNewEvents(prev => e.target.checked ? [...prev, ev] : prev.filter(x => x !== ev))}
-                      className="accent-aero" />
-                    <span className="text-xs font-mono text-gray-300">{ev}</span>
+                  <label key={ev.key} className="flex items-start gap-3 cursor-pointer group">
+                    <input type="checkbox" checked={newEvents.includes(ev.key)}
+                      onChange={e => setNewEvents(prev => e.target.checked ? [...prev, ev.key] : prev.filter(x => x !== ev.key))}
+                      className="accent-aero mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm text-white group-hover:text-aero transition">{ev.label}</p>
+                      <p className="text-xs text-gray-500">{ev.desc}</p>
+                    </div>
                   </label>
                 ))}
               </div>
@@ -258,99 +264,88 @@ function WebhooksPanel() {
             {createError && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{createError}</p>}
             <div className="flex gap-3">
               <button onClick={handleCreate} disabled={creating || !newUrl.trim() || newEvents.length === 0}
-                className="bg-aero text-black font-bold px-5 py-2 rounded-xl text-sm hover:brightness-110 transition disabled:opacity-50">
-                {creating ? 'Creating…' : 'Create Endpoint'}
+                className="bg-aero text-black font-bold px-5 py-2.5 rounded-xl text-sm hover:brightness-110 transition disabled:opacity-50">
+                {creating ? 'Saving…' : 'Save Channel'}
               </button>
-              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-white text-sm transition">Cancel</button>
+              <button onClick={() => { setShowCreate(false); setCreateError(''); }}
+                className="text-gray-400 hover:text-white text-sm transition">Cancel</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Endpoint list */}
-      {endpoints.length === 0 && !showCreate ? (
-        <div className="glass-card rounded-2xl p-10 text-center">
-          <p className="text-3xl mb-3">🔗</p>
-          <p className="text-gray-400 text-sm">No webhook endpoints yet. Add one to start receiving events.</p>
-        </div>
-      ) : (
-        endpoints.map(ep => (
-          <div key={ep.id} className="glass-card rounded-2xl p-5">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                  <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full border',
-                    ep.enabled ? 'text-green-400 border-green-500/20 bg-green-500/10' : 'text-gray-500 border-white/10 bg-white/5')}>
-                    {ep.enabled ? 'Active' : 'Disabled'}
-                  </span>
-                  <span className="text-xs text-gray-500">{ep._count.deliveries} deliveries</span>
-                </div>
-                <p className="font-mono text-sm text-aero break-all">{ep.url}</p>
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {ep.events.map(ev => (
-                    <span key={ev} className="text-[10px] font-mono text-gray-500 border border-white/10 px-1.5 py-0.5 rounded">{ev}</span>
+      {/* Channel list */}
+      {endpoints.map(ep => (
+        <div key={ep.id} className="glass-card rounded-2xl p-5">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="text-sm">🔔</span>
+                <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full border',
+                  ep.enabled ? 'text-green-400 border-green-500/20 bg-green-500/10' : 'text-gray-500 border-white/10 bg-white/5')}>
+                  {ep.enabled ? 'Active' : 'Paused'}
+                </span>
+                <span className="text-xs text-gray-500">{ep._count.deliveries} messages sent</span>
+              </div>
+              <p className="text-xs text-gray-500 font-mono truncate">{ep.url.replace('https://discord.com/api/webhooks/', 'discord.com/…/')}</p>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {ep.events.map(ev => {
+                  const label = VALID_EVENTS.find(e => e.key === ev)?.label ?? ev;
+                  return (
+                    <span key={ev} className="text-[10px] text-gray-400 border border-white/10 bg-white/5 px-2 py-0.5 rounded-full">{label}</span>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
+              <button onClick={() => handleTest(ep.id)}
+                className="text-xs border border-white/10 px-2.5 py-1 rounded-lg hover:bg-white/5 transition text-gray-400 hover:text-white">
+                {testResult[ep.id] !== undefined
+                  ? testResult[ep.id].ok ? '✓ Sent' : '✗ Failed'
+                  : 'Test'}
+              </button>
+              <button onClick={() => loadDeliveries(ep.id)}
+                className="text-xs border border-white/10 px-2.5 py-1 rounded-lg hover:bg-white/5 transition text-gray-400 hover:text-white">
+                {deliveriesFor === ep.id ? 'Hide Log' : 'Log'}
+              </button>
+              <button onClick={() => handleToggle(ep)}
+                className="text-xs border border-white/10 px-2.5 py-1 rounded-lg hover:bg-white/5 transition text-gray-400 hover:text-white">
+                {ep.enabled ? 'Pause' : 'Resume'}
+              </button>
+              <button onClick={() => handleDelete(ep.id)}
+                className="text-xs border border-red-500/20 px-2.5 py-1 rounded-lg hover:bg-red-500/10 transition text-red-400">
+                Remove
+              </button>
+            </div>
+          </div>
+
+          {/* Delivery log */}
+          {deliveriesFor === ep.id && (
+            <div className="border-t border-white/5 pt-3 mt-1">
+              <p className="text-xs font-bold text-gray-400 mb-2">Recent Messages</p>
+              {deliveries.length === 0 ? (
+                <p className="text-xs text-gray-600 py-2">No messages sent yet. Hit Test to send a test message.</p>
+              ) : (
+                <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
+                  {deliveries.map(d => (
+                    <div key={d.id} className="flex items-center justify-between text-xs py-1.5 border-b border-white/5 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className={cn('font-bold', statusColor(d.status))}>
+                          {d.status === 'DELIVERED' ? '✓' : d.status === 'FAILED' ? '✗' : '…'}
+                        </span>
+                        <span className="text-gray-300">{VALID_EVENTS.find(e => e.key === d.event)?.label ?? d.event}</span>
+                      </div>
+                      <span className="text-gray-600">
+                        {d.last_attempted_at ? new Date(d.last_attempted_at).toLocaleString() : '—'}
+                      </span>
+                    </div>
                   ))}
                 </div>
-              </div>
-              <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
-                <button onClick={() => handleTest(ep.id)}
-                  className="text-xs border border-white/10 px-2 py-1 rounded-lg hover:bg-white/5 transition text-gray-400 hover:text-white">
-                  {testResult[ep.id] !== undefined
-                    ? testResult[ep.id].ok ? '✓ OK' : `✗ ${testResult[ep.id].status ?? 'err'}`
-                    : 'Test'}
-                </button>
-                <button onClick={() => loadDeliveries(ep.id)}
-                  className="text-xs border border-white/10 px-2 py-1 rounded-lg hover:bg-white/5 transition text-gray-400 hover:text-white">
-                  Logs
-                </button>
-                <button onClick={() => handleToggle(ep)}
-                  className="text-xs border border-white/10 px-2 py-1 rounded-lg hover:bg-white/5 transition text-gray-400 hover:text-white">
-                  {ep.enabled ? 'Disable' : 'Enable'}
-                </button>
-                <button onClick={() => handleRotateSecret(ep.id)}
-                  className="text-xs border border-amber-500/20 px-2 py-1 rounded-lg hover:bg-amber-500/10 transition text-amber-400">
-                  Rotate Secret
-                </button>
-                <button onClick={() => handleDelete(ep.id)}
-                  className="text-xs border border-red-500/20 px-2 py-1 rounded-lg hover:bg-red-500/10 transition text-red-400">
-                  Delete
-                </button>
-              </div>
+              )}
             </div>
-
-            {/* Delivery log */}
-            {deliveriesFor === ep.id && (
-              <div className="border-t border-white/5 pt-3 mt-1">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-bold text-gray-400">Last 50 Deliveries</p>
-                  <button onClick={() => setDeliveriesFor(null)} className="text-xs text-gray-600 hover:text-white transition">Close</button>
-                </div>
-                {deliveries.length === 0 ? (
-                  <p className="text-xs text-gray-600 py-2">No deliveries yet.</p>
-                ) : (
-                  <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
-                    {deliveries.map(d => (
-                      <div key={d.id} className="flex items-center justify-between text-xs py-1 border-b border-white/5 last:border-0">
-                        <div className="flex items-center gap-2">
-                          <span className={cn('font-bold', statusColor(d.status))}>{d.status}</span>
-                          <span className="font-mono text-gray-400">{d.event}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-gray-600">
-                          {d.response_status && <span>HTTP {d.response_status}</span>}
-                          <span>{d.attempts} attempt{d.attempts !== 1 ? 's' : ''}</span>
-                          <span>{d.last_attempted_at ? new Date(d.last_attempted_at).toLocaleString() : '—'}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ))
-      )}
-
-
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -587,7 +582,7 @@ export default function AirlineSettingsPage() {
           { key: 'general', label: 'General' },
           { key: 'branding', label: 'Branding' },
           { key: 'expenses', label: 'Expenses' },
-          { key: 'webhooks', label: 'Webhooks' },
+          { key: 'webhooks', label: 'Discord' },
           { key: 'subscription', label: 'Subscription' },
           { key: 'transfer', label: 'Transfer Ownership' },
         ] as const).map((t) => (
