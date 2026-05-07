@@ -24,13 +24,13 @@ interface ActiveFlight {
 }
 
 const STATUS_STEPS = [
-  { key: 'BOARDING',  label: 'Boarding',   icon: '🚶' },
-  { key: 'TAXI',      label: 'Taxi',        icon: '🛞' },
-  { key: 'TAKEOFF',   label: 'Takeoff',     icon: '🛫' },
-  { key: 'CLIMB',     label: 'Climb',       icon: '📈' },
-  { key: 'CRUISE',    label: 'Cruise',      icon: '✈️' },
-  { key: 'DESCENT',   label: 'Descent',     icon: '📉' },
-  { key: 'LANDED',    label: 'Landed',      icon: '🛬' },
+  { key: 'BOARDING', label: 'Boarding' },
+  { key: 'TAXI',     label: 'Taxi' },
+  { key: 'TAKEOFF',  label: 'Takeoff' },
+  { key: 'CLIMB',    label: 'Climb' },
+  { key: 'CRUISE',   label: 'Cruise' },
+  { key: 'DESCENT',  label: 'Descent' },
+  { key: 'LANDED',   label: 'Landed' },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -148,27 +148,30 @@ export default function ActiveFlightPage() {
         <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Flight Progress</h3>
         <div className="flex items-center gap-0">
           {STATUS_STEPS.map((step, i) => {
-            const done = i < currentStepIdx;
+            const done   = i < currentStepIdx;
             const active = i === currentStepIdx;
             const future = i > currentStepIdx;
             return (
               <div key={step.key} className="flex items-center flex-1 last:flex-none">
-                <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-1.5">
                   <div className={cn(
-                    'w-9 h-9 rounded-full flex items-center justify-center text-sm border-2 transition',
-                    done   ? 'bg-aero/20 border-aero text-aero' :
-                    active ? 'bg-aero text-black border-aero' :
-                    'bg-white/5 border-white/10 text-gray-600'
-                  )}>
-                    {done ? '✓' : step.icon}
-                  </div>
-                  <span className={cn('text-[10px] text-center leading-tight',
-                    active ? 'text-aero font-bold' : future ? 'text-gray-600' : 'text-gray-400')}>
+                    'w-8 h-8 rounded-full border-2 transition-all',
+                    done   ? 'bg-aero/30 border-aero' :
+                    active ? 'bg-green-500 border-green-400 shadow-lg shadow-green-500/40' :
+                             'bg-white/5 border-white/10'
+                  )} />
+                  <span className={cn('text-[10px] text-center leading-tight font-medium',
+                    active ? 'text-green-400' :
+                    done   ? 'text-aero/80' :
+                             'text-gray-600')}>
                     {step.label}
                   </span>
                 </div>
                 {i < STATUS_STEPS.length - 1 && (
-                  <div className={cn('flex-1 h-0.5 mb-4 mx-1', done ? 'bg-aero/50' : 'bg-white/10')} />
+                  <div className={cn(
+                    'flex-1 h-0.5 mb-5 mx-1 rounded-full transition-all',
+                    done ? 'bg-aero/40' : 'bg-white/8'
+                  )} />
                 )}
               </div>
             );
