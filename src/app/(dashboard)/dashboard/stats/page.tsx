@@ -90,11 +90,13 @@ function LeaderboardTable({ entries, loading }: { entries: LeaderboardEntry[]; l
     </div>
   );
 
+  const COLS = '40px 1fr 80px 80px 90px 100px 110px';
+
   return (
     <div className="glass-card rounded-2xl overflow-hidden">
       {/* Header */}
       <div className="grid px-5 py-3 border-b border-white/5 text-xs text-gray-500 uppercase tracking-widest"
-        style={{ gridTemplateColumns: '40px 1fr 70px 70px 70px 80px 80px' }}>
+        style={{ gridTemplateColumns: COLS }}>
         <span>#</span>
         <span>Pilot</span>
         <span className="text-right">Flights</span>
@@ -107,7 +109,7 @@ function LeaderboardTable({ entries, loading }: { entries: LeaderboardEntry[]; l
       {entries.map((entry) => (
         <div key={entry.rank}
           className="grid px-5 py-3.5 border-b border-white/5 last:border-0 items-center hover:bg-white/3 transition"
-          style={{ gridTemplateColumns: '40px 1fr 70px 70px 70px 80px 80px' }}>
+          style={{ gridTemplateColumns: COLS }}>
           {/* Rank */}
           <div className="flex items-center">
             <MedalIcon rank={entry.rank} />
