@@ -41,6 +41,7 @@ interface Pilot {
   is_suspended: boolean;
   suspension_ends_at: string | null;
   suspension_reason: string | null;
+  va_pilot_id: string | null;
   auto_rank: string;
   va_rank: string | null;
   current_airport_icao: string | null;
@@ -714,6 +715,11 @@ export default function CrewPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
+                        {pilot.va_pilot_id && (
+                          <span className="font-mono text-[10px] font-bold text-aero border border-aero/20 bg-aero/5 px-1.5 py-0.5 rounded">
+                            {pilot.va_pilot_id}
+                          </span>
+                        )}
                         <span className="font-medium text-white text-sm">{pilot.display_name}</span>
                         {pilot.is_founder && <span className="text-[10px] text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded-full">Founder</span>}
                         {pilot.pilot_tier === 'PRO_SUB' && <span className="text-[10px] text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-full">PRO</span>}
@@ -788,6 +794,7 @@ export default function CrewPage() {
                   {[
                     { label: 'Flights', value: (selected.stats?.total_flights ?? 0).toString() },
                     { label: 'Hours', value: `${selected.stats?.total_hours ?? 0}h` },
+                    { label: 'Pilot ID', value: selected.va_pilot_id ?? '—' },
                     { label: 'Reputation', value: Number(selected.reputation).toFixed(1) },
                     { label: 'XP', value: selected.xp_points.toLocaleString() },
                     { label: 'Avg Happiness', value: selected.stats?.avg_happiness ? `${Number(selected.stats.avg_happiness).toFixed(0)}%` : '—' },

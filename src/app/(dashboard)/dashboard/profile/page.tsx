@@ -27,6 +27,7 @@ interface ProfileData {
     current_airport_icao: string | null;
     personal_balance: number;
     avatar_url: string | null;
+    va_pilot_id: string | null;
     created_at: string;
     airline: {
       name: string;
@@ -290,6 +291,7 @@ export default function ProfilePage() {
         {/* Info grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
           {[
+            ...(u.va_pilot_id ? [{ label: 'Pilot ID', value: u.va_pilot_id, mono: true }] : []),
             { label: 'Home Airport', value: u.home_airport_icao ?? 'Not set', mono: true },
             { label: 'Current Location', value: u.current_airport_icao ?? 'Unknown', mono: true },
             { label: 'Personal Balance', value: `${currency}${Number(u.personal_balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
