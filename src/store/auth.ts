@@ -11,6 +11,11 @@ interface User {
   is_founder: boolean;
   email_verified: boolean;
   reputation: number;
+  avatar_url?: string | null;
+  airline?: {
+    subscription_tier: string;
+    subscription_status: string;
+  } | null;
 }
 
 interface AuthState {

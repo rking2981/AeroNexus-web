@@ -26,6 +26,7 @@ interface ProfileData {
     home_airport_icao: string | null;
     current_airport_icao: string | null;
     personal_balance: number;
+    avatar_url: string | null;
     created_at: string;
     airline: {
       name: string;
@@ -182,7 +183,7 @@ export default function ProfilePage() {
 
   // Edit state
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ first_name: '', surname: '', display_preference: 'DISPLAY_NAME', home_airport_icao: '' });
+  const [editForm, setEditForm] = useState({ first_name: '', surname: '', display_preference: 'DISPLAY_NAME', home_airport_icao: '', avatar_url: '' });
   const [homeSearch, setHomeSearch] = useState('');
   const [homeResults, setHomeResults] = useState<{ id: string; icao: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -196,6 +197,7 @@ export default function ProfilePage() {
         surname: u.surname ?? '',
         display_preference: u.display_preference ?? 'DISPLAY_NAME',
         home_airport_icao: u.home_airport_icao ?? '',
+        avatar_url: u.avatar_url ?? '',
       });
     }).finally(() => setLoading(false));
   }, []);
@@ -214,6 +216,7 @@ export default function ProfilePage() {
         surname: editForm.surname || undefined,
         display_preference: editForm.display_preference,
         home_airport_icao: editForm.home_airport_icao || undefined,
+        avatar_url: editForm.avatar_url || null,
       });
       setProfile((p) => p ? { ...p, user: { ...p.user, ...data } } : p);
       // Refresh store
@@ -248,10 +251,13 @@ export default function ProfilePage() {
         <div className="flex items-start gap-5">
           {/* Avatar */}
           <div className={cn(
-            'w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0',
+            'w-16 h-16 rounded-2xl flex-shrink-0 overflow-hidden flex items-center justify-center text-2xl font-bold',
             u.is_founder ? 'bg-purple-500/20 ring-2 ring-purple-500/50' : 'bg-aero/20 ring-2 ring-aero/30'
           )}>
-            {displayedName[0]?.toUpperCase()}
+            {u.avatar_url
+              ? <img src={u.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+              : <span>{displayedName[0]?.toUpperCase()}</span>
+            }
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -315,6 +321,25 @@ export default function ProfilePage() {
                 placeholder="King" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition" />
             </div>
           </div>
+          {/* Avatar URL */}
+          <div className="mb-4">
+            <label className="text-sm text-gray-300 block mb-1.5">Profile Picture URL</label>
+            <input value={editForm.avatar_url}
+              onChange={(e) => setEditForm({ ...editForm, avatar_url: e.target.value })}
+              placeholder="https://example.com/photo.jpg"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition" />
+            {editForm.avatar_url && (
+              <div className="flex items-center gap-3 mt-2">
+                <img src={editForm.avatar_url} alt="Preview"
+                  className="w-10 h-10 rounded-xl object-cover border border-white/10"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                <span className="text-xs text-gray-500">Preview</span>
+                <button type="button" onClick={() => setEditForm({ ...editForm, avatar_url: '' })}
+                  className="text-xs text-red-400 hover:text-red-300 transition">Remove</button>
+              </div>
+            )}
+          </div>
+
           <div className="mb-4">
             <label className="text-sm text-gray-300 block mb-1.5">Display Name Preference</label>
             <select value={editForm.display_preference} onChange={(e) => setEditForm({ ...editForm, display_preference: e.target.value })}

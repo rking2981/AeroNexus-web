@@ -113,8 +113,12 @@ export function Sidebar() {
       {/* User footer */}
       <div className="px-4 py-4 border-t border-white/5">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-aero/20 flex items-center justify-center text-aero text-sm font-bold flex-shrink-0">
-            {user?.display_name?.[0]?.toUpperCase() ?? ''}
+          {/* Avatar */}
+          <div className="w-9 h-9 rounded-full flex-shrink-0 overflow-hidden bg-aero/20 flex items-center justify-center text-aero text-sm font-bold ring-2 ring-aero/20">
+            {user?.avatar_url
+              ? <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+              : <span>{user?.display_name?.[0]?.toUpperCase() ?? ''}</span>
+            }
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium truncate flex items-center gap-1">
@@ -122,6 +126,25 @@ export function Sidebar() {
               {user?.is_founder && <Image src="/badges/founders-badge.png" alt="Founder" width={20} height={20} className="inline align-middle" />}
             </p>
             <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+            {/* Subscription status */}
+            {user?.airline && (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={cn('text-[10px] font-bold',
+                  user.airline.subscription_tier === 'FOUNDERS'   ? 'text-purple-400' :
+                  user.airline.subscription_tier === 'ENTERPRISE'  ? 'text-aero' : 'text-gray-500')}>
+                  {user.airline.subscription_tier}
+                </span>
+                <span className={cn('text-[10px]',
+                  user.airline.subscription_status === 'ACTIVE'   ? 'text-green-500' :
+                  user.airline.subscription_status === 'TRIALING' ? 'text-amber-500' :
+                  user.airline.subscription_status === 'PAST_DUE' ? 'text-amber-500' : 'text-red-500')}>
+                  · {user.airline.subscription_status}
+                </span>
+              </div>
+            )}
+            {!user?.airline_id && (
+              <p className="text-[10px] text-gray-600 mt-0.5">Free Pilot</p>
+            )}
           </div>
         </div>
         <button
