@@ -107,16 +107,21 @@ function CabinDiagram({ rows, aircraftType, category }: {
     );
   }
 
+  // ── Horizontal layout (nose left → tail right) ──────────────────────────
+  // X axis = seat rows (front to back), Y axis = seat positions (cross-section)
   const COL_POSITIONS = layout.cols;
   const SEATS_PER_ROW = COL_POSITIONS.length;
-  const SEAT_W = 10; const SEAT_H = 12; const SEAT_GAP = 2;
-  const AISLE = layout.aisle; const PAD_X = 24; const PAD_Y = 16;
-
-  // Determine which cols are "right of aisle" — cols after the gap
-  // Find the largest gap between consecutive col values
-  const maxCol = Math.max(...COL_POSITIONS);
   const numAisles = layout.label.split('+').length - 1;
-  void maxCol; // used in svgW calculation below
+
+  // Seat dimensions in horizontal mode:
+  // SEAT_W = depth front-to-back, SEAT_H = width left-right
+  const SEAT_D = 10;   // depth (x-axis)
+  const SEAT_W = 11;   // width (y-axis)
+  const SEAT_GAP_X = 2;
+  const SEAT_GAP_Y = 2;
+  const AISLE_Y = layout.aisle;  // aisle gap in y-axis
+  const PAD_X = 40;   // nose room left
+  const PAD_Y = 12;   // top/bottom padding
 
   // Build list of seat rows per section
   const sections: { key: CabinClass; color: string; seatRows: number }[] = activeRows.map((r) => ({
@@ -125,89 +130,99 @@ function CabinDiagram({ rows, aircraftType, category }: {
     seatRows: Math.ceil(r.seats / SEATS_PER_ROW),
   }));
 
-  const totalRows = sections.reduce((s, sec) => s + sec.seatRows, 0);
-  const ROW_H = SEAT_H + SEAT_GAP;
-  const svgH = PAD_Y * 2 + totalRows * ROW_H + (sections.length - 1) * 6;
-  // SVG width: max col index × (SEAT_W + GAP) + numAisles × AISLE + padding
-  const svgW = PAD_X * 2 + (maxCol + 1) * (SEAT_W + SEAT_GAP) + numAisles * AISLE;
+  // Total seat rows = x-axis length
+  const totalSeatRows = sections.reduce((s, sec) => s + sec.seatRows, 0);
+  const ROW_STEP = SEAT_D + SEAT_GAP_X;
 
-  // Pre-compute x positions for each column index
-  // Find aisle breakpoints (largest gaps between consecutive col values)
+  // Pre-compute Y positions for each cross-section position (COL_POSITIONS)
+  // Find aisle gaps
   const sortedCols = [...COL_POSITIONS].sort((a, b) => a - b);
-  const gaps = sortedCols.slice(1).map((c, i) => ({ gap: c - sortedCols[i], after: sortedCols[i] }));
-  gaps.sort((a, b) => b.gap - a.gap);
-  const aisleAfter = new Set(gaps.slice(0, numAisles).map(g => g.after));
+  const gapsArr = sortedCols.slice(1).map((c, i) => ({ gap: c - sortedCols[i], after: sortedCols[i] }));
+  gapsArr.sort((a, b) => b.gap - a.gap);
+  const aisleAfterSet = new Set(gapsArr.slice(0, numAisles).map(g => g.after));
 
-  function colX(col: number): number {
-    let x = PAD_X + col * (SEAT_W + SEAT_GAP);
+  function seatY(col: number): number {
+    let y = PAD_Y + col * (SEAT_W + SEAT_GAP_Y);
     let aisleCount = 0;
     for (const c of sortedCols) {
       if (c >= col) break;
-      if (aisleAfter.has(c)) aisleCount++;
+      if (aisleAfterSet.has(c)) aisleCount++;
     }
-    return x + aisleCount * AISLE;
+    return y + aisleCount * AISLE_Y;
   }
 
-  // Build SVG rows
+  const maxColPos = Math.max(...COL_POSITIONS);
+  const svgH = PAD_Y * 2 + (maxColPos + 1) * (SEAT_W + SEAT_GAP_Y) + numAisles * AISLE_Y;
+  const contentW = totalSeatRows * ROW_STEP + (sections.length - 1) * 4;
+  const svgW = PAD_X + contentW + 20; // nose pad + content + tail pad
+
+  // Build SVG elements
   const elements: React.ReactNode[] = [];
-  let y = PAD_Y;
+  let x = PAD_X;
 
   sections.forEach((sec, si) => {
+    // Section colour stripe at top
     elements.push(
-      <text key={`lbl-${si}`} x={svgW / 2} y={y + 8} textAnchor="middle"
-        fontSize="6" fill={sec.color} fontWeight="700" letterSpacing="1">
-        {CABIN_CLASSES.find(c => c.key === sec.key)?.label.toUpperCase()}
-      </text>
+      <rect key={`stripe-${si}`} x={x} y={2} width={sec.seatRows * ROW_STEP - SEAT_GAP_X} height={5}
+        rx={2} fill={sec.color} opacity={0.6} />
     );
-    y += 10;
 
     for (let r = 0; r < sec.seatRows; r++) {
       COL_POSITIONS.forEach((col, ci) => {
         const seatNum = r * SEATS_PER_ROW + ci;
         const seatExists = seatNum < (activeRows.find(a => a.key === sec.key)?.seats ?? 0);
-        const x = colX(col);
+        const sy = seatY(col);
         elements.push(
           <rect key={`seat-${si}-${r}-${ci}`}
-            x={x} y={y + r * ROW_H}
-            width={SEAT_W} height={SEAT_H}
+            x={x + r * ROW_STEP} y={sy}
+            width={SEAT_D} height={SEAT_W}
             rx={2}
-            fill={seatExists ? sec.color : 'transparent'}
-            opacity={seatExists ? 0.85 : 0}
+            fill={seatExists ? sec.color : 'rgba(255,255,255,0.04)'}
+            opacity={seatExists ? 0.85 : 1}
           />
         );
       });
     }
 
-    y += sec.seatRows * ROW_H;
+    x += sec.seatRows * ROW_STEP;
 
-    // Section divider
+    // Section divider (vertical dashed line)
     if (si < sections.length - 1) {
       elements.push(
         <line key={`div-${si}`}
-          x1={PAD_X - 4} y1={y + 2} x2={svgW - PAD_X + 4} y2={y + 2}
-          stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="3,2"
+          x1={x + 2} y1={PAD_Y - 2} x2={x + 2} y2={svgH - PAD_Y + 2}
+          stroke="rgba(255,255,255,0.12)" strokeWidth="1" strokeDasharray="3,2"
         />
       );
-      y += 6;
+      x += 4;
     }
   });
 
-  // Aircraft outline
-  const fuselageW = svgW - PAD_X * 0.5;
-  const fuselageX = PAD_X * 0.25;
+  // Aisle lines (horizontal, running front to back)
+  sortedCols.forEach((col) => {
+    if (aisleAfterSet.has(col)) {
+      const aisleY = seatY(col) + SEAT_W + SEAT_GAP_Y / 2 + AISLE_Y / 2 - 0.5;
+      elements.push(
+        <line key={`aisle-${col}`}
+          x1={PAD_X} y1={aisleY} x2={PAD_X + contentW} y2={aisleY}
+          stroke="rgba(255,255,255,0.05)" strokeWidth={AISLE_Y - 2}
+        />
+      );
+    }
+  });
 
   return (
     <div className="rounded-xl border border-white/5 bg-black/40 overflow-hidden">
-      <svg viewBox={`0 0 ${svgW} ${svgH + 16}`} width="100%" style={{ maxHeight: 280 }}>
-        {/* Fuselage */}
-        <rect x={fuselageX} y={4} width={fuselageW} height={svgH + 8}
-          rx={12} fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-        {/* Nose */}
-        <ellipse cx={svgW / 2} cy={8} rx={fuselageW / 2} ry={8}
-          fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-        {/* Aisle line */}
-        <line x1={svgW / 2} y1={PAD_Y - 4} x2={svgW / 2} y2={svgH}
-          stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+      <svg viewBox={`0 0 ${svgW} ${svgH}`} width="100%" style={{ maxHeight: 140 }}>
+        {/* Fuselage body */}
+        <rect x={PAD_X - 4} y={2} width={contentW + 8} height={svgH - 4}
+          rx={svgH / 2} fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
+        {/* Nose cone (left) */}
+        <ellipse cx={PAD_X - 4} cy={svgH / 2} rx={PAD_X - 6} ry={svgH / 2 - 2}
+          fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
+        {/* Tail (right) */}
+        <ellipse cx={PAD_X + contentW + 4} cy={svgH / 2} rx={14} ry={svgH / 2 - 2}
+          fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
 
         {elements}
       </svg>
