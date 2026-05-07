@@ -88,9 +88,9 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 // ─── Loan types ───────────────────────────────────────────────────────────────
 
 const LOAN_TIERS = {
-  STARTER:    { label: 'Starter Loan',    maxAmount: 5_000_000,  annualRate: 0.08,  termMonths: 12, minFlights: 25,  minHours: 50,   minReputation: 2.5 },
-  GROWTH:     { label: 'Growth Loan',     maxAmount: 20_000_000, annualRate: 0.06,  termMonths: 24, minFlights: 100, minHours: 200,  minReputation: 3.0 },
-  ENTERPRISE: { label: 'Enterprise Loan', maxAmount: 50_000_000, annualRate: 0.045, termMonths: 36, minFlights: 500, minHours: 1000, minReputation: 3.5 },
+  STARTER:    { label: 'Starter Loan',    maxAmount: 500_000,    annualRate: 0.08,  termMonths: 12, minFlights: 25,  minHours: 50,   minReputation: 2.5 },
+  GROWTH:     { label: 'Growth Loan',     maxAmount: 2_000_000,  annualRate: 0.06,  termMonths: 24, minFlights: 100, minHours: 200,  minReputation: 3.0 },
+  ENTERPRISE: { label: 'Enterprise Loan', maxAmount: 10_000_000, annualRate: 0.045, termMonths: 36, minFlights: 500, minHours: 1000, minReputation: 3.5 },
 } as const;
 
 type LoanTierKey = keyof typeof LOAN_TIERS;

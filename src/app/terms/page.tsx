@@ -106,6 +106,31 @@ export default function TermsPage() {
               <li>May be modified, reset, or removed by AeroNexus at any time</li>
               <li>Are forfeited upon account termination</li>
             </ul>
+            <p className="mt-3">
+              The in-game economy is calibrated for simulated play at a casual pace of 1–5 flights per day.
+              Pricing, revenue, and expenses are intentionally scaled to feel meaningful within this context
+              and do not reflect real-world aviation economics.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-bold text-white mb-3">5a. Simulated Banking and Loan System</h2>
+            <p>
+              AeroNexus provides a simulated in-game banking system that allows virtual airlines to apply for
+              simulated loans. These are entirely fictional financial instruments with no real-world legal or
+              financial standing. By using the loan system, you acknowledge:
+            </p>
+            <ul className="list-disc list-inside mt-3 space-y-2 text-gray-400">
+              <li>All loans, interest rates, and repayment terms are virtual and have no real-world monetary value</li>
+              <li>Simulated loan disbursements are credited to your virtual airline balance only</li>
+              <li>Monthly repayments are automatically deducted from your virtual airline balance</li>
+              <li>Failure to maintain sufficient balance for repayment may result in a simulated loan default,
+                  which affects your in-game reputation score but carries no real-world financial consequences</li>
+              <li>AeroNexus is not a bank, lender, or financial institution and this system is purely a
+                  gameplay mechanic within a flight simulation platform</li>
+              <li>Loan parameters (amounts, rates, terms, eligibility) may be adjusted at any time to
+                  maintain balanced gameplay</li>
+            </ul>
           </section>
 
           <section>
