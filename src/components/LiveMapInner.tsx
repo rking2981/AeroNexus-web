@@ -12,7 +12,7 @@ interface Props {
 
 function createAircraftEl(hdg: number, category: string, selected: boolean): HTMLElement {
   const isHeli = category === 'HELICOPTER';
-  const color = selected ? '#ff6600' : '#0066ff';
+  const color = selected ? '#ffffff' : '#00D1FF';
   const size = selected ? 32 : 24;
   const el = document.createElement('div');
   el.style.cssText = `width:${size}px;height:${size}px;cursor:pointer;`;
@@ -72,8 +72,8 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
         type: 'geojson',
         data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} },
       });
-      map.addLayer({ id: 'route-arc-glow', type: 'line', source: 'route-arc', paint: { 'line-color': '#0066ff', 'line-width': 6, 'line-opacity': 0.15 } });
-      map.addLayer({ id: 'route-arc-line', type: 'line', source: 'route-arc', paint: { 'line-color': '#0066ff', 'line-width': 2, 'line-opacity': 0.7, 'line-dasharray': [4, 4] }, layout: { 'line-cap': 'round' } });
+      map.addLayer({ id: 'route-arc-glow', type: 'line', source: 'route-arc', paint: { 'line-color': '#00D1FF', 'line-width': 6, 'line-opacity': 0.15 } });
+      map.addLayer({ id: 'route-arc-line', type: 'line', source: 'route-arc', paint: { 'line-color': '#00D1FF', 'line-width': 2, 'line-opacity': 0.7, 'line-dasharray': [4, 4] }, layout: { 'line-cap': 'round' } });
       mapReadyRef.current = true;
     });
 
@@ -150,7 +150,7 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
         <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(0,102,255,0.3)', borderRadius: 16, padding: 16, minWidth: 260 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
             <div>
-              <p style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0066ff', fontSize: 18, margin: 0 }}>
+              <p style={{ fontFamily: 'monospace', fontWeight: 700, color: '#00D1FF', fontSize: 18, margin: 0 }}>
                 {selected.route?.origin.icao ?? '?'} → {selected.route?.destination.icao ?? '?'}
               </p>
               <p style={{ color: '#6B7280', fontSize: 11, margin: '2px 0 0' }}>
