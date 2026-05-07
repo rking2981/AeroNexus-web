@@ -18,7 +18,7 @@ export async function middleware(req: NextRequest) {
 
   // Validate subdomain is a live VA website
   try {
-    const res = await fetch(`${API_URL}/va-site/${subdomain}`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API_URL}/va-site/${subdomain}`, { cache: 'no-store' });
     if (!res.ok) {
       // Subdomain exists but no VA website — show 404
       return NextResponse.rewrite(new URL('/not-found', req.url));
