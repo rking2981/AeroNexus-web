@@ -32,6 +32,9 @@ export async function middleware(req: NextRequest) {
     response.headers.set('x-va-airline-id', airline.id);
     response.headers.set('x-va-airline-name', airline.name);
     response.headers.set('x-va-slug', subdomain);
+    if (airline.branding) {
+      response.headers.set('x-va-branding', JSON.stringify(airline.branding));
+    }
     return response;
   } catch {
     return NextResponse.next();
