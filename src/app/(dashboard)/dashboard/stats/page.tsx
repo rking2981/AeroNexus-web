@@ -56,7 +56,88 @@ function MedalIcon({ rank }: { rank: number }) {
   return <span className="text-sm font-mono text-gray-500 w-6 text-center">{rank}</span>;
 }
 
-// ─── Leaderboard table ────────────────────────────────────────────────────────
+// ─── Airline leaderboard ─────────────────────────────────────────────────────
+
+interface AirlineEntry {
+  rank: number;
+  airline?: { id: string; name: string; icao_code: string; subscription_tier: string } | null;
+  flights: number;
+  total_hours: number;
+  total_pax: number;
+  avg_pax_happiness: string;
+  avg_landing_vs_fpm: number | null;
+  gross_revenue: number;
+}
+
+const TIER_COLORS: Record<string, string> = {
+  FOUNDERS:   'text-purple-400',
+  ENTERPRISE: 'text-aero',
+  STARTUP:    'text-gray-400',
+};
+
+function AirlineLeaderboardTable({ entries, loading }: { entries: AirlineEntry[]; loading: boolean }) {
+  if (loading) return (
+    <div className="flex flex-col gap-2">
+      {[1,2,3,4,5].map(i => <div key={i} className="glass-card rounded-2xl h-14 animate-pulse" />)}
+    </div>
+  );
+  if (entries.length === 0) return (
+    <div className="glass-card rounded-2xl p-12 text-center">
+      <p className="text-4xl mb-3">🏢</p>
+      <p className="text-gray-400 text-sm">No airline flight data in this time window.</p>
+    </div>
+  );
+
+  const COLS = '40px 1fr 80px 80px 90px 100px 100px 120px';
+
+  return (
+    <div className="glass-card rounded-2xl overflow-hidden">
+      <div className="grid px-5 py-3 border-b border-white/5 text-xs text-gray-500 uppercase tracking-widest"
+        style={{ gridTemplateColumns: COLS }}>
+        <span>#</span>
+        <span>Airline</span>
+        <span className="text-right">Flights</span>
+        <span className="text-right">Hours</span>
+        <span className="text-right">PAX</span>
+        <span className="text-right">Happiness</span>
+        <span className="text-right">Avg VS</span>
+        <span className="text-right">Revenue</span>
+      </div>
+      {entries.map((entry) => (
+        <div key={entry.rank}
+          className="grid px-5 py-3.5 border-b border-white/5 last:border-0 items-center hover:bg-white/3 transition"
+          style={{ gridTemplateColumns: COLS }}>
+          <div className="flex items-center"><MedalIcon rank={entry.rank} /></div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono text-sm font-bold text-white">{entry.airline?.icao_code ?? '—'}</span>
+              <span className="text-sm text-gray-400 truncate">{entry.airline?.name ?? '—'}</span>
+              {entry.airline?.subscription_tier && (
+                <span className={cn('text-[10px] font-bold', TIER_COLORS[entry.airline.subscription_tier] ?? 'text-gray-500')}>
+                  {entry.airline.subscription_tier}
+                </span>
+              )}
+            </div>
+          </div>
+          <span className="text-right text-sm font-mono text-white">{entry.flights}</span>
+          <span className="text-right text-sm font-mono text-gray-300">{entry.total_hours}h</span>
+          <span className="text-right text-sm font-mono text-gray-300">{entry.total_pax.toLocaleString()}</span>
+          <span className={cn('text-right text-sm font-mono font-bold', happinessColor(Number(entry.avg_pax_happiness)))}>
+            {Number(entry.avg_pax_happiness).toFixed(0)}%
+          </span>
+          <span className={cn('text-right text-sm font-mono', vsColor(entry.avg_landing_vs_fpm))}>
+            {entry.avg_landing_vs_fpm !== null ? `${entry.avg_landing_vs_fpm} fpm` : '—'}
+          </span>
+          <span className="text-right text-sm font-mono text-green-400">
+            ${entry.gross_revenue.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Pilot leaderboard table ──────────────────────────────────────────────────
 
 interface LeaderboardEntry {
   rank: number;
@@ -157,8 +238,9 @@ export default function StatsPage() {
   const [window, setWindow] = useState<Window>('month');
   const [loading, setLoading] = useState(false);
 
-  // Network leaderboard
+  // Network leaderboards
   const [networkBoard, setNetworkBoard] = useState<LeaderboardEntry[]>([]);
+  const [networkAirlineBoard, setNetworkAirlineBoard] = useState<AirlineEntry[]>([]);
 
   // Airline leaderboard + stats
   const [airlineBoard, setAirlineBoard] = useState<LeaderboardEntry[]>([]);
@@ -185,7 +267,9 @@ export default function StatsPage() {
       if (activeTab === 'network') {
         calls.push(
           api.get(`/stats/leaderboard/network?window=${window}&limit=25`)
-            .then(r => setNetworkBoard(r.data))
+            .then(r => setNetworkBoard(r.data)),
+          api.get(`/stats/leaderboard/airlines?window=${window}&limit=25`)
+            .then(r => setNetworkAirlineBoard(r.data)),
         );
       }
 
@@ -254,14 +338,30 @@ export default function StatsPage() {
 
       {/* ── Network tab ── */}
       {activeTab === 'network' && (
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-2">
-            <h2 className="font-bold text-lg">Top Pilots — Network</h2>
-            <span className="text-xs text-gray-500 border border-white/10 px-2 py-0.5 rounded-full">
-              {WINDOWS.find(w => w.key === window)?.label}
-            </span>
+        <div className="flex flex-col gap-8">
+          {/* Top Airlines */}
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-lg">Top Airlines</h2>
+              <span className="text-xs text-gray-500 border border-white/10 px-2 py-0.5 rounded-full">
+                {WINDOWS.find(w => w.key === window)?.label}
+              </span>
+            </div>
+            <AirlineLeaderboardTable entries={networkAirlineBoard} loading={loading} />
           </div>
-          <LeaderboardTable entries={networkBoard} loading={loading} />
+
+          <div className="h-px bg-white/5" />
+
+          {/* Top Pilots */}
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-lg">Top Pilots</h2>
+              <span className="text-xs text-gray-500 border border-white/10 px-2 py-0.5 rounded-full">
+                {WINDOWS.find(w => w.key === window)?.label}
+              </span>
+            </div>
+            <LeaderboardTable entries={networkBoard} loading={loading} />
+          </div>
         </div>
       )}
 
