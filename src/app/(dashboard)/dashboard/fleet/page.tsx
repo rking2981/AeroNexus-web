@@ -384,9 +384,19 @@ interface CheckStatus {
   overdue: boolean;
 }
 
+interface ComponentDamage {
+  component: string;
+  severity: string;
+  note: string;
+}
+
 interface MaintenanceStatus {
   hull: { registration: string; aircraft_type: string; maintenance_grade: string };
   checks: CheckStatus[];
+  maintenance_ends_at: string | null;
+  last_check_performed: string | null;
+  downtime_remaining_hours: number;
+  component_damage: ComponentDamage[];
 }
 
 function MaintenancePanel({ hull, onDone }: { hull: Hull; onDone: () => void }) {
@@ -444,6 +454,51 @@ function MaintenancePanel({ hull, onDone }: { hull: Hull; onDone: () => void }) 
 
       {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
 
+      {/* Downtime countdown */}
+      {status?.downtime_remaining_hours && status.downtime_remaining_hours > 0 ? (
+        <div className="glass-card rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/5">
+          <p className="text-xs text-amber-400 font-bold mb-0.5">Maintenance In Progress</p>
+          <p className="text-xs text-gray-400">
+            {status.last_check_performed && `${status.last_check_performed}-Check underway · `}
+            Returns to service in{' '}
+            <span className="text-white font-mono font-bold">
+              {status.downtime_remaining_hours >= 24
+                ? `${Math.floor(status.downtime_remaining_hours / 24)}d ${status.downtime_remaining_hours % 24}h`
+                : `${status.downtime_remaining_hours}h`}
+            </span>
+          </p>
+          {status.maintenance_ends_at && (
+            <p className="text-[10px] text-gray-600 mt-0.5">
+              Est. completion: {new Date(status.maintenance_ends_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
+        </div>
+      ) : status?.maintenance_ends_at === null && hull.status === 'MAINTENANCE' ? (
+        <div className="glass-card rounded-xl p-3 mb-3 border border-green-500/20 bg-green-500/5">
+          <p className="text-xs text-green-400 font-bold">Maintenance complete — ready to return to service</p>
+        </div>
+      ) : null}
+
+      {/* Component damage */}
+      {status?.component_damage && status.component_damage.length > 0 && (
+        <div className="flex flex-col gap-1.5 mb-3">
+          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Component Damage</p>
+          {status.component_damage.map((dmg) => (
+            <div key={dmg.component} className={cn('rounded-xl px-3 py-2.5 border text-xs',
+              dmg.severity === 'CRITICAL' ? 'border-red-500/40 bg-red-500/10' : 'border-amber-500/30 bg-amber-500/5')}>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="font-bold text-white">{dmg.component}</span>
+                <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
+                  dmg.severity === 'CRITICAL' ? 'text-red-400 border-red-500/30' : 'text-amber-400 border-amber-500/30')}>
+                  {dmg.severity}
+                </span>
+              </div>
+              <p className="text-gray-400">{dmg.note}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-col gap-2 mb-4">
         {status?.checks.map(check => (
           <div key={check.type} className={cn(
@@ -481,9 +536,20 @@ function MaintenancePanel({ hull, onDone }: { hull: Hull; onDone: () => void }) 
       </div>
 
       {hull.status === 'MAINTENANCE' && (
-        <button onClick={completeAndReturn} disabled={completing}
-          className="w-full bg-green-500/20 border border-green-500/30 text-green-400 font-bold px-4 py-2.5 rounded-xl text-xs hover:bg-green-500/30 transition disabled:opacity-50">
-          {completing ? 'Completing…' : 'Return Aircraft to Service (Mark Active)'}
+        <button
+          onClick={completeAndReturn}
+          disabled={completing || (status?.downtime_remaining_hours ?? 0) > 0}
+          className={cn(
+            'w-full font-bold px-4 py-2.5 rounded-xl text-xs transition disabled:opacity-50',
+            (status?.downtime_remaining_hours ?? 0) > 0
+              ? 'bg-white/5 border border-white/10 text-gray-500 cursor-not-allowed'
+              : 'bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30',
+          )}
+        >
+          {completing ? 'Completing…'
+            : (status?.downtime_remaining_hours ?? 0) > 0
+            ? `Maintenance in progress — ${status!.downtime_remaining_hours}h remaining`
+            : 'Return Aircraft to Service'}
         </button>
       )}
 
