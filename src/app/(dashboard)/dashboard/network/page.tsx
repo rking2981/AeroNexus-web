@@ -53,37 +53,57 @@ function formatBlockTime(min: number) {
   return `${h}h ${m.toString().padStart(2, '0')}m`;
 }
 
-// Deterministic "weather" from airport demand + timezone local hour
-function getWeatherSnapshot(airport: { demand_index: string; timezone: string; icao: string }): {
-  summary: string; icon: string; icing: boolean; turbulence: 'NIL' | 'LIGHT' | 'MOD' | 'SEV';
-} {
-  const demand = Number(airport.demand_index);
-  const hash = airport.icao.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  let localHour = 12;
-  try { localHour = new Date().toLocaleTimeString('en-US', { timeZone: airport.timezone, hour: 'numeric', hour12: false }) as unknown as number; } catch { /* */ }
-  const h = Number(localHour);
+// ─── METAR types ──────────────────────────────────────────────────────────────
 
-  // Night = calmer; morning/evening = more activity
-  const isNight = h < 6 || h > 22;
-  const isPeak = (h >= 7 && h <= 9) || (h >= 16 && h <= 19);
+interface Metar {
+  icao: string;
+  raw: string;
+  obs_time: string | null;
+  wind_dir: number | null;
+  wind_speed: number | null;
+  wind_gust: number | null;
+  visibility_sm: number | null;
+  sky_conditions: { coverage: string; base_ft: number | null }[];
+  temp_c: number | null;
+  dewpoint_c: number | null;
+  altimeter_hg: number | null;
+  wx_string: string | null;
+  flight_category: string | null;
+  icing_risk: boolean;
+  fetched_at: string;
+}
 
-  // Deterministic turbulence from hash
-  const turbIdx = hash % 4;
-  const turbulence: ('NIL' | 'LIGHT' | 'MOD' | 'SEV')[] = ['NIL', 'LIGHT', 'MOD', 'SEV'];
-  const turb = isNight ? 'NIL' : turbulence[turbIdx % (isPeak ? 3 : 2)];
-  const icing = (hash % 7 === 0) && demand < 0.4;
+const FC_COLORS: Record<string, string> = {
+  VFR:  'text-green-400 border-green-500/20 bg-green-500/5',
+  MVFR: 'text-blue-400 border-blue-500/20 bg-blue-500/5',
+  IFR:  'text-red-400 border-red-500/20 bg-red-500/5',
+  LIFR: 'text-purple-400 border-purple-500/20 bg-purple-500/5',
+};
 
-  const conditions = [
-    { cond: demand > 0.9 && isPeak, summary: 'Heavy Traffic', icon: '🟡' },
-    { cond: icing, summary: 'Icing Risk', icon: '🧊' },
-    { cond: turb === 'MOD' || turb === 'SEV', summary: `${turb === 'SEV' ? 'Severe' : 'Moderate'} Turbulence`, icon: '⚡' },
-    { cond: isNight, summary: 'Night Ops', icon: '🌙' },
-    { cond: hash % 5 === 0 && demand < 0.6, summary: 'Crosswind Advisory', icon: '💨' },
-    { cond: hash % 11 === 0, summary: 'Low Visibility', icon: '🌫️' },
-    { cond: true, summary: 'Clear', icon: '☀️' },
-  ];
-  const wx = conditions.find(c => c.cond)!;
-  return { summary: wx.summary, icon: wx.icon, icing, turbulence: turb };
+const SKY_LABELS: Record<string, string> = {
+  CLR: 'Clear', SKC: 'Clear', FEW: 'Few', SCT: 'Scattered',
+  BKN: 'Broken', OVC: 'Overcast', OVX: 'Obscured',
+};
+
+const WX_ICONS: Record<string, string> = {
+  TS: '⛈️', RA: '🌧️', SN: '❄️', FG: '🌫️', BR: '🌫️',
+  DZ: '🌦️', GR: '🌨️', HZ: '😶‍🌫️', SQ: '💨', FZ: '🧊',
+};
+
+function wxIcon(wxString: string | null): string {
+  if (!wxString) return '☀️';
+  for (const [code, icon] of Object.entries(WX_ICONS)) {
+    if (wxString.includes(code)) return icon;
+  }
+  return '🌤️';
+}
+
+function windDescription(dir: number | null, spd: number | null, gust: number | null): string {
+  if (spd === null) return 'Wind unknown';
+  if (spd === 0) return 'Calm';
+  const dirStr = dir !== null ? `${dir.toString().padStart(3, '0')}°` : 'VRB';
+  const gustStr = gust ? ` G${gust}` : '';
+  return `${dirStr} @ ${spd}${gustStr} kt`;
 }
 
 // ─── Route Arc SVG ────────────────────────────────────────────────────────────
@@ -154,6 +174,52 @@ function DemandBar({ label, value }: { label: string; value: number }) {
 
 // ─── Route Card ───────────────────────────────────────────────────────────────
 
+function MetarPanel({ icao }: { icao: string }) {
+  const [metar, setMetar] = useState<Metar | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    publicApi.get(`/weather/${icao}`)
+      .then(r => setMetar(r.data))
+      .catch(() => setMetar(null))
+      .finally(() => setLoading(false));
+  }, [icao]);
+
+  if (loading) return <div className="h-4 w-32 bg-white/5 rounded animate-pulse" />;
+  if (!metar) return <span className="text-[10px] text-gray-600">No METAR available</span>;
+
+  const fc = metar.flight_category;
+  const icon = wxIcon(metar.wx_string);
+  const ceiling = metar.sky_conditions.find(s => s.coverage === 'BKN' || s.coverage === 'OVC');
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-sm">{icon}</span>
+        {fc && (
+          <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded border', FC_COLORS[fc] ?? 'text-gray-400 border-white/10')}>
+            {fc}
+          </span>
+        )}
+        <span className="text-[10px] text-gray-400">{windDescription(metar.wind_dir, metar.wind_speed, metar.wind_gust)}</span>
+        {metar.visibility_sm !== null && metar.visibility_sm < 3 && (
+          <span className="text-[10px] text-amber-400">🌫️ Vis {metar.visibility_sm}SM</span>
+        )}
+        {ceiling && ceiling.base_ft !== null && ceiling.base_ft < 1000 && (
+          <span className="text-[10px] text-red-400">Ceiling {ceiling.base_ft.toLocaleString()}ft</span>
+        )}
+        {metar.icing_risk && <span className="text-[10px] text-blue-400">🧊 Icing</span>}
+        {metar.wx_string && <span className="text-[10px] text-gray-400">{metar.wx_string}</span>}
+      </div>
+      {metar.temp_c !== null && (
+        <span className="text-[10px] text-gray-600 font-mono">
+          {metar.temp_c}°C / {metar.dewpoint_c}°C · {metar.altimeter_hg?.toFixed(2)}&quot;Hg
+        </span>
+      )}
+    </div>
+  );
+}
+
 function RouteCard({ route, isManager, onUpdate, onDelete }: {
   route: Route; isManager: boolean;
   onUpdate: (updated: Partial<Route> & { id: string }) => void;
@@ -167,8 +233,6 @@ function RouteCard({ route, isManager, onUpdate, onDelete }: {
 
   const rtInfo = ROUTE_TYPES.find(r => r.key === route.route_type) ?? ROUTE_TYPES[0];
   const demandAvg = (Number(route.origin.demand_index) + Number(route.destination.demand_index)) / 2;
-  const wxOrigin = getWeatherSnapshot(route.origin);
-  const wxDest = getWeatherSnapshot(route.destination);
 
   async function handleTypeChange(newType: string) {
     setSavingType(true);
@@ -242,17 +306,16 @@ function RouteCard({ route, isManager, onUpdate, onDelete }: {
             <DemandBar label={`${route.destination.icao} demand`} value={Number(route.destination.demand_index)} />
           </div>
 
-          {/* Weather */}
-          <div className="flex gap-3 text-[10px] text-gray-500 flex-wrap">
-            <span>{wxOrigin.icon} {route.origin.icao}: {wxOrigin.summary}</span>
-            <span className="text-gray-700">·</span>
-            <span>{wxDest.icon} {route.destination.icao}: {wxDest.summary}</span>
-            {(wxDest.icing || wxOrigin.icing) && <span className="text-blue-400">🧊 Icing Risk</span>}
-            {(wxDest.turbulence !== 'NIL' || wxOrigin.turbulence !== 'NIL') && (
-              <span className={wxDest.turbulence === 'SEV' || wxOrigin.turbulence === 'SEV' ? 'text-red-400' : 'text-amber-400'}>
-                ⚡ TURB: {[wxOrigin.turbulence, wxDest.turbulence].filter(t => t !== 'NIL').join('/')}
-              </span>
-            )}
+          {/* Weather — real METAR from aviationweather.gov */}
+          <div className="flex flex-col gap-1.5 text-xs">
+            <div className="flex items-start gap-2">
+              <span className="text-gray-600 text-[10px] w-10 flex-shrink-0 pt-0.5">{route.origin.icao}</span>
+              <MetarPanel icao={route.origin.icao} />
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-gray-600 text-[10px] w-10 flex-shrink-0 pt-0.5">{route.destination.icao}</span>
+              <MetarPanel icao={route.destination.icao} />
+            </div>
           </div>
 
           {/* Waypoints */}
@@ -312,10 +375,8 @@ function RouteCard({ route, isManager, onUpdate, onDelete }: {
           {[
             { label: 'Avg Demand', value: `${Math.round(demandAvg * 100)}%` },
             { label: 'Block Time', value: formatBlockTime(route.estimated_block_min) },
-            { label: 'Origin WX', value: `${wxOrigin.icon} ${wxOrigin.summary}` },
-            { label: 'Dest WX', value: `${wxDest.icon} ${wxDest.summary}` },
-            { label: 'Icing', value: wxOrigin.icing || wxDest.icing ? '⚠️ Risk' : 'Clear' },
-            { label: 'Turbulence', value: [wxOrigin.turbulence, wxDest.turbulence].filter(t => t !== 'NIL').join('/') || 'NIL' },
+            { label: 'Aircraft', value: route.aircraft_type },
+            { label: 'Ticket', value: `$${Number(route.effective_ticket_price).toLocaleString()}` },
           ].map(r => (
             <div key={r.label}>
               <p className="text-gray-500 mb-0.5">{r.label}</p>
