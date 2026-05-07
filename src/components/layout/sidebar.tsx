@@ -116,7 +116,7 @@ export function Sidebar() {
           {/* Avatar */}
           <div className="w-9 h-9 rounded-full flex-shrink-0 overflow-hidden bg-aero/20 flex items-center justify-center text-aero text-sm font-bold ring-2 ring-aero/20">
             {user?.avatar_url
-              ? <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+              ? <Image src={user.avatar_url} alt="Avatar" width={36} height={36} className="w-full h-full object-cover" />
               : <span>{user?.display_name?.[0]?.toUpperCase() ?? ''}</span>
             }
           </div>

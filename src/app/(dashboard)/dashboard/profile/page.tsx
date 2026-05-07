@@ -255,7 +255,7 @@ export default function ProfilePage() {
             u.is_founder ? 'bg-purple-500/20 ring-2 ring-purple-500/50' : 'bg-aero/20 ring-2 ring-aero/30'
           )}>
             {u.avatar_url
-              ? <img src={u.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+              ? <Image src={u.avatar_url} alt="Avatar" width={64} height={64} className="w-full h-full object-cover" />
               : <span>{displayedName[0]?.toUpperCase()}</span>
             }
           </div>
