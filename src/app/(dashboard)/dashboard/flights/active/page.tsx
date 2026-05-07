@@ -1,0 +1,207 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
+
+interface ActiveFlight {
+  id: string;
+  status: string;
+  pax_count: number;
+  departed_at: string | null;
+  taxi_at: string | null;
+  takeoff_at: string | null;
+  hull: { registration: string; aircraft_type: string; aircraft_category: string };
+  route: {
+    distance_nm: number;
+    base_ticket_price: number;
+    origin: { icao: string; name: string };
+    destination: { icao: string; name: string };
+  };
+  airline: { name: string; icao_code: string } | null;
+}
+
+const STATUS_STEPS = [
+  { key: 'BOARDING',  label: 'Boarding',   icon: '🚶' },
+  { key: 'TAXI',      label: 'Taxi',        icon: '🛞' },
+  { key: 'TAKEOFF',   label: 'Takeoff',     icon: '🛫' },
+  { key: 'CLIMB',     label: 'Climb',       icon: '📈' },
+  { key: 'CRUISE',    label: 'Cruise',      icon: '✈️' },
+  { key: 'DESCENT',   label: 'Descent',     icon: '📉' },
+  { key: 'LANDED',    label: 'Landed',      icon: '🛬' },
+];
+
+const STATUS_COLORS: Record<string, string> = {
+  BOARDING: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+  TAXI:     'text-amber-400 bg-amber-500/10 border-amber-500/20',
+  TAKEOFF:  'text-aero bg-aero/10 border-aero/20',
+  CLIMB:    'text-aero bg-aero/10 border-aero/20',
+  CRUISE:   'text-green-400 bg-green-500/10 border-green-500/20',
+  DESCENT:  'text-aero bg-aero/10 border-aero/20',
+  LANDED:   'text-gray-400 bg-gray-500/10 border-gray-500/20',
+};
+
+export default function ActiveFlightPage() {
+  const router = useRouter();
+  const [flight, setFlight] = useState<ActiveFlight | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [dispatching, setDispatching] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get('/flights/active')
+      .then(r => setFlight(r.data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleDispatch() {
+    if (!flight) return;
+    setDispatching(true); setError('');
+    try {
+      await api.patch(`/flights/${flight.id}/dispatch`);
+      router.push('/dashboard/logbook');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Dispatch failed.');
+    } finally { setDispatching(false); }
+  }
+
+  async function handleCancel() {
+    if (!flight || !confirm(`Cancel flight ${flight.route.origin.icao} → ${flight.route.destination.icao}?`)) return;
+    setCancelling(true); setError('');
+    try {
+      await api.patch(`/flights/${flight.id}/cancel`);
+      setFlight(null);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Cancel failed.');
+    } finally { setCancelling(false); }
+  }
+
+  if (loading) return <div className="p-8"><div className="glass-card rounded-2xl h-64 animate-pulse" /></div>;
+
+  if (!flight) return (
+    <div className="p-8 max-w-2xl mx-auto">
+      <div className="glass-card rounded-2xl p-12 text-center">
+        <p className="text-4xl mb-4">🌐</p>
+        <h2 className="text-xl font-bold mb-2">No Active Flight</h2>
+        <p className="text-gray-400 text-sm mb-6">You don&apos;t have a flight in progress right now.</p>
+        <Link href="/dashboard/flights"
+          className="bg-aero text-black font-bold px-6 py-3 rounded-xl hover:brightness-110 transition text-sm">
+          Book a Flight
+        </Link>
+      </div>
+    </div>
+  );
+
+  const currentStepIdx = STATUS_STEPS.findIndex(s => s.key === flight.status);
+
+  return (
+    <div className="p-8 max-w-3xl mx-auto">
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-1">Active Flight</h1>
+          <p className="text-gray-400 text-sm">{flight.airline?.name ?? 'Your Airline'}</p>
+        </div>
+        <span className={cn('text-sm font-bold px-3 py-1.5 rounded-full border', STATUS_COLORS[flight.status] ?? 'text-gray-400 border-white/10')}>
+          {flight.status}
+        </span>
+      </div>
+
+      {/* Route card */}
+      <div className="glass-card rounded-2xl p-6 mb-6">
+        <div className="flex items-center justify-center gap-6 mb-6">
+          <div className="text-center">
+            <p className="font-mono text-3xl font-extrabold text-aero">{flight.route.origin.icao}</p>
+            <p className="text-xs text-gray-400 mt-1">{flight.route.origin.name}</p>
+          </div>
+          <div className="flex flex-col items-center gap-1 text-gray-500">
+            <span className="text-2xl">→</span>
+            <span className="text-xs">{flight.route.distance_nm.toLocaleString()} nm</span>
+          </div>
+          <div className="text-center">
+            <p className="font-mono text-3xl font-extrabold text-white">{flight.route.destination.icao}</p>
+            <p className="text-xs text-gray-400 mt-1">{flight.route.destination.name}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          {[
+            { label: 'Aircraft', value: `${flight.hull.registration}` },
+            { label: 'Type', value: flight.hull.aircraft_type },
+            { label: 'Passengers', value: flight.pax_count.toLocaleString() },
+            { label: 'Departed', value: flight.departed_at ? new Date(flight.departed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—' },
+          ].map(r => (
+            <div key={r.label} className="glass-card rounded-xl p-3">
+              <p className="text-xs text-gray-500 mb-0.5">{r.label}</p>
+              <p className="font-medium font-mono">{r.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Progress tracker */}
+      <div className="glass-card rounded-2xl p-6 mb-6">
+        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Flight Progress</h3>
+        <div className="flex items-center gap-0">
+          {STATUS_STEPS.map((step, i) => {
+            const done = i < currentStepIdx;
+            const active = i === currentStepIdx;
+            const future = i > currentStepIdx;
+            return (
+              <div key={step.key} className="flex items-center flex-1 last:flex-none">
+                <div className="flex flex-col items-center gap-1">
+                  <div className={cn(
+                    'w-9 h-9 rounded-full flex items-center justify-center text-sm border-2 transition',
+                    done   ? 'bg-aero/20 border-aero text-aero' :
+                    active ? 'bg-aero text-black border-aero' :
+                    'bg-white/5 border-white/10 text-gray-600'
+                  )}>
+                    {done ? '✓' : step.icon}
+                  </div>
+                  <span className={cn('text-[10px] text-center leading-tight',
+                    active ? 'text-aero font-bold' : future ? 'text-gray-600' : 'text-gray-400')}>
+                    {step.label}
+                  </span>
+                </div>
+                {i < STATUS_STEPS.length - 1 && (
+                  <div className={cn('flex-1 h-0.5 mb-4 mx-1', done ? 'bg-aero/50' : 'bg-white/10')} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {error && (
+        <div className="glass-card rounded-xl p-4 mb-4 border border-red-500/20 bg-red-500/5 text-sm text-red-400">
+          {error}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        {flight.status === 'BOARDING' && (
+          <button onClick={handleDispatch} disabled={dispatching}
+            className="flex-1 bg-aero text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
+            {dispatching ? 'Dispatching…' : 'Dispatch Flight 🛫'}
+          </button>
+        )}
+        {(flight.status === 'BOARDING' || flight.status === 'TAXI') && (
+          <button onClick={handleCancel} disabled={cancelling}
+            className="px-6 border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold py-3 rounded-xl transition text-sm disabled:opacity-50">
+            {cancelling ? 'Cancelling…' : 'Cancel Flight'}
+          </button>
+        )}
+        {flight.status !== 'BOARDING' && flight.status !== 'TAXI' && (
+          <div className="glass-card rounded-xl p-4 text-sm text-gray-400 flex-1">
+            Flight is in progress via ACARS. Status updates automatically.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

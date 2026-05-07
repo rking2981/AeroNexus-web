@@ -13,6 +13,7 @@ const PILOT_NAV_BASE = [
   { href: '/dashboard/profile', label: 'My Profile', icon: '👤' },
   { href: '/dashboard/logbook', label: 'Logbook', icon: '📋' },
   { href: '/dashboard/flights', label: 'Book Flight', icon: '✈️' },
+  { href: '/dashboard/flights/active', label: 'Active Flight', icon: '🛫' },
   { href: '/dashboard/map', label: 'Live Map', icon: '🗺️' },
   { href: '/dashboard/airports', label: 'Airports', icon: '🏢' },
   { href: '/dashboard/stats', label: 'Stats', icon: '📈' },

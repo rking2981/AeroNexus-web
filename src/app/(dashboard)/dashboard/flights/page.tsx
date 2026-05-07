@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -89,6 +90,8 @@ export default function BookFlightPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+  const [bookingErrorIsActive, setBookingErrorIsActive] = useState(false);
   const [booked, setBooked] = useState<BookingInfo | null>(null);
   const [dispatching, setDispatching] = useState(false);
 
@@ -123,16 +126,18 @@ export default function BookFlightPage() {
   async function handleBook() {
     if (!selectedRoute || !selectedHull) return;
     setBooking(true);
+    setBookingError(''); setBookingErrorIsActive(false);
     try {
       const { data } = await api.post('/flights/book', {
         route_id: selectedRoute.id,
         hull_id: selectedHull.id,
-        // No pax_count — server calculates automatically
       });
       setBooked(data);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      alert(msg ?? 'Booking failed');
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Booking failed';
+      const isActiveErr = msg.toLowerCase().includes('active flight');
+      setBookingError(msg);
+      setBookingErrorIsActive(isActiveErr);
     } finally { setBooking(false); }
   }
 
@@ -358,6 +363,17 @@ export default function BookFlightPage() {
           {incompatibleMsg && (
             <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
               ⚠️ {incompatibleMsg}
+            </div>
+          )}
+          {bookingError && (
+            <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400 flex items-center justify-between gap-3">
+              <span>⚠️ {bookingError}</span>
+              {bookingErrorIsActive && (
+                <Link href="/dashboard/flights/active"
+                  className="flex-shrink-0 text-aero font-bold hover:underline text-sm">
+                  View Active Flight →
+                </Link>
+              )}
             </div>
           )}
           <button
