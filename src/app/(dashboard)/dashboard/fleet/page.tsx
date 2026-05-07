@@ -24,12 +24,128 @@ interface Hull {
 
 type CabinClass = 'FIRST' | 'BUSINESS' | 'PREMIUM_ECONOMY' | 'ECONOMY';
 
-const CABIN_CLASSES: { key: CabinClass; label: string; defaultMultiplier: number }[] = [
-  { key: 'FIRST',           label: 'First Class',       defaultMultiplier: 4.0 },
-  { key: 'BUSINESS',        label: 'Business',          defaultMultiplier: 2.5 },
-  { key: 'PREMIUM_ECONOMY', label: 'Premium Economy',   defaultMultiplier: 1.5 },
-  { key: 'ECONOMY',         label: 'Economy',           defaultMultiplier: 1.0 },
+const CABIN_CLASSES: { key: CabinClass; label: string; defaultMultiplier: number; color: string }[] = [
+  { key: 'FIRST',           label: 'First Class',       defaultMultiplier: 4.0, color: '#a855f7' },
+  { key: 'BUSINESS',        label: 'Business',          defaultMultiplier: 2.5, color: '#00D1FF' },
+  { key: 'PREMIUM_ECONOMY', label: 'Premium Economy',   defaultMultiplier: 1.5, color: '#3b82f6' },
+  { key: 'ECONOMY',         label: 'Economy',           defaultMultiplier: 1.0, color: '#6b7280' },
 ];
+
+// ─── Cabin diagram ────────────────────────────────────────────────────────────
+
+function CabinDiagram({ rows }: { rows: { key: CabinClass; enabled: boolean; seats: number }[] }) {
+  const activeRows = rows.filter((r) => r.enabled && r.seats > 0);
+  const totalSeats = activeRows.reduce((s, r) => s + r.seats, 0);
+
+  if (totalSeats === 0) {
+    return (
+      <div className="rounded-xl border border-white/5 bg-black/30 flex items-center justify-center h-32 text-gray-600 text-xs">
+        Configure seats to see diagram
+      </div>
+    );
+  }
+
+  // Layout: 3 seats per side (aisle in middle) — like a narrow-body 3-3
+  // For each class render its rows of seats
+  const SEATS_PER_ROW = 6; // 3+3 layout
+  const SEAT_W = 10; const SEAT_H = 12; const SEAT_GAP = 2;
+  const AISLE = 8; const PAD_X = 24; const PAD_Y = 16;
+  const COL_POSITIONS = [0, 1, 2, 4, 5, 6]; // skip col 3 for aisle
+
+  // Build list of seat rows per section
+  const sections: { key: CabinClass; color: string; seatRows: number }[] = activeRows.map((r) => ({
+    key: r.key,
+    color: CABIN_CLASSES.find((c) => c.key === r.key)?.color ?? '#6b7280',
+    seatRows: Math.ceil(r.seats / SEATS_PER_ROW),
+  }));
+
+  const totalRows = sections.reduce((s, sec) => s + sec.seatRows, 0);
+  const ROW_H = SEAT_H + SEAT_GAP;
+  const svgH = PAD_Y * 2 + totalRows * ROW_H + (sections.length - 1) * 6;
+  const svgW = PAD_X * 2 + 6 * SEAT_W + AISLE + 5 * SEAT_GAP;
+
+  // Build SVG rows
+  const elements: React.ReactNode[] = [];
+  let y = PAD_Y;
+  let rowIndex = 0;
+
+  sections.forEach((sec, si) => {
+    // Section label
+    elements.push(
+      <text key={`lbl-${si}`} x={svgW / 2} y={y + 8} textAnchor="middle"
+        fontSize="6" fill={sec.color} fontWeight="700" letterSpacing="1">
+        {CABIN_CLASSES.find(c => c.key === sec.key)?.label.toUpperCase()}
+      </text>
+    );
+    y += 10;
+
+    for (let r = 0; r < sec.seatRows; r++) {
+      COL_POSITIONS.forEach((col, ci) => {
+        const seatNum = r * SEATS_PER_ROW + ci;
+        const seatExists = seatNum < (activeRows.find(a => a.key === sec.key)?.seats ?? 0);
+        const x = PAD_X + col * (SEAT_W + SEAT_GAP) + (col >= 3 ? AISLE : 0);
+        elements.push(
+          <rect key={`seat-${si}-${r}-${ci}`}
+            x={x} y={y + r * ROW_H}
+            width={SEAT_W} height={SEAT_H}
+            rx={2}
+            fill={seatExists ? sec.color : 'transparent'}
+            opacity={seatExists ? 0.85 : 0}
+          />
+        );
+      });
+      rowIndex++;
+    }
+
+    y += sec.seatRows * ROW_H;
+
+    // Section divider
+    if (si < sections.length - 1) {
+      elements.push(
+        <line key={`div-${si}`}
+          x1={PAD_X - 4} y1={y + 2} x2={svgW - PAD_X + 4} y2={y + 2}
+          stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="3,2"
+        />
+      );
+      y += 6;
+    }
+  });
+
+  // Aircraft outline
+  const fuselageW = svgW - PAD_X * 0.5;
+  const fuselageX = PAD_X * 0.25;
+
+  return (
+    <div className="rounded-xl border border-white/5 bg-black/40 overflow-hidden">
+      <svg viewBox={`0 0 ${svgW} ${svgH + 16}`} width="100%" style={{ maxHeight: 280 }}>
+        {/* Fuselage */}
+        <rect x={fuselageX} y={4} width={fuselageW} height={svgH + 8}
+          rx={12} fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+        {/* Nose */}
+        <ellipse cx={svgW / 2} cy={8} rx={fuselageW / 2} ry={8}
+          fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+        {/* Aisle line */}
+        <line x1={svgW / 2} y1={PAD_Y - 4} x2={svgW / 2} y2={svgH}
+          stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+
+        {elements}
+      </svg>
+
+      {/* Legend */}
+      <div className="flex gap-3 px-3 pb-2 pt-1 flex-wrap">
+        {activeRows.map((r) => {
+          const cls = CABIN_CLASSES.find(c => c.key === r.key)!;
+          return (
+            <div key={r.key} className="flex items-center gap-1">
+              <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: cls.color }} />
+              <span className="text-[10px] text-gray-400">{cls.label} ({r.seats})</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function CabinEditor({ hull, onSaved }: { hull: Hull; onSaved: (configs: CabinConfig[]) => void }) {
   const [rows, setRows] = useState<{ key: CabinClass; enabled: boolean; seats: number; multiplier: number }[]>(
@@ -69,6 +185,12 @@ function CabinEditor({ hull, onSaved }: { hull: Hull; onSaved: (configs: CabinCo
         <h4 className="text-sm font-bold">Cabin Configuration</h4>
         <span className="text-xs text-gray-500">{totalSeats} total seats</span>
       </div>
+
+      {/* Live diagram */}
+      <div className="mb-4">
+        <CabinDiagram rows={rows} />
+      </div>
+
       <div className="flex flex-col gap-2 mb-3">
         {rows.map((row, i) => (
           <div key={row.key} className={cn(
