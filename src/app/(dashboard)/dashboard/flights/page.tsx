@@ -29,6 +29,16 @@ interface Hull {
   engine_wear_percent: number;
   wear_score: number;
   maintenance_grade: string;
+  aircraft_type_rel: { pax_capacity: number | null; cargo_capacity_kg: number } | null;
+}
+
+interface CargoShipment {
+  id: string;
+  origin_icao: string;
+  destination_icao: string;
+  cargo_type: string;
+  weight_kg: number;
+  total_value: number;
 }
 
 interface PaxPreview {
@@ -101,6 +111,9 @@ export default function BookFlightPage() {
   const [dispatching, setDispatching] = useState(false);
   // type rating progress: map of aircraft_type → completed flight count
   const [typeFlightCounts, setTypeFlightCounts] = useState<Record<string, number>>({});
+  // cargo
+  const [claimedCargo, setClaimedCargo] = useState<CargoShipment[]>([]);
+  const [selectedCargo, setSelectedCargo] = useState<CargoShipment | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -113,6 +126,9 @@ export default function BookFlightPage() {
       // Build a count map from recent flights — we get full logbook via profile
       // For accuracy we fetch the logbook separately
     }).finally(() => setLoading(false));
+
+    // Fetch claimed cargo shipments
+    api.get('/cargo/board').then(({ data }) => setClaimedCargo(data.claimed ?? [])).catch(() => {});
 
     // Fetch completed flight counts per aircraft type for type rating progress
     api.get('/flights/logbook').then(({ data }) => {
@@ -142,6 +158,7 @@ export default function BookFlightPage() {
     } else {
       setPreview(null);
     }
+    setSelectedCargo(null);
   }, [selectedRoute, selectedHull, fetchPreview]);
 
   async function handleBook() {
@@ -154,6 +171,15 @@ export default function BookFlightPage() {
         hull_id: selectedHull.id,
       });
       setBooked(data);
+      // Attach cargo if selected
+      if (selectedCargo && selectedHull) {
+        await api.post('/cargo/attach', {
+          shipment_id: selectedCargo.id,
+          flight_id: data.flight.id,
+          hull_category: selectedHull.aircraft_category,
+          hull_cargo_capacity_kg: selectedHull.aircraft_type_rel?.cargo_capacity_kg ?? 0,
+        }).catch(() => {});
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Booking failed';
       const isActiveErr = msg.toLowerCase().includes('active flight');
@@ -173,6 +199,15 @@ export default function BookFlightPage() {
       alert(msg ?? 'Dispatch failed');
     } finally { setDispatching(false); }
   }
+
+  // Cargo matching — claimed shipments that match the selected route
+  const CARGO_CATEGORIES = ['COMMERCIAL', 'CARGO'];
+  const matchingCargo = selectedRoute && selectedHull && CARGO_CATEGORIES.includes(selectedHull.aircraft_category)
+    ? claimedCargo.filter(c =>
+        c.origin_icao === selectedRoute.origin.icao &&
+        c.destination_icao === selectedRoute.destination.icao
+      )
+    : [];
 
   // Type rating warning
   const certifications: string[] = (user as { certifications?: string[] } | null)?.certifications ?? [];
@@ -230,6 +265,7 @@ export default function BookFlightPage() {
               { label: 'Est. Duration', value: `${Math.floor(booked.route_info.estimated_duration_min / 60)}h ${booked.route_info.estimated_duration_min % 60}m` },
               { label: 'Passengers', value: booked.pax_count.toLocaleString() },
               { label: 'Fuel Price', value: booked.fuel_price_per_unit ? `$${booked.fuel_price_per_unit.toFixed(4)}/unit` : 'N/A' },
+              ...(selectedCargo ? [{ label: 'Cargo', value: `${selectedCargo.cargo_type} · ${selectedCargo.weight_kg.toLocaleString()} kg · +$${Number(selectedCargo.total_value).toLocaleString()}` }] : []),
             ].map((item) => (
               <div key={item.label} className="glass-card rounded-lg p-3">
                 <p className="text-xs text-gray-500">{item.label}</p>
@@ -394,6 +430,33 @@ export default function BookFlightPage() {
               )}
             </div>
           </div>
+
+          {/* Cargo selector */}
+          {matchingCargo.length > 0 && (
+            <div className="mt-4 border-t border-white/5 pt-4">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">📦 Add Cargo</p>
+              <div className="flex flex-col gap-2">
+                {matchingCargo.map(c => (
+                  <button key={c.id} type="button"
+                    onClick={() => setSelectedCargo(selectedCargo?.id === c.id ? null : c)}
+                    className={cn('flex items-center justify-between px-4 py-2.5 rounded-xl border text-left text-sm transition',
+                      selectedCargo?.id === c.id
+                        ? 'border-green-500/40 bg-green-500/10 text-green-300'
+                        : 'border-white/10 hover:border-white/20 hover:bg-white/5 text-gray-300')}>
+                    <span>{c.cargo_type} · {c.weight_kg.toLocaleString()} kg</span>
+                    <span className={cn('font-bold', selectedCargo?.id === c.id ? 'text-green-400' : 'text-gray-400')}>
+                      +${Number(c.total_value).toLocaleString()}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {selectedCargo && (
+                <p className="text-xs text-green-400 mt-1.5">
+                  ✓ {selectedCargo.cargo_type} will be loaded — revenue credited on landing
+                </p>
+              )}
+            </div>
+          )}
 
           {incompatibleMsg && (
             <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
