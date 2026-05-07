@@ -70,7 +70,7 @@ export default function LiveMapInner({ flights, selected, onSelect }: Props) {
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: 'https://tiles.openfreemap.org/styles/dark',
+      style: 'https://tiles.openfreemap.org/styles/positron',
       center: [0, 20],
       zoom: 2,
       interactive: true,

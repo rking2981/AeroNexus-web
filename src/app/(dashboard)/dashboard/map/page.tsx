@@ -143,9 +143,9 @@ export default function MapPage() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Map — always visible, takes remaining height */}
-      <div style={{ flex: '1 1 0', minHeight: '300px', position: 'relative' }}>
+    <div className="flex flex-col" style={{ height: '100vh' }}>
+      {/* Map — fixed height */}
+      <div style={{ height: 'calc(100vh - 220px)', position: 'relative' }}>
         <LiveMapInner
           flights={positioned}
           selected={selected}
@@ -153,7 +153,7 @@ export default function MapPage() {
         />
       </div>
 
-      {/* Flight board — bottom panel, fixed height */}
+      {/* Flight board — fixed 220px */}
       <div className="flex-shrink-0 border-t border-white/10 bg-[#050508]" style={{ height: '220px' }}>
 
         {/* Board header */}
