@@ -143,6 +143,15 @@ function UsersTab() {
     } finally { setActionLoading(null); }
   }
 
+  async function setRole(user: AdminUser, role: 'PILOT' | 'VA_MANAGER' | 'PLATFORM_ADMIN') {
+    if (!confirm(`Set ${user.display_name} to ${role}?`)) return;
+    setActionLoading(user.id);
+    try {
+      await api.patch(`/admin/users/${user.id}/role`, { role });
+      setData(d => d ? { ...d, users: d.users.map(u => u.id === user.id ? { ...u, role } : u) } : d);
+    } finally { setActionLoading(null); }
+  }
+
   const filtered = data?.users.filter(u =>
     !search || u.email.toLowerCase().includes(search.toLowerCase()) || u.display_name.toLowerCase().includes(search.toLowerCase())
   ) ?? [];
@@ -158,17 +167,32 @@ function UsersTab() {
 
       <div className="glass-card rounded-2xl overflow-hidden">
         <div className="grid px-4 py-2.5 border-b border-white/5 text-xs text-gray-500 uppercase tracking-widest"
-          style={{ gridTemplateColumns: '1fr 120px 80px 80px 120px 160px' }}>
+          style={{ gridTemplateColumns: '1fr 160px 80px 80px 120px 180px' }}>
           <span>User</span><span>Role</span><span>Tier</span><span>Rep</span><span>Status</span><span className="text-right">Actions</span>
         </div>
         {filtered.map(u => (
           <div key={u.id} className="grid px-4 py-3 border-b border-white/5 last:border-0 items-center gap-2"
-            style={{ gridTemplateColumns: '1fr 120px 80px 80px 120px 160px' }}>
+            style={{ gridTemplateColumns: '1fr 160px 80px 80px 120px 180px' }}>
             <div className="min-w-0">
               <p className="text-sm font-medium text-white truncate">{u.display_name}</p>
               <p className="text-xs text-gray-500 truncate">{u.email}</p>
             </div>
-            <Badge label={u.role.replace('_', ' ')} color={u.role === 'PLATFORM_ADMIN' ? 'purple' : u.role === 'VA_MANAGER' ? 'blue' : 'gray'} />
+            {/* Role — dropdown for admins */}
+            <select
+              value={u.role}
+              onChange={e => setRole(u, e.target.value as 'PILOT' | 'VA_MANAGER' | 'PLATFORM_ADMIN')}
+              disabled={actionLoading === u.id}
+              className={cn(
+                'text-xs rounded-lg border px-2 py-1 focus:outline-none transition disabled:opacity-40',
+                u.role === 'PLATFORM_ADMIN' ? 'border-purple-500/30 bg-purple-500/10 text-purple-400' :
+                u.role === 'VA_MANAGER'     ? 'border-blue-500/30 bg-blue-500/10 text-blue-400' :
+                                              'border-white/10 bg-white/5 text-gray-400',
+              )}
+            >
+              <option value="PILOT">Pilot</option>
+              <option value="VA_MANAGER">VA Manager</option>
+              <option value="PLATFORM_ADMIN">Platform Admin</option>
+            </select>
             <Badge label={u.pilot_tier === 'PRO_SUB' ? 'PRO' : 'FREE'} color={u.pilot_tier === 'PRO_SUB' ? 'amber' : 'gray'} />
             <span className="text-sm font-mono text-gray-300">{Number(u.reputation).toFixed(1)}</span>
             <Badge label={u.is_banned ? 'BANNED' : 'ACTIVE'} color={u.is_banned ? 'red' : 'green'} />
