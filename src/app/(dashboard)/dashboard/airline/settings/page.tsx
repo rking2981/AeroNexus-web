@@ -350,13 +350,7 @@ function WebhooksPanel() {
         ))
       )}
 
-      <div className="glass-card rounded-xl p-4 border border-white/5 text-xs text-gray-500">
-        <p className="font-bold text-gray-400 mb-1">Verifying webhook signatures</p>
-        <p className="mb-1">Each request includes an <code className="font-mono text-gray-300">X-AeroNexus-Signature</code> header:</p>
-        <code className="block font-mono text-gray-400 bg-white/5 rounded-lg p-2 mt-1 break-all">
-          sha256=HMAC-SHA256(secret, raw_body)
-        </code>
-      </div>
+
     </div>
   );
 }
