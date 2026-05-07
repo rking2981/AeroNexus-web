@@ -5,6 +5,14 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 
+interface RankTier {
+  id?: string;
+  rank: string;
+  min_hours: number;
+  min_flights: number;
+  sort_order: number;
+}
+
 interface PilotStats {
   pilot_id: string;
   total_flights: number;
@@ -64,6 +72,7 @@ export default function CrewPage() {
   const { user } = useAuthStore();
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
+  const [activeTab, setActiveTab] = useState<'roster' | 'ranks'>('roster');
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Pilot | null>(null);
@@ -77,12 +86,23 @@ export default function CrewPage() {
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
 
-  // VA Rank override
+  // VA Rank override per pilot
   const [editingRank, setEditingRank] = useState<string | null>(null);
   const [rankInput, setRankInput] = useState('');
 
+  // Rank tier editor
+  const [rankTiers, setRankTiers] = useState<RankTier[]>([]);
+  const [isCustomRanks, setIsCustomRanks] = useState(false);
+  const [ranksSaving, setRanksSaving] = useState(false);
+  const [ranksError, setRanksError] = useState('');
+  const [ranksSaved, setRanksSaved] = useState(false);
+
   useEffect(() => {
     api.get('/pilots').then((r) => setPilots(r.data)).finally(() => setLoading(false));
+    api.get('/pilots/ranks').then((r) => {
+      setRankTiers(r.data.tiers);
+      setIsCustomRanks(r.data.custom);
+    });
   }, []);
 
   async function handleInvite(e: React.FormEvent) {
@@ -161,6 +181,129 @@ export default function CrewPage() {
         )}
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
+        {[
+          { key: 'roster', label: '👥 Roster' },
+          { key: 'ranks', label: '🏅 Rank Structure' },
+        ].map((t) => (
+          <button key={t.key} onClick={() => setActiveTab(t.key as typeof activeTab)}
+            className={cn('px-5 py-2 rounded-lg text-sm font-medium transition',
+              activeTab === t.key ? 'bg-aero text-black' : 'text-gray-400 hover:text-white')}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Rank Structure tab ── */}
+      {activeTab === 'ranks' && (
+        <div className="max-w-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-bold text-lg">Rank Structure</h2>
+              <p className="text-sm text-gray-400 mt-0.5">
+                {isCustomRanks ? 'Custom rank tiers for your airline.' : 'Using AeroNexus system defaults. Customize below.'}
+              </p>
+            </div>
+            {isCustomRanks && isManager && (
+              <button onClick={async () => {
+                if (!confirm('Reset to system defaults? All custom ranks will be removed.')) return;
+                const { data } = await api.delete('/pilots/ranks');
+                setRankTiers(data.tiers); setIsCustomRanks(false);
+              }} className="text-xs text-gray-500 hover:text-white border border-white/10 px-3 py-1.5 rounded-lg transition">
+                Reset to Defaults
+              </button>
+            )}
+          </div>
+
+          <div className="glass-card rounded-2xl overflow-hidden mb-4">
+            {/* Header */}
+            <div className="grid px-4 py-2.5 border-b border-white/5 text-xs text-gray-500 uppercase tracking-widest"
+              style={{ gridTemplateColumns: '32px 1fr 110px 110px 36px' }}>
+              <span>#</span>
+              <span>Rank Name</span>
+              <span className="text-right">Min Hours</span>
+              <span className="text-right">Min Flights</span>
+              <span />
+            </div>
+
+            {rankTiers.map((tier, i) => (
+              <div key={i} className="grid px-4 py-2.5 border-b border-white/5 last:border-0 items-center gap-3"
+                style={{ gridTemplateColumns: '32px 1fr 110px 110px 36px' }}>
+                <span className="text-xs text-gray-600 font-mono">{i + 1}</span>
+
+                {isManager ? (
+                  <input value={tier.rank}
+                    onChange={(e) => setRankTiers(rankTiers.map((t, j) => j === i ? { ...t, rank: e.target.value } : t))}
+                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white focus:border-aero focus:outline-none transition" />
+                ) : (
+                  <span className="text-sm text-white font-medium">{tier.rank}</span>
+                )}
+
+                {isManager ? (
+                  <input type="number" min={0} value={tier.min_hours}
+                    onChange={(e) => setRankTiers(rankTiers.map((t, j) => j === i ? { ...t, min_hours: Number(e.target.value) } : t))}
+                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white text-right focus:border-aero focus:outline-none transition" />
+                ) : (
+                  <span className="text-sm font-mono text-gray-300 text-right">{tier.min_hours}h</span>
+                )}
+
+                {isManager ? (
+                  <input type="number" min={0} value={tier.min_flights}
+                    onChange={(e) => setRankTiers(rankTiers.map((t, j) => j === i ? { ...t, min_flights: Number(e.target.value) } : t))}
+                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white text-right focus:border-aero focus:outline-none transition" />
+                ) : (
+                  <span className="text-sm font-mono text-gray-300 text-right">{tier.min_flights} flights</span>
+                )}
+
+                {isManager && (
+                  <button onClick={() => setRankTiers(rankTiers.filter((_, j) => j !== i))}
+                    className="text-red-400 hover:text-red-300 text-sm transition" title="Remove tier">✕</button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {isManager && (
+            <div className="flex gap-3 flex-wrap">
+              <button onClick={() => setRankTiers([...rankTiers, { rank: 'New Rank', min_hours: 0, min_flights: 0, sort_order: rankTiers.length }])}
+                disabled={rankTiers.length >= 10}
+                className="text-sm border border-white/20 px-4 py-2 rounded-xl hover:bg-white/5 transition disabled:opacity-40">
+                + Add Tier
+              </button>
+              <button onClick={async () => {
+                setRanksSaving(true); setRanksError(''); setRanksSaved(false);
+                try {
+                  const { data } = await api.post('/pilots/ranks', { tiers: rankTiers.map((t, i) => ({ ...t, sort_order: i })) });
+                  setRankTiers(data.tiers); setIsCustomRanks(data.custom);
+                  setRanksSaved(true); setTimeout(() => setRanksSaved(false), 3000);
+                } catch (err: unknown) {
+                  const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                  setRanksError(msg ?? 'Failed to save ranks.');
+                } finally { setRanksSaving(false); }
+              }} disabled={ranksSaving}
+                className="bg-aero text-black font-bold px-5 py-2 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
+                {ranksSaving ? 'Saving...' : 'Save Rank Structure'}
+              </button>
+              {ranksSaved && <p className="text-green-400 text-sm self-center">✓ Saved</p>}
+              {ranksError && <p className="text-red-400 text-sm self-center">{ranksError}</p>}
+            </div>
+          )}
+
+          {/* How it works */}
+          <div className="glass-card rounded-2xl p-4 mt-6 border border-white/5">
+            <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-2">How Ranks Work</p>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Pilots are automatically promoted when they meet <strong className="text-white">both</strong> the minimum hours and minimum flights for the next tier.
+              Ranks are re-evaluated after every completed flight. You can also manually override a pilot&apos;s rank from their profile in the Roster tab.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Roster tab content below */}
+      {activeTab === 'roster' && (
+      <>
       {/* Invite form */}
       {showInvite && (
         <div className="glass-card rounded-2xl p-5 mb-6 border border-aero/20">
@@ -364,12 +507,16 @@ export default function CrewPage() {
                     <p className="text-xs text-gray-500 mb-2">VA Rank Override</p>
                     {editingRank === selected.id ? (
                       <div className="flex gap-2">
-                        <input value={rankInput} onChange={e => setRankInput(e.target.value)}
-                          placeholder="e.g. Senior Captain"
-                          className="flex-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white focus:border-aero focus:outline-none" />
+                        <select value={rankInput} onChange={e => setRankInput(e.target.value)}
+                          className="flex-1 rounded-lg border border-white/10 bg-[#111] px-2 py-1.5 text-xs text-white focus:border-aero focus:outline-none">
+                          <option value="">— Auto ({selected.auto_rank})</option>
+                          {rankTiers.map((t) => (
+                            <option key={t.rank} value={t.rank}>{t.rank}</option>
+                          ))}
+                        </select>
                         <button onClick={async () => {
                           try {
-                            await api.patch(`/pilots/${selected.id}`, { va_rank: rankInput || null });
+                            await api.patch(`/pilots/${selected.id}/rank`, { va_rank: rankInput || null });
                             setPilots(pilots.map(p => p.id === selected.id ? { ...p, va_rank: rankInput || null } : p));
                             setSelected({ ...selected, va_rank: rankInput || null });
                             setEditingRank(null);
@@ -411,6 +558,8 @@ export default function CrewPage() {
             </div>
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   );
