@@ -21,6 +21,7 @@ interface AircraftType {
   engine_count: number;
   base_price: number | null;
   manufacturer_icao: string | null;
+  manufacturer_airport_name: string | null;
 }
 
 interface MarketListing {
@@ -186,7 +187,10 @@ function AircraftDetailModal({
             <div className="text-right flex-shrink-0">
               <p className="text-2xl font-bold text-aero">{formatPrice(type.base_price ?? 0)}</p>
               {type.manufacturer_icao && (
-                <p className="text-xs text-gray-500 mt-0.5">Factory: <span className="font-mono text-aero">{type.manufacturer_icao}</span></p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Factory: <span className="font-mono text-aero">{type.manufacturer_icao}</span>
+                  {type.manufacturer_airport_name && <span className="block text-gray-600">{type.manufacturer_airport_name}</span>}
+                </p>
               )}
             </div>
           </div>
@@ -205,7 +209,7 @@ function AircraftDetailModal({
                   { label: 'MTOW', value: formatWeight(type.max_takeoff_weight) },
                   { label: 'Max Fuel', value: formatWeight(type.max_fuel_weight) },
                   { label: 'Engines', value: `${type.engine_count}× ${type.engine_type}` },
-                  { label: 'Factory', value: type.manufacturer_icao ?? 'Unknown', mono: true },
+                  { label: 'Factory', value: type.manufacturer_icao ? `${type.manufacturer_icao}${type.manufacturer_airport_name ? ` — ${type.manufacturer_airport_name}` : ''}` : 'Unknown', mono: false },
                 ].map(row => (
                   <div key={row.label} className="glass-card rounded-xl p-3">
                     <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">{row.label}</p>
@@ -530,7 +534,10 @@ export default function MarketPage() {
                       {formatPrice(type.base_price ?? 0)}
                     </p>
                     {type.manufacturer_icao && (
-                      <p className="text-xs text-gray-500 mt-0.5 font-mono">{type.manufacturer_icao}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        <span className="font-mono">{type.manufacturer_icao}</span>
+                        {type.manufacturer_airport_name && <span className="block text-gray-600 text-[10px]">{type.manufacturer_airport_name}</span>}
+                      </p>
                     )}
                   </div>
                 </div>
