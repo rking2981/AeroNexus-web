@@ -154,8 +154,8 @@ function CabinEditor({ hull, onSaved }: { hull: Hull; onSaved: (configs: CabinCo
       return {
         key: cls.key,
         enabled: !!existing,
-        seats: existing?.seat_count ?? 0,
-        multiplier: existing?.price_multiplier ?? cls.defaultMultiplier,
+        seats: existing ? Number(existing.seat_count) : 0,
+        multiplier: existing ? Number(existing.price_multiplier) : cls.defaultMultiplier,
       };
     }),
   );
