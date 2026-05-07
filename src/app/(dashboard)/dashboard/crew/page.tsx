@@ -38,6 +38,9 @@ interface Pilot {
   pilot_tier: string;
   is_founder: boolean;
   is_banned: boolean;
+  is_suspended: boolean;
+  suspension_ends_at: string | null;
+  suspension_reason: string | null;
   auto_rank: string;
   va_rank: string | null;
   current_airport_icao: string | null;
@@ -84,6 +87,11 @@ export default function CrewPage() {
   const [airlineBans, setAirlineBans] = useState<AirlineBan[]>([]);
   const [banReason, setBanReason] = useState('');
   const [showBanReason, setShowBanReason] = useState<string | null>(null);
+
+  // Suspension state
+  const [showSuspend, setShowSuspend] = useState<string | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [suspendUntil, setSuspendUntil] = useState('');
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Pilot | null>(null);
@@ -137,6 +145,35 @@ export default function CrewPage() {
       setPilots(pilots.filter(p => p.id !== pilot.id));
       setAirlineBans([{ id: Date.now().toString(), user_id: pilot.id, reason: reason || null, banned_at: new Date().toISOString(), user: { id: pilot.id, display_name: pilot.display_name, email: pilot.email } }, ...airlineBans]);
       setSelected(null); setShowBanReason(null); setBanReason('');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setActionError(msg ?? 'Action failed.');
+    } finally { setActionLoading(null); }
+  }
+
+  async function handleSuspend(pilot: Pilot) {
+    if (!suspendUntil) return;
+    setActionLoading(pilot.id); setActionError('');
+    try {
+      const { data } = await api.post(`/pilots/${pilot.id}/suspend`, {
+        ends_at: new Date(suspendUntil).toISOString(),
+        reason: suspendReason || undefined,
+      });
+      setPilots(pilots.map(p => p.id === pilot.id ? { ...p, is_suspended: true, suspension_ends_at: data.suspension_ends_at, suspension_reason: suspendReason || null } : p));
+      setSelected(s => s?.id === pilot.id ? { ...s, is_suspended: true, suspension_ends_at: data.suspension_ends_at, suspension_reason: suspendReason || null } : s);
+      setShowSuspend(null); setSuspendReason(''); setSuspendUntil('');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setActionError(msg ?? 'Action failed.');
+    } finally { setActionLoading(null); }
+  }
+
+  async function handleReinstate(pilot: Pilot) {
+    setActionLoading(pilot.id); setActionError('');
+    try {
+      await api.delete(`/pilots/${pilot.id}/suspend`);
+      setPilots(pilots.map(p => p.id === pilot.id ? { ...p, is_suspended: false, suspension_ends_at: null, suspension_reason: null } : p));
+      setSelected(s => s?.id === pilot.id ? { ...s, is_suspended: false, suspension_ends_at: null, suspension_reason: null } : s);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setActionError(msg ?? 'Action failed.');
@@ -458,6 +495,7 @@ export default function CrewPage() {
                         <span className="font-medium text-white text-sm">{pilot.display_name}</span>
                         {pilot.is_founder && <span className="text-[10px] text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded-full">Founder</span>}
                         {pilot.pilot_tier === 'PRO_SUB' && <span className="text-[10px] text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-full">PRO</span>}
+                        {pilot.is_suspended && <span className="text-[10px] text-orange-400 border border-orange-500/20 bg-orange-500/5 px-1.5 py-0.5 rounded-full">SUSPENDED</span>}
                       </div>
                       <span className={cn('text-xs', RANK_COLORS[pilot.va_rank ?? pilot.auto_rank] ?? 'text-gray-400')}>
                         {pilot.va_rank ?? pilot.auto_rank}
@@ -576,8 +614,58 @@ export default function CrewPage() {
                 )}
 
                 {/* Actions */}
+                {/* Active suspension info */}
+                {selected.is_suspended && selected.suspension_ends_at && (
+                  <div className="px-4 py-3 border-t border-white/5 bg-orange-500/5">
+                    <p className="text-xs text-orange-400 font-bold mb-0.5">Currently Suspended</p>
+                    <p className="text-xs text-gray-400">
+                      Lifts automatically: <span className="text-white">{new Date(selected.suspension_ends_at).toLocaleString()}</span>
+                    </p>
+                    {selected.suspension_reason && (
+                      <p className="text-xs text-gray-500 mt-0.5 italic">"{selected.suspension_reason}"</p>
+                    )}
+                  </div>
+                )}
+
                 {isManager && (
                   <div className="p-4 flex flex-col gap-2">
+                    {/* Suspend / reinstate */}
+                    {selected.is_suspended ? (
+                      <button onClick={() => handleReinstate(selected)} disabled={!!actionLoading}
+                        className="w-full text-sm font-bold py-2 rounded-xl border border-green-500/30 text-green-400 hover:bg-green-500/10 transition disabled:opacity-50">
+                        {actionLoading === selected.id ? '...' : 'Lift Suspension Early'}
+                      </button>
+                    ) : showSuspend === selected.id ? (
+                      <div className="flex flex-col gap-2 p-3 rounded-xl border border-orange-500/20 bg-orange-500/5">
+                        <p className="text-xs text-orange-400 font-bold">Suspend Pilot</p>
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1">Suspend Until *</label>
+                          <input type="datetime-local" value={suspendUntil}
+                            min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                            onChange={e => setSuspendUntil(e.target.value)}
+                            className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white focus:border-orange-400 focus:outline-none" />
+                        </div>
+                        <input value={suspendReason} onChange={e => setSuspendReason(e.target.value)}
+                          placeholder="Reason (optional)"
+                          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white focus:border-orange-400 focus:outline-none" />
+                        <div className="flex gap-2">
+                          <button onClick={() => handleSuspend(selected)} disabled={!suspendUntil || !!actionLoading}
+                            className="flex-1 text-xs font-bold py-2 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-400 hover:bg-orange-500/30 transition disabled:opacity-50">
+                            {actionLoading === selected.id ? '...' : 'Confirm Suspension'}
+                          </button>
+                          <button onClick={() => { setShowSuspend(null); setSuspendReason(''); setSuspendUntil(''); }}
+                            className="text-xs px-3 py-2 rounded-xl border border-white/10 text-gray-400 hover:text-white transition">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => setShowSuspend(selected.id)} disabled={!!actionLoading}
+                        className="w-full text-sm font-bold py-2 rounded-xl border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 transition disabled:opacity-50">
+                        Suspend Pilot
+                      </button>
+                    )}
+
                     {/* Airline ban with optional reason */}
                     {showBanReason === selected.id ? (
                       <div className="flex flex-col gap-2">
