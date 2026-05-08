@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Image from 'next/image';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -33,10 +34,29 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function FoundersPage() {
+  return (
+    <Suspense fallback={<div className="p-8 max-w-4xl mx-auto animate-pulse h-96" />}>
+      <FoundersPageContent />
+    </Suspense>
+  );
+}
+
+function FoundersPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const checkoutParam = searchParams.get('checkout') === 'true';
+  const successParam = searchParams.get('success') === 'true';
+
   const { user, setUser } = useAuthStore();
   const isFounder = (user as { is_founder?: boolean })?.is_founder;
 
-  const [tab, setTab] = useState<'redeem' | 'codes' | 'transfer'>('redeem');
+  const [tab, setTab] = useState<'purchase' | 'redeem' | 'codes' | 'transfer'>(
+    checkoutParam && !isFounder ? 'purchase' : 'redeem'
+  );
+
+  // Purchase state
+  const [purchaseLoading, setPurchaseLoading] = useState(false);
+  const [purchaseError, setPurchaseError] = useState('');
   const [codes, setCodes] = useState<FounderCode[]>([]);
   const [transfers, setTransfers] = useState<{ initiated: TransferRequest[]; received: TransferRequest[] }>({ initiated: [], received: [] });
   const [loading, setLoading] = useState(true);
@@ -55,6 +75,24 @@ export default function FoundersPage() {
   const [transferSuccess, setTransferSuccess] = useState('');
 
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
+
+  async function handlePurchase() {
+    setPurchaseLoading(true);
+    setPurchaseError('');
+    try {
+      const origin = window.location.origin;
+      const { data } = await api.post('/v1/payments/founders/checkout', {
+        success_url: `${origin}/dashboard/founders?success=true`,
+        cancel_url: `${origin}/dashboard/founders?checkout=true`,
+      });
+      window.location.href = data.url;
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setPurchaseError(msg ?? 'Failed to start checkout. Please try again.');
+    } finally {
+      setPurchaseLoading(false);
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -134,8 +172,19 @@ export default function FoundersPage() {
             </div>
           )}
         </div>
-        <p className="text-gray-400 text-sm">Redeem a gift code, manage your codes, or transfer VA ownership.</p>
+        <p className="text-gray-400 text-sm">Purchase a pass, redeem a gift code, manage your codes, or transfer VA ownership.</p>
       </div>
+
+      {/* Success banner after returning from Stripe */}
+      {successParam && (
+        <div className="glass-card rounded-2xl p-5 mb-6 border border-green-500/30 bg-green-500/5 flex items-center gap-4">
+          <span className="text-2xl">🎖️</span>
+          <div>
+            <p className="font-bold text-green-400">Payment successful!</p>
+            <p className="text-sm text-gray-400">Your Founder's Pass code has been emailed to you. Check your inbox, then come back here to redeem it.</p>
+          </div>
+        </div>
+      )}
 
       {/* Pending received transfers — always show at top if any */}
       {pendingReceived.length > 0 && (
@@ -179,17 +228,56 @@ export default function FoundersPage() {
       {/* Tabs */}
       <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
         {[
+          ...(!isFounder ? [{ key: 'purchase', label: 'Buy Pass — $199' }] : []),
           { key: 'redeem', label: 'Redeem Code' },
           { key: 'codes', label: `My Codes (${codes.length})` },
           { key: 'transfer', label: 'Transfer VA' },
         ].map((t) => (
           <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
             className={cn('px-5 py-2 rounded-lg text-sm font-medium transition',
-              tab === t.key ? 'bg-aero text-black' : 'text-gray-400 hover:text-white')}>
+              tab === t.key
+                ? t.key === 'purchase' ? 'bg-purple-600 text-white' : 'bg-aero text-black'
+                : 'text-gray-400 hover:text-white')}>
             {t.label}
           </button>
         ))}
       </div>
+
+      {/* Purchase tab */}
+      {tab === 'purchase' && (
+        <div className="glass-card rounded-2xl p-8 border border-purple-500/20">
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={80} height={80} />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Founder's Pass</h2>
+            <p className="text-4xl font-extrabold text-purple-300 mb-1">$199</p>
+            <p className="text-gray-500 text-sm mb-6">One-time payment — lifetime access</p>
+            <ul className="text-gray-400 space-y-2 mb-8 text-sm max-w-xs mx-auto text-left">
+              <li>✓ <strong className="text-white">Lifetime Enterprise Access</strong></li>
+              <li>✓ No monthly fees, ever</li>
+              <li>✓ Exclusive Founder's Badge</li>
+              <li>✓ Early access to new features</li>
+              <li>✓ Direct dev feedback channel</li>
+            </ul>
+          </div>
+          {purchaseError && (
+            <p className="text-red-400 text-sm text-center mb-4">{purchaseError}</p>
+          )}
+          <div className="max-w-xs mx-auto">
+            <button
+              onClick={handlePurchase}
+              disabled={purchaseLoading}
+              className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl hover:bg-purple-500 transition text-sm disabled:opacity-50"
+            >
+              {purchaseLoading ? 'Redirecting to Stripe...' : 'Buy Now — $199'}
+            </button>
+            <p className="text-xs text-gray-600 text-center mt-3">
+              You'll receive a gift code via email after payment to redeem on this page.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Redeem tab */}
       {tab === 'redeem' && (

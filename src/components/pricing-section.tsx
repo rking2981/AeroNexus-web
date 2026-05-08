@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/store/auth';
 
 interface FoundersStatus {
   sold_out: boolean;
@@ -14,6 +15,7 @@ interface FoundersStatus {
 
 export function PricingSection({ founders }: { founders: FoundersStatus }) {
   const [yearly, setYearly] = useState(false);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
 
   const startup = {
     monthly: '$4.99',
@@ -177,7 +179,7 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
                 <li>✓ Direct Dev Feedback Channel</li>
               </ul>
               <Link
-                href="/register?plan=founders"
+                href={isAuthenticated ? '/dashboard/founders?checkout=true' : '/register?plan=founders'}
                 className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl hover:bg-purple-500 transition text-sm shadow-lg shadow-purple-900/20 text-center block"
               >
                 Secure My Spot
