@@ -85,242 +85,336 @@ function StatCard({ label, value, symbol, color }: { label: string; value: numbe
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-// ─── Loan types ───────────────────────────────────────────────────────────────
+// ─── Banking types ────────────────────────────────────────────────────────────
 
-const LOAN_TIERS = {
-  STARTER:    { label: 'Starter Loan',    maxAmount: 500_000,    annualRate: 0.08,  termMonths: 3,  minFlights: 25,  minHours: 50,   minReputation: 2.5 },
-  GROWTH:     { label: 'Growth Loan',     maxAmount: 2_000_000,  annualRate: 0.06,  termMonths: 6,  minFlights: 100, minHours: 200,  minReputation: 3.0 },
-  ENTERPRISE: { label: 'Enterprise Loan', maxAmount: 10_000_000, annualRate: 0.045, termMonths: 12, minFlights: 500, minHours: 1000, minReputation: 3.5 },
-} as const;
-
-type LoanTierKey = keyof typeof LOAN_TIERS;
-
-interface LoanEligibility {
-  tiers: {
-    tier: LoanTierKey; label: string; maxAmount: number; annualRate: number; termMonths: number; eligible: boolean;
-    requirements: {
-      flights: { required: number; current: number; met: boolean };
-      hours: { required: number; current: number; met: boolean };
-      reputation: { required: number; current: number; met: boolean };
-    };
-  }[];
-  active_loans: number;
-  can_apply: boolean;
-  total_flights: number;
-  total_hours: number;
-  avg_reputation: number;
+interface CreditInfo {
+  equity: number;
+  cash: number;
+  fleet_value: number;
+  total_debt: number;
+  credit_limit: number;
+  available_credit: number;
+  annual_rate: number;
+  is_bankrupt: boolean;
+  eligible: boolean;
+  requirements: {
+    flights:    { required: number; current: number; met: boolean };
+    hours:      { required: number; current: number; met: boolean };
+    reputation: { required: number; current: number; met: boolean };
+  };
 }
 
-interface ActiveLoan {
-  id: string; tier: string; principal: number; interest_rate: number;
-  term_months: number; monthly_payment: number; remaining_balance: number;
-  payments_made: number; missed_payments: number; status: string;
-  next_payment_at: string; created_at: string;
-}
-
-function calcMonthlyPayment(principal: number, rate: number, months: number): number {
-  if (rate === 0) return principal / months;
-  const r = rate / 12;
-  return principal * (r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1);
+interface Loan {
+  id: string;
+  label: string;
+  principal: number;
+  annual_rate: number;
+  remaining_balance: number;
+  accrued_interest: number;
+  payment_schedule: string;
+  scheduled_payment: number;
+  days_negative: number;
+  status: string;
+  next_payment_at: string;
+  created_at: string;
 }
 
 function fmtMoney(n: number) {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toLocaleString()}`;
 }
 
+const SCHEDULE_LABELS: Record<string, string> = {
+  WEEKLY: 'Weekly', BIWEEKLY: 'Bi-Weekly', MONTHLY: 'Monthly',
+};
+
 function BankingPanel() {
-  const [eligibility, setEligibility] = useState<LoanEligibility | null>(null);
-  const [loans, setLoans] = useState<ActiveLoan[]>([]);
+  const [credit, setCredit] = useState<CreditInfo | null>(null);
+  const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTier, setSelectedTier] = useState<LoanTierKey | null>(null);
-  const [amount, setAmount] = useState('');
+
+  // Application form state
+  const [showApply, setShowApply] = useState(false);
+  const [applyAmount, setApplyAmount] = useState('');
+  const [applyLabel, setApplyLabel] = useState('Aircraft Purchase Loan');
+  const [applySchedule, setApplySchedule] = useState<'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'>('MONTHLY');
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState('');
-  const [repaying, setRepaying] = useState<string | null>(null);
+
+  // Payment state
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [payError, setPayError] = useState('');
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      api.get('/loans/eligibility'),
-      api.get('/loans'),
-    ]).then(([e, l]) => {
-      setEligibility(e.data);
-      setLoans(l.data);
-    }).finally(() => setLoading(false));
+    Promise.all([api.get('/loans/credit'), api.get('/loans')])
+      .then(([c, l]) => { setCredit(c.data); setLoans(l.data); })
+      .finally(() => setLoading(false));
   }, []);
 
   async function handleApply(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedTier) return;
     setApplying(true); setApplyError('');
     try {
-      const { data } = await api.post('/loans/apply', { tier: selectedTier, amount: parseFloat(amount) });
+      const { data } = await api.post('/loans/apply', {
+        amount: parseFloat(applyAmount),
+        label: applyLabel,
+        schedule: applySchedule,
+      });
       setLoans(prev => [data, ...prev]);
-      setSelectedTier(null); setAmount('');
-      const { data: elig } = await api.get('/loans/eligibility');
-      setEligibility(elig);
+      setShowApply(false); setApplyAmount(''); setApplyLabel('Aircraft Purchase Loan');
+      const { data: c } = await api.get('/loans/credit');
+      setCredit(c);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setApplyError(msg ?? 'Application failed');
     } finally { setApplying(false); }
   }
 
-  async function handleRepay(loanId: string) {
-    if (!confirm('Pay off this loan in full now?')) return;
-    setRepaying(loanId);
+  async function handlePay(loanId: string) {
+    setPaying(true); setPayError('');
     try {
-      await api.post(`/loans/${loanId}/repay`);
-      setLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: 'PAID_OFF', remaining_balance: 0 } : l));
+      const { data } = await api.post(`/loans/${loanId}/pay`, { amount: parseFloat(payAmount) });
+      setLoans(prev => prev.map(l => l.id === loanId
+        ? { ...l, remaining_balance: data.remaining_balance, status: data.paid_off ? 'PAID_OFF' : l.status }
+        : l));
+      setPayingId(null); setPayAmount('');
+      const { data: c } = await api.get('/loans/credit');
+      setCredit(c);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      alert(msg ?? 'Repayment failed');
-    } finally { setRepaying(null); }
+      setPayError(msg ?? 'Payment failed');
+    } finally { setPaying(false); }
   }
 
   if (loading) return <div className="glass-card rounded-2xl h-40 animate-pulse" />;
 
   const activeLoans = loans.filter(l => l.status === 'ACTIVE');
   const pastLoans = loans.filter(l => l.status !== 'ACTIVE');
-  const tierConfig = selectedTier ? LOAN_TIERS[selectedTier] : null;
-  const parsedAmount = parseFloat(amount) || 0;
-  const monthlyPayment = tierConfig && parsedAmount > 0
-    ? calcMonthlyPayment(parsedAmount, tierConfig.annualRate, tierConfig.termMonths)
+  const parsedAmount = parseFloat(applyAmount) || 0;
+
+  // Estimate daily interest on requested amount
+  const dailyInterestPreview = credit && parsedAmount > 0
+    ? Math.round(parsedAmount * (credit.annual_rate / 365) * 100) / 100
     : 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 max-w-3xl">
+
+      {/* Bankruptcy warning */}
+      {credit?.is_bankrupt && (
+        <div className="glass-card rounded-2xl p-5 border border-red-500/30 bg-red-500/5">
+          <p className="font-bold text-red-400 mb-1">🚨 Bankruptcy Declared</p>
+          <p className="text-sm text-gray-300">
+            Your airline&apos;s balance was negative for too long. Flight operations are suspended until all outstanding debt is cleared.
+            Make payments on your active loans to resolve bankruptcy.
+          </p>
+        </div>
+      )}
+
+      {/* Credit summary */}
+      {credit && (
+        <div className="glass-card rounded-2xl p-5">
+          <h2 className="font-bold text-lg mb-4">Credit Overview</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            {[
+              { label: 'Cash Balance', value: fmtMoney(credit.cash), color: credit.cash < 0 ? 'text-red-400' : 'text-green-400' },
+              { label: 'Fleet Value', value: fmtMoney(credit.fleet_value), color: 'text-aero' },
+              { label: 'Total Debt', value: fmtMoney(credit.total_debt), color: credit.total_debt > 0 ? 'text-red-400' : 'text-gray-400' },
+              { label: 'Net Equity', value: fmtMoney(credit.equity), color: credit.equity < 0 ? 'text-red-400' : 'text-white' },
+              { label: 'Credit Limit', value: fmtMoney(credit.credit_limit), color: 'text-gray-300' },
+              { label: 'Available Credit', value: fmtMoney(credit.available_credit), color: credit.available_credit > 0 ? 'text-green-400' : 'text-gray-500' },
+            ].map(row => (
+              <div key={row.label} className="glass-card rounded-xl p-3">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">{row.label}</p>
+                <p className={cn('font-bold text-sm', row.color)}>{row.value}</p>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>Interest rate: <span className="text-white font-bold">{(credit.annual_rate * 100).toFixed(1)}% APR</span> (fixed at origination · accrues daily)</span>
+            <span>Credit limit = 60% of net equity</span>
+          </div>
+        </div>
+      )}
 
       {/* Active loans */}
       {activeLoans.length > 0 && (
         <div className="flex flex-col gap-3">
-          <h2 className="font-bold text-lg">Active Loans</h2>
+          <h2 className="font-bold">Active Loans</h2>
           {activeLoans.map(loan => {
-            const progress = loan.payments_made / loan.term_months;
-            const tierLabel = LOAN_TIERS[loan.tier as LoanTierKey]?.label ?? loan.tier;
+            const totalOwed = loan.remaining_balance + loan.accrued_interest;
+            const paidDown = Number(loan.principal) - loan.remaining_balance;
+            const progress = paidDown / Number(loan.principal);
+            const isPayingThis = payingId === loan.id;
             return (
               <div key={loan.id} className="glass-card rounded-2xl p-5">
-                <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="flex items-start justify-between gap-4 mb-3">
                   <div>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-bold">🏦 {tierLabel}</span>
-                      {loan.missed_payments > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <span className="font-bold">🏦 {loan.label}</span>
+                      {loan.days_negative > 0 && (
                         <span className="text-xs text-red-400 border border-red-500/20 bg-red-500/10 px-2 py-0.5 rounded-full">
-                          {loan.missed_payments} missed
+                          Balance negative {loan.days_negative}d
                         </span>
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {(Number(loan.interest_rate) * 100).toFixed(1)}% APR · {loan.term_months} months ·
-                      Payment {loan.payments_made}/{loan.term_months}
+                      {(Number(loan.annual_rate) * 100).toFixed(1)}% APR · {SCHEDULE_LABELS[loan.payment_schedule]} payments
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-red-400">{fmtMoney(loan.remaining_balance)} remaining</p>
-                    <p className="text-xs text-gray-500">{fmtMoney(loan.monthly_payment)}/mo · due {new Date(loan.next_payment_at).toLocaleDateString()}</p>
+                    <p className="font-bold text-red-400">{fmtMoney(totalOwed)} owed</p>
+                    <p className="text-xs text-gray-500">
+                      {fmtMoney(loan.remaining_balance)} principal + {fmtMoney(loan.accrued_interest)} interest
+                    </p>
                   </div>
                 </div>
-                {/* Progress bar */}
                 <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-3">
-                  <div className="h-full bg-aero rounded-full transition-all" style={{ width: `${progress * 100}%` }} />
+                  <div className="h-full bg-aero rounded-full" style={{ width: `${Math.min(100, progress * 100)}%` }} />
                 </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-500">
-                    {fmtMoney(Number(loan.principal) - loan.remaining_balance)} paid of {fmtMoney(loan.principal)}
-                  </p>
-                  <button onClick={() => handleRepay(loan.id)} disabled={repaying === loan.id}
-                    className="text-xs border border-green-500/20 text-green-400 hover:bg-green-500/10 px-3 py-1.5 rounded-lg transition disabled:opacity-50">
-                    {repaying === loan.id ? 'Processing…' : 'Pay Off Early'}
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                  <span>{fmtMoney(paidDown)} paid of {fmtMoney(loan.principal)}</span>
+                  <span>Next {SCHEDULE_LABELS[loan.payment_schedule].toLowerCase()} payment: {fmtMoney(loan.scheduled_payment)} · due {new Date(loan.next_payment_at).toLocaleDateString()}</span>
+                </div>
+
+                {/* Payment panel */}
+                {isPayingThis ? (
+                  <div className="border-t border-white/5 pt-3 flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
+                        placeholder={`Min ${fmtMoney(loan.scheduled_payment)} · Max ${fmtMoney(totalOwed)}`}
+                        className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:border-aero focus:outline-none transition" />
+                      <button onClick={() => setPayAmount(String(Math.round(totalOwed)))}
+                        className="text-xs border border-white/10 px-3 py-2 rounded-xl hover:bg-white/5 text-gray-400 transition">
+                        Pay All
+                      </button>
+                      <button onClick={() => handlePay(loan.id)} disabled={paying || !payAmount}
+                        className="bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition disabled:opacity-50">
+                        {paying ? '…' : 'Pay'}
+                      </button>
+                      <button onClick={() => { setPayingId(null); setPayError(''); }}
+                        className="text-gray-500 hover:text-white text-sm transition">✕</button>
+                    </div>
+                    {payError && <p className="text-xs text-red-400">{payError}</p>}
+                  </div>
+                ) : (
+                  <button onClick={() => { setPayingId(loan.id); setPayAmount(''); setPayError(''); }}
+                    className="text-xs border border-aero/20 text-aero hover:bg-aero/10 px-3 py-1.5 rounded-lg transition">
+                    Make Payment
                   </button>
-                </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Loan application */}
-      {eligibility && eligibility.can_apply && (
-        <div className="flex flex-col gap-4">
-          <h2 className="font-bold text-lg">Apply for a Loan</h2>
-
-          {/* Tier cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {eligibility.tiers.map(t => (
-              <button key={t.tier} onClick={() => { if (t.eligible) { setSelectedTier(t.tier); setAmount(''); setApplyError(''); } }}
-                disabled={!t.eligible}
-                className={cn('glass-card rounded-2xl p-5 text-left border transition',
-                  selectedTier === t.tier ? 'border-aero/50 bg-aero/5'
-                  : t.eligible ? 'border-transparent hover:border-white/20 cursor-pointer'
-                  : 'border-transparent opacity-50 cursor-not-allowed')}>
-                <p className="font-bold mb-0.5">{t.label}</p>
-                <p className="text-aero font-bold text-lg mb-2">{fmtMoney(t.maxAmount)} max</p>
-                <p className="text-xs text-gray-400 mb-3">{(t.annualRate * 100).toFixed(1)}% APR · {t.termMonths} months</p>
-                <div className="flex flex-col gap-1">
-                  {[
-                    { label: `${t.requirements.flights.current}/${t.requirements.flights.required} flights`, met: t.requirements.flights.met },
-                    { label: `${t.requirements.hours.current}/${t.requirements.hours.required} hrs`, met: t.requirements.hours.met },
-                    { label: `${t.requirements.reputation.current.toFixed(1)}/${t.requirements.reputation.required} rep`, met: t.requirements.reputation.met },
-                  ].map(r => (
-                    <p key={r.label} className={cn('text-xs', r.met ? 'text-green-400' : 'text-gray-600')}>
-                      {r.met ? '✓' : '✗'} {r.label}
-                    </p>
-                  ))}
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Application form */}
-          {selectedTier && tierConfig && (
+      {/* Apply for loan */}
+      {credit && credit.eligible && !credit.is_bankrupt && credit.available_credit > 0 && (
+        <div>
+          {!showApply ? (
+            <button onClick={() => setShowApply(true)}
+              className="bg-aero text-black font-bold px-6 py-2.5 rounded-xl hover:brightness-110 transition text-sm">
+              + Apply for a Loan
+            </button>
+          ) : (
             <form onSubmit={handleApply} className="glass-card rounded-2xl p-5 border border-aero/20">
-              <h3 className="font-bold mb-4">{tierConfig.label} Application</h3>
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <h3 className="font-bold mb-4">Loan Application</h3>
+              <div className="flex flex-col gap-4">
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Loan Amount</label>
-                  <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
-                    min={1} max={tierConfig.maxAmount} step={10000}
-                    placeholder={`Up to ${fmtMoney(tierConfig.maxAmount)}`}
+                  <label className="text-xs text-gray-500 block mb-1">Purpose / Label</label>
+                  <input value={applyLabel} onChange={e => setApplyLabel(e.target.value)}
+                    placeholder="Aircraft Purchase Loan"
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-aero focus:outline-none transition" />
                 </div>
-                <div className="flex flex-col justify-end">
-                  <div className="glass-card rounded-xl p-3 flex flex-col gap-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Monthly payment</span>
-                      <span className="font-bold text-aero">{fmtMoney(monthlyPayment)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Total repayment</span>
-                      <span className="font-mono text-xs text-gray-300">{fmtMoney(monthlyPayment * tierConfig.termMonths)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Total interest</span>
-                      <span className="font-mono text-xs text-red-400">{fmtMoney(monthlyPayment * tierConfig.termMonths - parsedAmount)}</span>
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">
+                      Amount <span className="text-gray-600">(max {fmtMoney(credit.available_credit)})</span>
+                    </label>
+                    <input type="number" value={applyAmount} onChange={e => setApplyAmount(e.target.value)}
+                      min={1} max={credit.available_credit} step={1000}
+                      placeholder={fmtMoney(credit.available_credit)}
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-aero focus:outline-none transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Payment Schedule</label>
+                    <select value={applySchedule} onChange={e => setApplySchedule(e.target.value as typeof applySchedule)}
+                      className="w-full rounded-xl border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white focus:border-aero focus:outline-none transition">
+                      <option value="WEEKLY">Weekly</option>
+                      <option value="BIWEEKLY">Bi-Weekly</option>
+                      <option value="MONTHLY">Monthly</option>
+                    </select>
                   </div>
                 </div>
-              </div>
-              {applyError && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-3">{applyError}</p>}
-              <div className="flex gap-3">
-                <button type="submit" disabled={applying || !amount || parsedAmount <= 0 || parsedAmount > tierConfig.maxAmount}
-                  className="bg-aero text-black font-bold px-6 py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
-                  {applying ? 'Applying…' : `Apply for ${parsedAmount > 0 ? fmtMoney(parsedAmount) : '...'}`}
-                </button>
-                <button type="button" onClick={() => setSelectedTier(null)}
-                  className="text-gray-400 hover:text-white text-sm transition">Cancel</button>
+                {/* Live preview */}
+                {parsedAmount > 0 && (
+                  <div className="glass-card rounded-xl p-3 flex flex-col gap-1.5 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Interest rate</span>
+                      <span className="font-bold">{(credit.annual_rate * 100).toFixed(1)}% APR (fixed)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Daily interest</span>
+                      <span className="text-red-400">{fmtMoney(dailyInterestPreview)}/day</span>
+                    </div>
+                    <div className="flex justify-between border-t border-white/5 pt-1.5">
+                      <span className="text-gray-400">Min scheduled payment</span>
+                      <span className="font-bold text-aero">calculated at approval</span>
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500">
+                  Interest accrues daily on the outstanding principal. Make extra payments anytime to reduce the balance faster and stop the interest drain.
+                </p>
+                {applyError && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{applyError}</p>}
+                <div className="flex gap-3">
+                  <button type="submit" disabled={applying || parsedAmount <= 0 || parsedAmount > credit.available_credit}
+                    className="bg-aero text-black font-bold px-6 py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
+                    {applying ? 'Applying…' : `Apply for ${parsedAmount > 0 ? fmtMoney(parsedAmount) : '...'}`}
+                  </button>
+                  <button type="button" onClick={() => { setShowApply(false); setApplyError(''); }}
+                    className="text-gray-400 hover:text-white text-sm transition">Cancel</button>
+                </div>
               </div>
             </form>
           )}
         </div>
       )}
 
-      {!eligibility?.can_apply && eligibility && (
-        <div className="glass-card rounded-2xl p-5 border border-amber-500/20 bg-amber-500/5">
-          <p className="text-amber-300 text-sm font-medium">Maximum active loans reached ({eligibility.active_loans}/2). Pay off an existing loan before applying for another.</p>
+      {/* Not eligible */}
+      {credit && !credit.eligible && (
+        <div className="glass-card rounded-2xl p-8 text-center">
+          <p className="text-3xl mb-3">🏦</p>
+          <p className="font-bold mb-1">Not Yet Eligible</p>
+          <p className="text-sm text-gray-400 mb-4">Build your airline&apos;s track record to qualify for loans.</p>
+          <div className="flex flex-col gap-1.5 text-sm max-w-xs mx-auto text-left">
+            <p className={cn(credit.requirements.flights.met ? 'text-green-400' : 'text-gray-500')}>
+              {credit.requirements.flights.met ? '✓' : '✗'} {credit.requirements.flights.current}/{credit.requirements.flights.required} flights completed
+            </p>
+            <p className={cn(credit.requirements.hours.met ? 'text-green-400' : 'text-gray-500')}>
+              {credit.requirements.hours.met ? '✓' : '✗'} {credit.requirements.hours.current}/{credit.requirements.hours.required} flight hours
+            </p>
+            <p className={cn(credit.requirements.reputation.met ? 'text-green-400' : 'text-gray-500')}>
+              {credit.requirements.reputation.met ? '✓' : '✗'} {credit.requirements.reputation.current.toFixed(1)}/{credit.requirements.reputation.required} average reputation
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Past loans */}
+      {/* No credit available */}
+      {credit && credit.eligible && credit.available_credit <= 0 && !credit.is_bankrupt && (
+        <div className="glass-card rounded-2xl p-5 border border-amber-500/20 bg-amber-500/5">
+          <p className="text-amber-300 text-sm font-medium">
+            No available credit. Grow your fleet value or pay down existing debt to increase your credit limit.
+          </p>
+        </div>
+      )}
+
+      {/* Loan history */}
       {pastLoans.length > 0 && (
         <div>
           <h3 className="font-bold text-sm text-gray-400 mb-3">Loan History</h3>
@@ -328,29 +422,17 @@ function BankingPanel() {
             {pastLoans.map(loan => (
               <div key={loan.id} className="glass-card rounded-xl p-4 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">{LOAN_TIERS[loan.tier as LoanTierKey]?.label ?? loan.tier}</p>
+                  <p className="text-sm font-medium">{loan.label}</p>
                   <p className="text-xs text-gray-500">{fmtMoney(loan.principal)} · {new Date(loan.created_at).toLocaleDateString()}</p>
                 </div>
                 <span className={cn('text-xs font-bold px-2.5 py-1 rounded-full border',
-                  loan.status === 'PAID_OFF' ? 'text-green-400 border-green-500/20 bg-green-500/10'
-                  : 'text-red-400 border-red-500/20 bg-red-500/10')}>
-                  {loan.status === 'PAID_OFF' ? '✓ Paid Off' : '⚠ Defaulted'}
+                  loan.status === 'PAID_OFF'
+                    ? 'text-green-400 border-green-500/20 bg-green-500/10'
+                    : 'text-red-400 border-red-500/20 bg-red-500/10')}>
+                  {loan.status === 'PAID_OFF' ? '✓ Paid Off' : loan.status === 'BANKRUPT' ? '🚨 Bankrupt' : '⚠ Defaulted'}
                 </span>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {loans.length === 0 && eligibility && !eligibility.tiers.some(t => t.eligible) && (
-        <div className="glass-card rounded-2xl p-10 text-center">
-          <p className="text-3xl mb-3">🏦</p>
-          <p className="font-bold mb-1">Not Yet Eligible</p>
-          <p className="text-sm text-gray-400 mb-4">Build your airline&apos;s track record to unlock loans.</p>
-          <div className="flex flex-col gap-2 text-sm text-gray-500 max-w-xs mx-auto">
-            <p>✈️ Complete {LOAN_TIERS.STARTER.minFlights} flights ({eligibility.total_flights} done)</p>
-            <p>⏱️ Log {LOAN_TIERS.STARTER.minHours} flight hours ({eligibility.total_hours} done)</p>
-            <p>⭐ Maintain {LOAN_TIERS.STARTER.minReputation} reputation ({eligibility.avg_reputation.toFixed(1)} current)</p>
           </div>
         </div>
       )}
