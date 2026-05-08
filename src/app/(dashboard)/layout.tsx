@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { useAuthStore } from '@/store/auth';
 import { api, publicApi } from '@/lib/api';
+import { startAcarsBridge, stopAcarsBridge } from '@/lib/acars-bridge';
 
 const HEALTH_INTERVAL_MS = 8000;   // poll every 8s normally
 const RECOVERY_INTERVAL_MS = 3000; // poll every 3s when down (faster recovery detection)
@@ -32,6 +33,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_hasHydrated]);
+
+  // Start ACARS bridge when authenticated — silently connects to desktop app
+  useEffect(() => {
+    if (!_hasHydrated || !isAuthenticated() || !user?.airline_id) return;
+    const store = useAuthStore.getState();
+    const token = store.access_token;
+    if (!token) return;
+    startAcarsBridge({
+      token,
+      airline_id: user.airline_id,
+      display_name: user.display_name ?? 'Pilot',
+      api_url: process.env.NEXT_PUBLIC_API_URL ?? 'https://aeronexus-api-production.up.railway.app',
+    });
+    return () => stopAcarsBridge();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_hasHydrated, user?.airline_id]);
 
   // Health poller
   useEffect(() => {
