@@ -592,7 +592,7 @@ export default function ContractsPage() {
                     <div className="flex flex-col gap-2 flex-shrink-0 items-end">
                       <button onClick={() => setBriefingMission(m)}
                         className="text-sm font-bold px-4 py-2 rounded-xl transition border"
-                        style={{ borderColor: MISSION_COLORS[m.mission_type]?.border + '60' ?? '#ffffff40',
+                        style={{ borderColor: (MISSION_COLORS[m.mission_type]?.border ?? '#ffffff') + '60',
                                  color: MISSION_COLORS[m.mission_type]?.text ?? '#fff',
                                  background: MISSION_COLORS[m.mission_type]?.bg ?? 'transparent' }}>
                         View Briefing →
