@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { api, publicApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+import MissionBriefingModal from '@/components/MissionBriefingModal';
 
 interface Contract {
   id: string;
@@ -105,6 +106,7 @@ export default function ContractsPage() {
   });
   const [skyopsError, setSkyopsError] = useState('');
   const [postingSkyOps, setPostingSkyOps] = useState(false);
+  const [briefingMission, setBriefingMission] = useState<Contract | null>(null);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [myAccepted, setMyAccepted] = useState<Contract[]>([]);
   const [myPosted, setMyPosted] = useState<Contract[]>([]);
@@ -272,6 +274,19 @@ export default function ContractsPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
+      {/* Mission Briefing Modal */}
+      {briefingMission && (
+        <MissionBriefingModal
+          mission={briefingMission}
+          accepting={actionLoading === briefingMission.id}
+          onClose={() => setBriefingMission(null)}
+          onAccept={async (id) => {
+            await handleAccept(id);
+            setBriefingMission(null);
+          }}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -658,12 +673,13 @@ export default function ContractsPage() {
                       )}
                     </div>
                     <div className="flex-shrink-0">
-                      {m.status === 'OPEN' && (
-                        <button onClick={() => handleAccept(m.id)} disabled={actionLoading === m.id}
-                          className="bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition disabled:opacity-50">
-                          {actionLoading === m.id ? '…' : 'Accept'}
-                        </button>
-                      )}
+                      <button onClick={() => setBriefingMission(m)}
+                        className="text-sm font-bold px-4 py-2 rounded-xl transition border"
+                        style={{ borderColor: MISSION_COLORS[m.mission_type]?.border + '60' ?? '#ffffff40',
+                                 color: MISSION_COLORS[m.mission_type]?.text ?? '#fff',
+                                 background: MISSION_COLORS[m.mission_type]?.bg ?? 'transparent' }}>
+                        View Briefing →
+                      </button>
                     </div>
                   </div>
                 </div>
