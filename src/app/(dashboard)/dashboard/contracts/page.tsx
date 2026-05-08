@@ -5,6 +5,7 @@ import { api, publicApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 import MissionBriefingModal from '@/components/MissionBriefingModal';
+import SkyOpsMissionBuilder from '@/components/SkyOpsMissionBuilder';
 
 interface Contract {
   id: string;
@@ -107,6 +108,7 @@ export default function ContractsPage() {
   const [skyopsError, setSkyopsError] = useState('');
   const [postingSkyOps, setPostingSkyOps] = useState(false);
   const [briefingMission, setBriefingMission] = useState<Contract | null>(null);
+  const [showMissionBuilder, setShowMissionBuilder] = useState(false);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [myAccepted, setMyAccepted] = useState<Contract[]>([]);
   const [myPosted, setMyPosted] = useState<Contract[]>([]);
@@ -525,109 +527,24 @@ export default function ContractsPage() {
                 <option value="CUSTOM">⭐ Custom</option>
               </select>
               {isManager && (
-                <button onClick={() => setShowPostSkyOps(!showPostSkyOps)}
-                  className="bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition">
-                  + Post Mission
+                <button onClick={() => setShowMissionBuilder(true)}
+                  className="font-bold px-4 py-2 rounded-xl text-sm transition text-white"
+                  style={{ background: '#3b82f6' }}>
+                  ✏️ Mission Builder
                 </button>
               )}
             </div>
           </div>
 
-          {/* Post SkyOps form */}
-          {showPostSkyOps && isManager && (
-            <form onSubmit={handlePostSkyOps} className="glass-card rounded-2xl p-5 border border-aero/20 flex flex-col gap-4">
-              <h3 className="font-bold">Post SkyOps Mission</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Mission Type</label>
-                  <select value={skyopsForm.mission_type} onChange={e => setSkyopsForm({ ...skyopsForm, mission_type: e.target.value })}
-                    className={inputCls.replace('bg-white/5', 'bg-[#111]')}>
-                    <option value="CARGO">📦 Cargo Mission</option>
-                    <option value="PASSENGER">✈️ Passenger Charter</option>
-                    <option value="TRAINING">🎓 Training Flight</option>
-                    <option value="CUSTOM">⭐ Custom Mission</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Aircraft Category</label>
-                  <select value={skyopsForm.aircraft_category} onChange={e => setSkyopsForm({ ...skyopsForm, aircraft_category: e.target.value })}
-                    className={inputCls.replace('bg-white/5', 'bg-[#111]')}>
-                    <option value="FIXED_WING">Fixed Wing</option>
-                    <option value="HELICOPTER">Helicopter</option>
-                    <option value="CARGO">Cargo Aircraft</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Origin ICAO</label>
-                  <input value={skyopsForm.origin_icao} onChange={e => setSkyopsForm({ ...skyopsForm, origin_icao: e.target.value.toUpperCase() })}
-                    placeholder="KSEA" maxLength={4} className={inputCls} />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Destination ICAO</label>
-                  <input value={skyopsForm.destination_icao} onChange={e => setSkyopsForm({ ...skyopsForm, destination_icao: e.target.value.toUpperCase() })}
-                    placeholder="KLAX" maxLength={4} className={inputCls} />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">
-                    {skyopsForm.mission_type === 'TRAINING' ? 'XP Bonus' : 'Pilot Pay ($)'}
-                  </label>
-                  <input type="number" value={skyopsForm.mission_type === 'TRAINING' ? skyopsForm.xp_bonus : skyopsForm.pilot_pay}
-                    onChange={e => skyopsForm.mission_type === 'TRAINING'
-                      ? setSkyopsForm({ ...skyopsForm, xp_bonus: e.target.value })
-                      : setSkyopsForm({ ...skyopsForm, pilot_pay: e.target.value })}
-                    placeholder={skyopsForm.mission_type === 'TRAINING' ? '500' : '5000'}
-                    className={inputCls} />
-                  {skyopsForm.mission_type === 'TRAINING' && (
-                    <p className="text-xs text-gray-600 mt-1">Training flights earn XP only — no pay.</p>
-                  )}
-                </div>
-                {skyopsForm.mission_type === 'CARGO' && (
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">Cargo Weight (kg)</label>
-                    <input type="number" value={skyopsForm.cargo_kg} onChange={e => setSkyopsForm({ ...skyopsForm, cargo_kg: e.target.value })}
-                      placeholder="5000" className={inputCls} />
-                  </div>
-                )}
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Min Block Time (min, optional)</label>
-                  <input type="number" value={skyopsForm.min_block_time_min} onChange={e => setSkyopsForm({ ...skyopsForm, min_block_time_min: e.target.value })}
-                    placeholder="60" className={inputCls} />
-                </div>
-                {skyopsForm.mission_type === 'TRAINING' && (
-                  <>
-                    <div>
-                      <label className="text-xs text-gray-500 block mb-1">Min PAX Happiness % to Pass</label>
-                      <input type="number" value={skyopsForm.training_min_happiness} onChange={e => setSkyopsForm({ ...skyopsForm, training_min_happiness: e.target.value })}
-                        placeholder="80" className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 block mb-1">Max Landing VS to Pass (fpm)</label>
-                      <input type="number" value={skyopsForm.training_max_vs_fpm} onChange={e => setSkyopsForm({ ...skyopsForm, training_max_vs_fpm: e.target.value })}
-                        placeholder="-350" className={inputCls} />
-                    </div>
-                  </>
-                )}
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Mission Brief <span className="text-gray-600">(sent to SayIntentions.AI for AI context)</span></label>
-                <textarea value={skyopsForm.skyops_brief} onChange={e => setSkyopsForm({ ...skyopsForm, skyops_brief: e.target.value })}
-                  rows={4} placeholder="Describe the mission context, special instructions, crew info, etc. This feeds the SayIntentions.AI co-pilot and crew with situational awareness."
-                  className={inputCls + ' resize-none'} />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Pilot-Facing Notes (optional)</label>
-                <input value={skyopsForm.notes} onChange={e => setSkyopsForm({ ...skyopsForm, notes: e.target.value })}
-                  placeholder="Visible to pilots on the mission board" className={inputCls} />
-              </div>
-              {skyopsError && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{skyopsError}</p>}
-              <div className="flex gap-3">
-                <button type="submit" disabled={postingSkyOps}
-                  className="bg-aero text-black font-bold px-6 py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
-                  {postingSkyOps ? 'Posting…' : 'Post Mission'}
-                </button>
-                <button type="button" onClick={() => setShowPostSkyOps(false)} className="text-gray-400 hover:text-white text-sm transition">Cancel</button>
-              </div>
-            </form>
+          {/* Mission Builder Wizard */}
+          {showMissionBuilder && (
+            <SkyOpsMissionBuilder
+              onClose={() => setShowMissionBuilder(false)}
+              onCreated={(m) => {
+                setSkyopsMissions(prev => [m as unknown as Contract, ...prev]);
+                setShowMissionBuilder(false);
+              }}
+            />
           )}
 
           {/* Mission cards */}
@@ -672,7 +589,7 @@ export default function ContractsPage() {
                         </p>
                       )}
                     </div>
-                    <div className="flex-shrink-0">
+                    <div className="flex flex-col gap-2 flex-shrink-0 items-end">
                       <button onClick={() => setBriefingMission(m)}
                         className="text-sm font-bold px-4 py-2 rounded-xl transition border"
                         style={{ borderColor: MISSION_COLORS[m.mission_type]?.border + '60' ?? '#ffffff40',
@@ -680,6 +597,18 @@ export default function ContractsPage() {
                                  background: MISSION_COLORS[m.mission_type]?.bg ?? 'transparent' }}>
                         View Briefing →
                       </button>
+                      {isManager && m.status === 'OPEN' && (
+                        <button onClick={async () => {
+                          if (!confirm(`Delete this mission (${m.origin_icao} → ${m.destination_icao})?`)) return;
+                          try {
+                            await api.delete(`/contracts/${m.id}`);
+                            setSkyopsMissions(prev => prev.filter(x => x.id !== m.id));
+                          } catch { /* ignore */ }
+                        }}
+                          className="text-xs border border-red-500/20 text-red-400 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition">
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
