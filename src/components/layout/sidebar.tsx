@@ -141,8 +141,8 @@ export function Sidebar() {
               {user?.is_founder && <Image src="/badges/founders-badge.png" alt="Founder" width={20} height={20} className="inline align-middle" />}
             </p>
             <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-            {/* Subscription status */}
-            {user?.airline && (
+            {/* Subscription status — only shown to VA Managers, not regular pilots */}
+            {user?.airline && isManager && (
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className={cn('text-[10px] font-bold',
                   user.airline.subscription_tier === 'FOUNDERS'   ? 'text-purple-400' :
