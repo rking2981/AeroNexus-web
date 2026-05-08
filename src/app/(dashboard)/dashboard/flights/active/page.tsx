@@ -51,12 +51,41 @@ export default function ActiveFlightPage() {
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState('');
   const [newCert, setNewCert] = useState<string | null>(null);
+  // SimBrief OFP
+  const [ofp, setOfp] = useState<Record<string, unknown> | null>(null);
+  const [ofpLoading, setOfpLoading] = useState(false);
+  const [ofpError, setOfpError] = useState('');
+  const [ofpSynced, setOfpSynced] = useState(false);
 
   useEffect(() => {
     api.get('/flights/active')
       .then(r => setFlight(r.data))
       .finally(() => setLoading(false));
   }, []);
+
+  async function fetchOFP() {
+    setOfpLoading(true); setOfpError(''); setOfpSynced(false);
+    try {
+      const { data } = await api.get('/integrations/simbrief/ofp');
+      setOfp(data);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setOfpError(msg ?? 'Could not fetch OFP from SimBrief.');
+    } finally { setOfpLoading(false); }
+  }
+
+  async function syncOFP() {
+    if (!flight) return;
+    setOfpLoading(true); setOfpError('');
+    try {
+      const { data } = await api.post(`/integrations/simbrief/sync/${flight.id}`);
+      setOfp(data);
+      setOfpSynced(true);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setOfpError(msg ?? 'Could not sync OFP to flight.');
+    } finally { setOfpLoading(false); }
+  }
 
   async function handleDispatch() {
     if (!flight) return;
@@ -208,6 +237,90 @@ export default function ActiveFlightPage() {
             );
           })}
         </div>
+      </div>
+
+      {/* SimBrief OFP Panel */}
+      <div className="glass-card rounded-2xl p-6 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">SimBrief OFP</h3>
+            <p className="text-xs text-gray-600 mt-0.5">Operational Flight Plan from SimBrief</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={fetchOFP} disabled={ofpLoading}
+              className="text-xs border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition text-gray-400 hover:text-white disabled:opacity-50">
+              {ofpLoading ? 'Loading…' : ofp ? 'Refresh OFP' : 'Load OFP'}
+            </button>
+            {ofp && (
+              <button onClick={syncOFP} disabled={ofpLoading}
+                className={cn('text-xs border px-3 py-1.5 rounded-lg transition disabled:opacity-50',
+                  ofpSynced
+                    ? 'border-green-500/30 text-green-400 bg-green-500/10'
+                    : 'border-aero/30 text-aero hover:bg-aero/10')}>
+                {ofpSynced ? '✓ Synced' : 'Sync Weights →'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {ofpError && (
+          <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-3">
+            {ofpError}
+            {ofpError.includes('username') && (
+              <a href="/dashboard/profile" className="ml-2 text-aero underline">Set in Profile →</a>
+            )}
+          </p>
+        )}
+
+        {!ofp && !ofpError && (
+          <p className="text-xs text-gray-600">Load your latest SimBrief OFP to see fuel, weights, and route data. Set your SimBrief username in Profile settings first.</p>
+        )}
+
+        {ofp && (() => {
+          const o = ofp as {
+            origin?: string; destination?: string; route?: string; cruise_altitude?: string;
+            aircraft_icao?: string; registration?: string; flight_number?: string;
+            block_fuel_kg?: number; trip_fuel_kg?: number; tow?: number; zfw?: number;
+            payload_kg?: number; distance_nm?: number; est_block_time_min?: number;
+            cruise_mach?: string; avg_wind_component?: string; alternate?: string;
+            units?: string;
+          };
+          const fmt = (n: number | null | undefined, unit = 'kg') => n != null ? `${n.toLocaleString()} ${unit}` : '—';
+          return (
+            <div>
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <span className="font-mono font-bold text-aero">{o.origin}</span>
+                <span className="text-gray-500">→</span>
+                <span className="font-mono font-bold text-white">{o.destination}</span>
+                {o.alternate && <span className="text-xs text-gray-500">ALT: <span className="font-mono">{o.alternate}</span></span>}
+                {o.flight_number && <span className="font-mono text-xs border border-aero/30 text-aero px-1.5 py-0.5 rounded">{o.flight_number}</span>}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-sm">
+                {[
+                  { label: 'Block Fuel', value: fmt(o.block_fuel_kg) },
+                  { label: 'Trip Fuel', value: fmt(o.trip_fuel_kg) },
+                  { label: 'TOW', value: fmt(o.tow) },
+                  { label: 'ZFW', value: fmt(o.zfw) },
+                  { label: 'Payload', value: fmt(o.payload_kg) },
+                  { label: 'Distance', value: o.distance_nm ? `${o.distance_nm.toLocaleString()} nm` : '—' },
+                  { label: 'Block Time', value: o.est_block_time_min ? `${Math.floor(o.est_block_time_min / 60)}h ${o.est_block_time_min % 60}m` : '—' },
+                  { label: 'Cruise', value: [o.cruise_altitude, o.cruise_mach].filter(Boolean).join(' · ') || '—' },
+                ].map(row => (
+                  <div key={row.label} className="glass-card rounded-xl p-2.5">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">{row.label}</p>
+                    <p className="text-sm font-mono font-medium">{row.value}</p>
+                  </div>
+                ))}
+              </div>
+              {o.route && (
+                <div className="glass-card rounded-xl p-3">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Route</p>
+                  <p className="font-mono text-xs text-gray-300 break-all leading-relaxed">{o.route}</p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {error && (

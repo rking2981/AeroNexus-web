@@ -28,6 +28,7 @@ interface ProfileData {
     personal_balance: number;
     avatar_url: string | null;
     va_pilot_id: string | null;
+    simbrief_username: string | null;
     created_at: string;
     airline: {
       name: string;
@@ -185,6 +186,9 @@ export default function ProfilePage() {
   // Edit state
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ first_name: '', surname: '', display_preference: 'DISPLAY_NAME', home_airport_icao: '', avatar_url: '' });
+  const [simbriefUsername, setSimbriefUsername] = useState('');
+  const [simbriefSaving, setSimbriefSaving] = useState(false);
+  const [simbriefSaved, setSimbriefSaved] = useState(false);
   const [homeSearch, setHomeSearch] = useState('');
   const [homeResults, setHomeResults] = useState<{ id: string; icao: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -200,6 +204,7 @@ export default function ProfilePage() {
         home_airport_icao: u.home_airport_icao ?? '',
         avatar_url: u.avatar_url ?? '',
       });
+      setSimbriefUsername(u.simbrief_username ?? '');
     }).finally(() => setLoading(false));
   }, []);
 
@@ -225,6 +230,15 @@ export default function ProfilePage() {
       setUser(me);
       setEditing(false);
     } catch { /* ignore */ } finally { setSaving(false); }
+  }
+
+  async function handleSimbriefSave() {
+    setSimbriefSaving(true); setSimbriefSaved(false);
+    try {
+      await api.patch('/integrations/simbrief/username', { username: simbriefUsername });
+      setSimbriefSaved(true);
+      setTimeout(() => setSimbriefSaved(false), 3000);
+    } catch { /* ignore */ } finally { setSimbriefSaving(false); }
   }
 
   if (loading) return <div className="p-8"><div className="glass-card rounded-2xl h-96 animate-pulse" /></div>;
@@ -404,6 +418,35 @@ export default function ProfilePage() {
                 {pwSaving ? 'Updating...' : 'Update Password'}
               </button>
             </form>
+          </div>
+
+          {/* SimBrief / Navigraph Integration */}
+          <div className="mt-6 pt-6 border-t border-white/5">
+            <h3 className="font-bold mb-1 text-sm">Flight Planning Integrations</h3>
+            <p className="text-xs text-gray-500 mb-4">Connect your SimBrief account to generate OFPs and sync weights to your active flights.</p>
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <label className="text-sm text-gray-300 block mb-1.5">SimBrief Username</label>
+                <input
+                  value={simbriefUsername}
+                  onChange={e => setSimbriefUsername(e.target.value)}
+                  placeholder="Your SimBrief / Navigraph username"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition"
+                />
+              </div>
+              <button onClick={handleSimbriefSave} disabled={simbriefSaving}
+                className="border border-white/20 text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-white/5 transition disabled:opacity-50 flex-shrink-0">
+                {simbriefSaving ? 'Saving...' : simbriefSaved ? '✓ Saved' : 'Save'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              Find your username at simbrief.com → Account Settings. It&apos;s the same as your Navigraph username.
+            </p>
+            {/* Navigraph Charts — PENDING API ACCESS */}
+            {/* <div className="mt-4 rounded-xl border border-white/5 bg-white/3 p-4">
+              <p className="text-sm font-medium text-gray-300 mb-1">Navigraph Charts <span className="text-xs text-amber-400 ml-1">Coming Soon</span></p>
+              <p className="text-xs text-gray-500">Connect your Navigraph account for AIRAC-aware route validation and in-app charts access.</p>
+            </div> */}
           </div>
         </div>
       )}
