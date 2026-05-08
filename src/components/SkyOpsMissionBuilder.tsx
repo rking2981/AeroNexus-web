@@ -161,6 +161,8 @@ export default function SkyOpsMissionBuilder({ onClose, onCreated }: MissionBuil
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [createdMission, setCreatedMission] = useState<CreatedMission | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState('');
 
   const [s1, setS1] = useState<Step1Form>({
     mission_type: '', mission_style: '', origin_icao: '',
@@ -180,6 +182,38 @@ export default function SkyOpsMissionBuilder({ onClose, onCreated }: MissionBuil
   function p2(k: keyof Step2Form, v: string) { setS2(prev => ({ ...prev, [k]: v })); }
 
   // ── Review summary items ────────────────────────────────────────────────────
+
+  async function handleGenerate() {
+    setGenerating(true); setGenerateError('');
+    try {
+      const { data } = await api.post('/integrations/mission/generate', {
+        mission_type: s1.mission_type,
+        mission_style: s1.mission_style || undefined,
+        origin_icao: s1.origin_icao,
+        destination_icao: s1.destination_icao || undefined,
+        range_min: s1.range_min ? Number(s1.range_min) : undefined,
+        range_max: s1.range_max ? Number(s1.range_max) : undefined,
+        callsign: s1.callsign || undefined,
+        aircraft_category: s1.aircraft_category || undefined,
+        cargo_kg: s1.cargo_kg ? Number(s1.cargo_kg) : undefined,
+        what_transporting: s2.what_transporting || undefined,
+        why_urgent: s2.why_urgent || undefined,
+        special_cargo: s2.special_cargo || undefined,
+        who_needs: s2.who_needs || undefined,
+        pax_count: Number(s2.pax_count) || undefined,
+        backstory: s2.backstory || undefined,
+        special_requirements: s2.special_requirements || undefined,
+      });
+      // Populate only blank fields — don't overwrite what the user already typed
+      if (!s2.backstory && data.brief) p2('backstory', data.brief);
+      if (!s1.destination_icao && data.destination_icao) p1('destination_icao', data.destination_icao);
+      // Store the AI title as notes so it's visible on the card
+      if (data.title && !s1.callsign) p1('callsign', data.title.slice(0, 20));
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setGenerateError(msg ?? 'AI generation failed. Check that ANTHROPIC_API_KEY is set.');
+    } finally { setGenerating(false); }
+  }
 
   const reviewItems = [
     { label: 'Mission Type', value: MISSION_TYPES.find(t => t.value === s1.mission_type)?.label ?? '—' },
@@ -427,6 +461,24 @@ export default function SkyOpsMissionBuilder({ onClose, onCreated }: MissionBuil
           {step === 3 && (
             <>
               <StepHeader step={STEPS[2]} />
+
+              {/* AI Fill button */}
+              <div className="rounded-xl p-4 mb-4 flex items-start justify-between gap-4"
+                style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)' }}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-300 mb-0.5">🤖 AI Mission Generator</p>
+                  <p className="text-xs text-gray-400">
+                    Let Claude fill in blank fields — destination airport, mission brief, and context — based on what you've provided.
+                  </p>
+                  {generateError && <p className="text-xs text-red-400 mt-1">{generateError}</p>}
+                </div>
+                <button onClick={handleGenerate} disabled={generating}
+                  className="flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl transition disabled:opacity-50 text-white"
+                  style={{ background: generating ? '#374151' : '#3b82f6' }}>
+                  {generating ? 'Generating…' : 'Fill Blanks'}
+                </button>
+              </div>
+
               <div className="flex flex-col gap-2 mb-4">
                 {reviewItems.map(item => (
                   <div key={item.label} className="flex justify-between items-start gap-4 py-2 border-b border-white/5 last:border-0 text-sm">
