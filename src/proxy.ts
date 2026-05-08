@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const MAIN_DOMAIN = 'aeronexus.app';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://aeronexus-api-production.up.railway.app';
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const host = req.headers.get('host') ?? '';
   const isLocalhost = host.includes('localhost') || host.includes('vercel.app');
 
