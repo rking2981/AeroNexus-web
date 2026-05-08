@@ -43,13 +43,23 @@ function formatValue(v: number): string {
   return `$${v.toLocaleString()}`;
 }
 
-function timeLeft(expiresAt: string): string {
-  const ms = new Date(expiresAt).getTime() - Date.now();
+function timeLeft(expiresAt: string, now: number): string {
+  const ms = new Date(expiresAt).getTime() - now;
   if (ms <= 0) return 'Expired';
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  const s = Math.floor((ms % 60000) / 1000);
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function timerColor(expiresAt: string, now: number): string {
+  const ms = new Date(expiresAt).getTime() - now;
+  if (ms <= 0) return 'text-red-500';
+  if (ms < 300_000) return 'text-red-400';   // < 5 min
+  if (ms < 900_000) return 'text-amber-400'; // < 15 min
+  return 'text-gray-400';
 }
 
 export default function CargoPage() {
@@ -59,6 +69,12 @@ export default function CargoPage() {
   const [tab, setTab] = useState<'available' | 'claimed'>('available');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     load();
@@ -174,7 +190,7 @@ export default function CargoPage() {
                 {/* Stats */}
                 <div className="flex gap-4 text-xs text-gray-400">
                   <span>⚖️ {formatWeight(s.weight_kg)}</span>
-                  <span>⏳ {timeLeft(s.expires_at)}</span>
+                  <span className={cn('font-mono text-xs', timerColor(s.expires_at, now))}>⏳ {timeLeft(s.expires_at, now)}</span>
                 </div>
 
                 <button
