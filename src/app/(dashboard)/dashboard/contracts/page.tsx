@@ -14,6 +14,11 @@ interface Contract {
   aircraft_category: string;
   cargo_kg: number | null;
   notes: string | null;
+  mission_type: string;
+  skyops_brief: string | null;
+  min_block_time_min: number | null;
+  training_min_happiness: number | null;
+  training_max_vs_fpm: number | null;
   pilot_pay: string;
   xp_bonus: number;
   status: string;
@@ -46,11 +51,33 @@ function timeUntil(dateStr: string) {
   return `${h}h ${m}m`;
 }
 
+const MISSION_ICONS: Record<string, string> = {
+  CARGO:     '📦',
+  PASSENGER: '✈️',
+  TRAINING:  '🎓',
+  CUSTOM:    '⭐',
+};
+
+const MISSION_LABELS: Record<string, string> = {
+  CARGO:     'Cargo Mission',
+  PASSENGER: 'Passenger Charter',
+  TRAINING:  'Training Flight',
+  CUSTOM:    'Custom Mission',
+};
+
+const MISSION_COLORS: Record<string, string> = {
+  CARGO:     'text-amber-400 border-amber-500/20 bg-amber-500/10',
+  PASSENGER: 'text-blue-400 border-blue-500/20 bg-blue-500/10',
+  TRAINING:  'text-purple-400 border-purple-500/20 bg-purple-500/10',
+  CUSTOM:    'text-aero border-aero/20 bg-aero/10',
+};
+
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     OPEN: 'bg-green-500/10 text-green-400 border-green-500/20',
     ACCEPTED: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
     COMPLETED: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    FAILED: 'bg-red-500/10 text-red-400 border-red-500/20',
     EXPIRED: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
     CANCELLED: 'bg-red-500/10 text-red-400 border-red-500/20',
   };
@@ -65,7 +92,19 @@ export default function ContractsPage() {
   const { user } = useAuthStore();
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
-  const [activeTab, setActiveTab] = useState<'board' | 'mine' | 'posted'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'mine' | 'posted' | 'skyops'>('board');
+  const [skyopsMissions, setSkyopsMissions] = useState<Contract[]>([]);
+  const [skyopsFilter, setSkyopsFilter] = useState('');
+  const [showPostSkyOps, setShowPostSkyOps] = useState(false);
+  const [skyopsForm, setSkyopsForm] = useState({
+    origin_icao: '', destination_icao: '', mission_type: 'CARGO',
+    aircraft_category: 'FIXED_WING', required_aircraft_icao: '',
+    cargo_kg: '', pilot_pay: '', xp_bonus: '500',
+    min_block_time_min: '', skyops_brief: '', notes: '',
+    training_min_happiness: '80', training_max_vs_fpm: '-350',
+  });
+  const [skyopsError, setSkyopsError] = useState('');
+  const [postingSkyOps, setPostingSkyOps] = useState(false);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [myAccepted, setMyAccepted] = useState<Contract[]>([]);
   const [myPosted, setMyPosted] = useState<Contract[]>([]);
@@ -121,8 +160,18 @@ export default function ContractsPage() {
     setMyPosted(posted);
   }, [isManager]);
 
+  const fetchSkyOps = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (skyopsFilter) params.set('mission_type', skyopsFilter);
+      const { data } = await publicApi.get(`/contracts/skyops?${params}`);
+      setSkyopsMissions(data);
+    } catch { /* ignore */ }
+  }, [skyopsFilter]);
+
   useEffect(() => { fetchBoard(); }, [fetchBoard]);
   useEffect(() => { fetchMyContracts(); }, [fetchMyContracts]);
+  useEffect(() => { fetchSkyOps(); }, [fetchSkyOps]);
 
   const searchAirports = useCallback(async (q: string, which: 'origin' | 'dest') => {
     if (q.length < 2) { which === 'origin' ? setOriginResults([]) : setDestResults([]); return; }
@@ -189,6 +238,34 @@ export default function ContractsPage() {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setPostError(msg ?? 'Failed to post contract.');
     } finally { setPosting(false); }
+  }
+
+  async function handlePostSkyOps(e: React.FormEvent) {
+    e.preventDefault();
+    setSkyopsError(''); setPostingSkyOps(true);
+    try {
+      await api.post('/contracts/skyops', {
+        origin_icao: skyopsForm.origin_icao,
+        destination_icao: skyopsForm.destination_icao,
+        mission_type: skyopsForm.mission_type,
+        aircraft_category: skyopsForm.aircraft_category || undefined,
+        required_aircraft_icao: skyopsForm.required_aircraft_icao || undefined,
+        cargo_kg: skyopsForm.cargo_kg ? Number(skyopsForm.cargo_kg) : undefined,
+        pilot_pay: Number(skyopsForm.pilot_pay),
+        xp_bonus: Number(skyopsForm.xp_bonus),
+        min_block_time_min: skyopsForm.min_block_time_min ? Number(skyopsForm.min_block_time_min) : undefined,
+        skyops_brief: skyopsForm.skyops_brief || undefined,
+        notes: skyopsForm.notes || undefined,
+        training_min_happiness: skyopsForm.mission_type === 'TRAINING' ? Number(skyopsForm.training_min_happiness) : undefined,
+        training_max_vs_fpm: skyopsForm.mission_type === 'TRAINING' ? Number(skyopsForm.training_max_vs_fpm) : undefined,
+      });
+      setShowPostSkyOps(false);
+      setSkyopsForm({ origin_icao: '', destination_icao: '', mission_type: 'CARGO', aircraft_category: 'FIXED_WING', required_aircraft_icao: '', cargo_kg: '', pilot_pay: '', xp_bonus: '500', min_block_time_min: '', skyops_brief: '', notes: '', training_min_happiness: '80', training_max_vs_fpm: '-350' });
+      await fetchSkyOps();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setSkyopsError(msg ?? 'Failed to post mission.');
+    } finally { setPostingSkyOps(false); }
   }
 
   const inputCls = 'w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition';
@@ -338,6 +415,7 @@ export default function ContractsPage() {
       <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
         {[
           { key: 'board', label: 'Open Board' },
+          { key: 'skyops', label: `✈️ SkyOps${skyopsMissions.length > 0 ? ` (${skyopsMissions.length})` : ''}` },
           { key: 'mine', label: `My Contracts${myAccepted.filter((c) => c.status === 'ACCEPTED').length > 0 ? ` (${myAccepted.filter((c) => c.status === 'ACCEPTED').length})` : ''}` },
           ...(isManager ? [{ key: 'posted', label: 'Posted by My VA' }] : []),
         ].map((t) => (
@@ -414,6 +492,187 @@ export default function ContractsPage() {
       )}
 
       {/* My accepted contracts */}
+      {/* ── SkyOps Missions tab ── */}
+      {activeTab === 'skyops' && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="font-bold text-lg">SkyOps Missions</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Airline-specific missions — cargo hauls, charter flights, and training runs.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <select value={skyopsFilter} onChange={e => { setSkyopsFilter(e.target.value); }}
+                className="rounded-xl border border-white/10 bg-[#111] px-3 py-2 text-sm text-white focus:border-aero focus:outline-none transition">
+                <option value="">All Types</option>
+                <option value="CARGO">📦 Cargo</option>
+                <option value="PASSENGER">✈️ Passenger Charter</option>
+                <option value="TRAINING">🎓 Training</option>
+                <option value="CUSTOM">⭐ Custom</option>
+              </select>
+              {isManager && (
+                <button onClick={() => setShowPostSkyOps(!showPostSkyOps)}
+                  className="bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition">
+                  + Post Mission
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Post SkyOps form */}
+          {showPostSkyOps && isManager && (
+            <form onSubmit={handlePostSkyOps} className="glass-card rounded-2xl p-5 border border-aero/20 flex flex-col gap-4">
+              <h3 className="font-bold">Post SkyOps Mission</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Mission Type</label>
+                  <select value={skyopsForm.mission_type} onChange={e => setSkyopsForm({ ...skyopsForm, mission_type: e.target.value })}
+                    className={inputCls.replace('bg-white/5', 'bg-[#111]')}>
+                    <option value="CARGO">📦 Cargo Mission</option>
+                    <option value="PASSENGER">✈️ Passenger Charter</option>
+                    <option value="TRAINING">🎓 Training Flight</option>
+                    <option value="CUSTOM">⭐ Custom Mission</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Aircraft Category</label>
+                  <select value={skyopsForm.aircraft_category} onChange={e => setSkyopsForm({ ...skyopsForm, aircraft_category: e.target.value })}
+                    className={inputCls.replace('bg-white/5', 'bg-[#111]')}>
+                    <option value="FIXED_WING">Fixed Wing</option>
+                    <option value="HELICOPTER">Helicopter</option>
+                    <option value="CARGO">Cargo Aircraft</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Origin ICAO</label>
+                  <input value={skyopsForm.origin_icao} onChange={e => setSkyopsForm({ ...skyopsForm, origin_icao: e.target.value.toUpperCase() })}
+                    placeholder="KSEA" maxLength={4} className={inputCls} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Destination ICAO</label>
+                  <input value={skyopsForm.destination_icao} onChange={e => setSkyopsForm({ ...skyopsForm, destination_icao: e.target.value.toUpperCase() })}
+                    placeholder="KLAX" maxLength={4} className={inputCls} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">
+                    {skyopsForm.mission_type === 'TRAINING' ? 'XP Bonus' : 'Pilot Pay ($)'}
+                  </label>
+                  <input type="number" value={skyopsForm.mission_type === 'TRAINING' ? skyopsForm.xp_bonus : skyopsForm.pilot_pay}
+                    onChange={e => skyopsForm.mission_type === 'TRAINING'
+                      ? setSkyopsForm({ ...skyopsForm, xp_bonus: e.target.value })
+                      : setSkyopsForm({ ...skyopsForm, pilot_pay: e.target.value })}
+                    placeholder={skyopsForm.mission_type === 'TRAINING' ? '500' : '5000'}
+                    className={inputCls} />
+                  {skyopsForm.mission_type === 'TRAINING' && (
+                    <p className="text-xs text-gray-600 mt-1">Training flights earn XP only — no pay.</p>
+                  )}
+                </div>
+                {skyopsForm.mission_type === 'CARGO' && (
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Cargo Weight (kg)</label>
+                    <input type="number" value={skyopsForm.cargo_kg} onChange={e => setSkyopsForm({ ...skyopsForm, cargo_kg: e.target.value })}
+                      placeholder="5000" className={inputCls} />
+                  </div>
+                )}
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Min Block Time (min, optional)</label>
+                  <input type="number" value={skyopsForm.min_block_time_min} onChange={e => setSkyopsForm({ ...skyopsForm, min_block_time_min: e.target.value })}
+                    placeholder="60" className={inputCls} />
+                </div>
+                {skyopsForm.mission_type === 'TRAINING' && (
+                  <>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Min PAX Happiness % to Pass</label>
+                      <input type="number" value={skyopsForm.training_min_happiness} onChange={e => setSkyopsForm({ ...skyopsForm, training_min_happiness: e.target.value })}
+                        placeholder="80" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Max Landing VS to Pass (fpm)</label>
+                      <input type="number" value={skyopsForm.training_max_vs_fpm} onChange={e => setSkyopsForm({ ...skyopsForm, training_max_vs_fpm: e.target.value })}
+                        placeholder="-350" className={inputCls} />
+                    </div>
+                  </>
+                )}
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Mission Brief <span className="text-gray-600">(sent to SayIntentions.AI for AI context)</span></label>
+                <textarea value={skyopsForm.skyops_brief} onChange={e => setSkyopsForm({ ...skyopsForm, skyops_brief: e.target.value })}
+                  rows={4} placeholder="Describe the mission context, special instructions, crew info, etc. This feeds the SayIntentions.AI co-pilot and crew with situational awareness."
+                  className={inputCls + ' resize-none'} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Pilot-Facing Notes (optional)</label>
+                <input value={skyopsForm.notes} onChange={e => setSkyopsForm({ ...skyopsForm, notes: e.target.value })}
+                  placeholder="Visible to pilots on the mission board" className={inputCls} />
+              </div>
+              {skyopsError && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{skyopsError}</p>}
+              <div className="flex gap-3">
+                <button type="submit" disabled={postingSkyOps}
+                  className="bg-aero text-black font-bold px-6 py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
+                  {postingSkyOps ? 'Posting…' : 'Post Mission'}
+                </button>
+                <button type="button" onClick={() => setShowPostSkyOps(false)} className="text-gray-400 hover:text-white text-sm transition">Cancel</button>
+              </div>
+            </form>
+          )}
+
+          {/* Mission cards */}
+          {skyopsMissions.length === 0 ? (
+            <div className="glass-card rounded-2xl p-10 text-center">
+              <p className="text-3xl mb-3">✈️</p>
+              <p className="text-gray-400 text-sm">No SkyOps missions available. {isManager ? 'Post one above.' : 'Check back later.'}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {skyopsMissions.map(m => (
+                <div key={m.id} className="glass-card rounded-2xl p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className={cn('text-xs font-bold px-2.5 py-1 rounded-full border', MISSION_COLORS[m.mission_type] ?? MISSION_COLORS.CUSTOM)}>
+                          {MISSION_ICONS[m.mission_type]} {MISSION_LABELS[m.mission_type] ?? m.mission_type}
+                        </span>
+                        <StatusBadge status={m.status} />
+                        <span className="text-xs text-gray-500">{m.airline?.name} ({m.airline?.icao_code})</span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-mono font-bold text-aero">{m.origin_icao}</span>
+                        <span className="text-gray-500">→</span>
+                        <span className="font-mono font-bold text-white">{m.destination_icao}</span>
+                        <span className="text-xs text-gray-500">· {m.distance_nm.toLocaleString()} nm</span>
+                        {m.cargo_kg && <span className="text-xs text-amber-400">· {(m.cargo_kg / 1000).toFixed(1)}t cargo</span>}
+                      </div>
+                      <div className="flex gap-4 text-xs text-gray-500 flex-wrap">
+                        {m.mission_type !== 'TRAINING' && <span>💰 ${Number(m.pilot_pay).toLocaleString()}</span>}
+                        <span>⭐ {m.xp_bonus} XP</span>
+                        {m.min_block_time_min && <span>⏱ Min {m.min_block_time_min} min</span>}
+                        {m.mission_type === 'TRAINING' && m.training_min_happiness && (
+                          <span>Pass: {m.training_min_happiness}% happiness · {m.training_max_vs_fpm} fpm</span>
+                        )}
+                        <span>Expires {timeUntil(m.contract_expires_at)}</span>
+                      </div>
+                      {m.notes && <p className="text-xs text-gray-400 mt-1.5 italic">"{m.notes}"</p>}
+                      {m.skyops_brief && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          🤖 Mission brief will be sent to SayIntentions.AI on completion
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex-shrink-0">
+                      {m.status === 'OPEN' && (
+                        <button onClick={() => handleAccept(m.id)} disabled={actionLoading === m.id}
+                          className="bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition disabled:opacity-50">
+                          {actionLoading === m.id ? '…' : 'Accept'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'mine' && (
         <div className="flex flex-col gap-3">
           {myAccepted.length === 0 ? (

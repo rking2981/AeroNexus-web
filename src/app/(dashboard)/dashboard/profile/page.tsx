@@ -189,6 +189,9 @@ export default function ProfilePage() {
   const [simbriefUsername, setSimbriefUsername] = useState('');
   const [simbriefSaving, setSimbriefSaving] = useState(false);
   const [simbriefSaved, setSimbriefSaved] = useState(false);
+  const [sayiKey, setSayiKey] = useState('');
+  const [sayiSaving, setSayiSaving] = useState(false);
+  const [sayiResult, setSayiResult] = useState<{ valid: boolean; message: string } | null>(null);
   const [homeSearch, setHomeSearch] = useState('');
   const [homeResults, setHomeResults] = useState<{ id: string; icao: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -239,6 +242,18 @@ export default function ProfilePage() {
       setSimbriefSaved(true);
       setTimeout(() => setSimbriefSaved(false), 3000);
     } catch { /* ignore */ } finally { setSimbriefSaving(false); }
+  }
+
+  async function handleSayiSave() {
+    setSayiSaving(true); setSayiResult(null);
+    try {
+      const { data } = await api.post('/integrations/sayintentions/key', { api_key: sayiKey });
+      setSayiResult(data);
+      if (data.valid) setSayiKey(''); // clear key from input for security
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setSayiResult({ valid: false, message: msg ?? 'Failed to save key' });
+    } finally { setSayiSaving(false); }
   }
 
   if (loading) return <div className="p-8"><div className="glass-card rounded-2xl h-96 animate-pulse" /></div>;
@@ -442,6 +457,33 @@ export default function ProfilePage() {
             <p className="text-xs text-gray-600 mt-2">
               Find your username at simbrief.com → Account Settings. It&apos;s the same as your Navigraph username.
             </p>
+            {/* SayIntentions.AI */}
+            <div className="mt-5 pt-5 border-t border-white/5">
+              <label className="text-sm text-gray-300 block mb-1.5">SayIntentions.AI API Key</label>
+              <p className="text-xs text-gray-500 mb-3">
+                Required for SkyOps missions — your AI crew and ATC will be briefed with mission context.
+                Find your key at <span className="text-gray-400">sayintentions.ai → Portal → Account</span>.
+              </p>
+              <div className="flex gap-3 items-end">
+                <input
+                  type="password"
+                  value={sayiKey}
+                  onChange={e => { setSayiKey(e.target.value); setSayiResult(null); }}
+                  placeholder="Paste your SAPI key to verify and save"
+                  className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition"
+                />
+                <button onClick={handleSayiSave} disabled={sayiSaving || !sayiKey.trim()}
+                  className="border border-white/20 text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-white/5 transition disabled:opacity-50 flex-shrink-0">
+                  {sayiSaving ? 'Verifying...' : 'Save & Verify'}
+                </button>
+              </div>
+              {sayiResult && (
+                <p className={cn('text-xs mt-2', sayiResult.valid ? 'text-green-400' : 'text-amber-400')}>
+                  {sayiResult.valid ? '✓' : '⚠️'} {sayiResult.message}
+                </p>
+              )}
+            </div>
+
             {/* Navigraph Charts — PENDING API ACCESS */}
             {/* <div className="mt-4 rounded-xl border border-white/5 bg-white/3 p-4">
               <p className="text-sm font-medium text-gray-300 mb-1">Navigraph Charts <span className="text-xs text-amber-400 ml-1">Coming Soon</span></p>
