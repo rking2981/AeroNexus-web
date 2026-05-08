@@ -74,6 +74,13 @@ const MISSION_COLORS: Record<string, string> = {
   CUSTOM:    'text-aero border-aero/20 bg-aero/10',
 };
 
+const MISSION_HEX: Record<string, { border: string; text: string; bg: string }> = {
+  CARGO:     { border: '#d97706', text: '#fbbf24', bg: 'rgba(217,119,6,0.1)' },
+  PASSENGER: { border: '#3b82f6', text: '#60a5fa', bg: 'rgba(59,130,246,0.1)' },
+  TRAINING:  { border: '#8b5cf6', text: '#c084fc', bg: 'rgba(139,92,246,0.1)' },
+  CUSTOM:    { border: '#00D1FF', text: '#00D1FF', bg: 'rgba(0,209,255,0.1)' },
+};
+
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     OPEN: 'bg-green-500/10 text-green-400 border-green-500/20',
@@ -592,9 +599,9 @@ export default function ContractsPage() {
                     <div className="flex flex-col gap-2 flex-shrink-0 items-end">
                       <button onClick={() => setBriefingMission(m)}
                         className="text-sm font-bold px-4 py-2 rounded-xl transition border"
-                        style={{ borderColor: (MISSION_COLORS[m.mission_type]?.border ?? '#ffffff') + '60',
-                                 color: MISSION_COLORS[m.mission_type]?.text ?? '#fff',
-                                 background: MISSION_COLORS[m.mission_type]?.bg ?? 'transparent' }}>
+                        style={{ borderColor: (MISSION_HEX[m.mission_type]?.border ?? '#ffffff') + '60',
+                                 color: MISSION_HEX[m.mission_type]?.text ?? '#fff',
+                                 background: MISSION_HEX[m.mission_type]?.bg ?? 'transparent' }}>
                         View Briefing →
                       </button>
                       {isManager && m.status === 'OPEN' && (
