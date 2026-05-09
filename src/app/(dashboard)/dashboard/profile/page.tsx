@@ -688,7 +688,7 @@ function DiscordLinkSection() {
     setResult(null);
     try {
       await api.post('/v1/bot/link', { token: token.trim().toUpperCase() });
-      setResult({ ok: true, message: 'Token saved! Go back to Discord and run /link verify with this same code.' });
+      setResult({ ok: true, message: '✓ Code accepted! Go back to Discord and run /link verify with the same code.' });
       setToken('');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
