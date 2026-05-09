@@ -18,12 +18,15 @@ export function useBotAdmin(): BotAdminStatus {
       try {
         // Check if Discord account is linked
         const { data: linked } = await api.get('/v1/bot/linked-status');
+        console.log('[BotAdmin] linked-status:', linked);
         if (!linked.discord_id) { setStatus('not_linked'); return; }
 
         // Check Discord Admin role via bot API
         const { data } = await botApi.get(`/check-role?discord_id=${linked.discord_id}`);
+        console.log('[BotAdmin] check-role:', data);
         setStatus(data.has_role ? 'authorized' : 'no_discord_role');
-      } catch {
+      } catch (err) {
+        console.error('[BotAdmin] error:', err);
         setStatus('not_admin');
       }
     })();
