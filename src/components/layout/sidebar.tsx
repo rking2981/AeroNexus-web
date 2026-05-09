@@ -28,6 +28,7 @@ const MANAGER_NAV = [
   { href: '/dashboard/fleet/maintenance', label: 'Maintenance Log', icon: '🔧' },
   { href: '/dashboard/market', label: 'Aircraft Market', icon: '🏪' },
   { href: '/dashboard/insurance', label: 'Insurance', icon: '🛡️' },
+  { href: '/dashboard/alliances', label: 'Alliances', icon: '🤝' },
   { href: '/dashboard/network', label: 'Routes & Hubs', icon: '🌐' },
   { href: '/dashboard/crew', label: 'Crew Center', icon: '👥' },
   { href: '/dashboard/finances', label: 'Finances', icon: '💰' },
