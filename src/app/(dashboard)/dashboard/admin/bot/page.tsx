@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
 import botApi from '@/lib/bot-api';
-import { embed } from '@/lib/utils';
 
 interface Stats {
   bot_tag: string;
