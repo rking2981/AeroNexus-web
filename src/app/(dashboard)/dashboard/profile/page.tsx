@@ -490,6 +490,9 @@ export default function ProfilePage() {
               <p className="text-xs text-gray-500">Connect your Navigraph account for AIRAC-aware route validation and in-app charts access.</p>
             </div> */}
           </div>
+
+          {/* Discord Link */}
+          <DiscordLinkSection />
         </div>
       )}
 
@@ -669,6 +672,58 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+function DiscordLinkSection() {
+  const [token, setToken] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function handleLink() {
+    if (!token.trim()) return;
+    setLoading(true);
+    setResult(null);
+    try {
+      await api.post('/v1/bot/link', { token: token.trim().toUpperCase() });
+      setResult({ ok: true, message: 'Token saved! Go back to Discord and run /link verify with this same code.' });
+      setToken('');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setResult({ ok: false, message: msg ?? 'Failed to save token.' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 pt-6 border-t border-white/5">
+      <h3 className="font-bold mb-1 text-sm">🔗 Link Discord Account</h3>
+      <p className="text-xs text-gray-500 mb-4">
+        Connect your Discord account to get verified roles in the AeroNexus server and unlock bot features.
+      </p>
+      <ol className="text-xs text-gray-400 mb-4 space-y-1 list-decimal list-inside">
+        <li>Run <code className="text-aero">/link start</code> in the AeroNexus Discord server</li>
+        <li>Copy the code the bot gives you and paste it below</li>
+        <li>Go back to Discord and run <code className="text-aero">/link verify</code> with the same code</li>
+      </ol>
+      <div className="flex gap-3 items-end">
+        <input
+          type="text"
+          value={token}
+          onChange={e => setToken(e.target.value.toUpperCase())}
+          placeholder="Paste code from /link start..."
+          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white font-mono placeholder-gray-500 focus:border-[#00D1FF] focus:outline-none transition"
+        />
+        <button onClick={handleLink} disabled={loading || !token.trim()}
+          className="border border-white/20 text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-white/5 transition disabled:opacity-50 flex-shrink-0">
+          {loading ? 'Saving...' : 'Submit'}
+        </button>
+      </div>
+      {result && (
+        <p className={`text-xs mt-2 ${result.ok ? 'text-green-400' : 'text-red-400'}`}>{result.message}</p>
       )}
     </div>
   );
