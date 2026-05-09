@@ -37,6 +37,7 @@ const MANAGER_NAV = [
 
 const ADMIN_NAV = [
   { href: '/dashboard/admin', label: 'Admin Panel', icon: '🛡️' },
+  { href: '/dashboard/admin/bot', label: 'Bot Dashboard', icon: '🤖' },
 ];
 
 export function Sidebar() {
