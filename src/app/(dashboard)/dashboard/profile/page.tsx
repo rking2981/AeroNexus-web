@@ -292,7 +292,7 @@ export default function ProfilePage() {
                   <span className="text-xs text-purple-400 border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 rounded-full font-bold">
                     Founder
                   </span>
-                  <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={28} height={28} className="opacity-90" />
+                  <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={44} height={44} className="opacity-90" />
                 </>
               )}
             </div>

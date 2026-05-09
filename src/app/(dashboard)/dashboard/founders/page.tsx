@@ -248,7 +248,7 @@ function FoundersPageContent() {
         <div className="glass-card rounded-2xl p-8 border border-purple-500/20">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={80} height={80} />
+              <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={140} height={140} />
             </div>
             <h2 className="text-xl font-bold mb-2">Founder's Pass</h2>
             <p className="text-4xl font-extrabold text-purple-300 mb-1">$199</p>
@@ -284,7 +284,7 @@ function FoundersPageContent() {
         <div className="glass-card rounded-2xl p-8">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={80} height={80} />
+              <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={140} height={140} />
             </div>
             <h2 className="text-xl font-bold mb-2">Redeem a Founder's Pass Code</h2>
             <p className="text-gray-400 text-sm max-w-md mx-auto">

@@ -143,7 +143,7 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
           {founders.sold_out ? (
             <>
               <div className="flex justify-center mb-3">
-                <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={64} height={64} className="opacity-50 grayscale" />
+                <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={120} height={120} className="opacity-50 grayscale" />
               </div>
               <h4 className="text-lg font-bold mb-1 text-purple-400 text-center">Founder&apos;s Pass</h4>
               <div className="text-3xl font-extrabold mb-2 text-gray-500 line-through text-center">$199</div>
@@ -162,7 +162,7 @@ export function PricingSection({ founders }: { founders: FoundersStatus }) {
           ) : (
             <>
               <div className="flex justify-center mb-3">
-                <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={64} height={64} />
+                <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={120} height={120} />
               </div>
               <h4 className="text-lg font-bold mb-1 text-purple-400 text-center">Founder&apos;s Pass</h4>
               <div className="text-3xl font-extrabold mb-1 text-center">

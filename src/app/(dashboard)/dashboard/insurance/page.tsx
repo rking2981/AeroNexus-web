@@ -496,8 +496,11 @@ export default function InsurancePage() {
               </div>
 
               {claimType === 'FLIGHT_NULLIFICATION' && (
-                <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-xs text-blue-300">
-                  ⏱️ Claims must be filed within 24 hours of the interrupted flight. Pilots with reputation ≥ 4.0 and a Sentinel Civil policy receive automatic approval.
+                <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-xs text-blue-300 space-y-1">
+                  <p>⏱️ Claims must be filed within 24 hours of the interrupted flight.</p>
+                  <p>✅ Pilots with reputation ≥ 4.0 and a Sentinel Civil policy receive automatic approval.</p>
+                  <p>📋 Limit: 2 nullification claims per 30 days · 7-day cooldown between claims.</p>
+                  <p>⚠️ Disconnects during approach or after landing are flagged for manual admin review.</p>
                 </div>
               )}
             </div>

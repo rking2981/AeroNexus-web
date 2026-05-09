@@ -15,7 +15,7 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold mb-1">
           Welcome back, <span className="text-aero">{user?.display_name}</span>
           {user?.is_founder && (
-            <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={32} height={32} className="inline ml-2 align-middle" />
+            <Image src="/badges/founders-badge.png" alt="Founder's Pass" width={48} height={48} className="inline ml-2 align-middle" />
           )}
         </h1>
         <p className="text-gray-400 text-sm">
