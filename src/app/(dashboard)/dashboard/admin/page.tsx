@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import { RichTextEditor } from '@/components/shared/RichTextEditor';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -670,12 +671,11 @@ function NewsTab() {
             className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-aero focus:outline-none transition"
             required
           />
-          <textarea
-            value={body} onChange={e => setBody(e.target.value)}
+          <RichTextEditor
+            value={body}
+            onChange={setBody}
             placeholder="Write your update here…"
-            rows={5}
-            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-aero focus:outline-none transition resize-none"
-            required
+            minHeight={180}
           />
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer select-none">

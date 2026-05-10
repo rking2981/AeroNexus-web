@@ -58,9 +58,10 @@ export default function NewsPage() {
               </div>
             )}
             <h2 className="text-lg font-bold text-white mb-3">{post.title}</h2>
-            <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap mb-4">
-              {post.body}
-            </div>
+            <div
+              className="prose prose-invert prose-sm max-w-none mb-4 text-gray-300"
+              dangerouslySetInnerHTML={{ __html: post.body }}
+            />
             <div className="flex items-center gap-2 text-xs text-gray-500 border-t border-white/5 pt-3">
               <div className="w-5 h-5 rounded-full bg-aero/20 flex items-center justify-center text-aero text-[10px] font-bold flex-shrink-0">
                 {post.author.display_name[0]?.toUpperCase()}
