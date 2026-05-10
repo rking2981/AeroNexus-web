@@ -44,6 +44,24 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* ACARS Download */}
+      <div className="glass-card rounded-2xl p-5 mb-10 flex items-center justify-between gap-4 border border-aero/20">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-aero/10 flex items-center justify-center text-xl flex-shrink-0">🖥️</div>
+          <div>
+            <p className="font-semibold text-sm">AeroNexus ACARS <span className="text-aero">v1.0</span></p>
+            <p className="text-xs text-gray-500 mt-0.5">Desktop client for MSFS 2024 &amp; X-Plane — automatic flight tracking, scoring &amp; telemetry</p>
+          </div>
+        </div>
+        <a
+          href="https://github.com/rking2981/aeronexus-acars/releases/download/1.0/AeroNexus.ACARS.Setup.1.0.exe"
+          download="AeroNexus ACARS Setup 1.0.exe"
+          className="flex-shrink-0 bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition"
+        >
+          ⬇ Download
+        </a>
+      </div>
+
       {/* Manager section */}
       {isManager && (
         <>
