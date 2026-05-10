@@ -176,8 +176,8 @@ export default function TrackerPage() {
                         <span className="font-medium text-white">{a.actor.display_name}</span>
                         {' '}{ACTION_LABEL[a.action] ?? a.action}{' '}
                         <Link href={`/dashboard/tracker/${a.report.public_id}`}
-                          className="text-aero hover:underline font-mono">
-                          {a.report.public_id}
+                          className="text-aero hover:underline">
+                          {a.report.title.length > 40 ? a.report.title.slice(0, 40) + '…' : a.report.title}
                         </Link>
                         {a.action === 'status_changed' && a.to_value && (
                           <span className={cn('ml-1 font-semibold', STATUS_COLOR[a.to_value])}>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
@@ -30,13 +30,21 @@ const STAFF_ROLES = ['MODERATOR', 'DISPATCHER', 'DEVELOPER', 'ADMIN'];
 export default function ReportDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuthStore();
+  const router = useRouter();
   const [report, setReport]       = useState<any>(null);
   const [loading, setLoading]     = useState(true);
   const [comment, setComment]     = useState('');
   const [internal, setInternal]   = useState(false);
   const [posting, setPosting]     = useState(false);
+  const [editing, setEditing]     = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc]   = useState('');
+  const [saving, setSaving]       = useState(false);
+  const [deleting, setDeleting]   = useState(false);
 
-  const isStaff = !!user?.report_role && STAFF_ROLES.includes(user.report_role);
+  // PLATFORM_ADMIN always has full staff access regardless of report_role
+  const isStaff = user?.role === 'PLATFORM_ADMIN' ||
+    (!!user?.report_role && STAFF_ROLES.includes(user.report_role));
 
   useEffect(() => {
     api.get(`/reports/${id}`).then(r => setReport(r.data)).finally(() => setLoading(false));
@@ -59,6 +67,27 @@ export default function ReportDetailPage() {
   async function changeSeverity(severity: string) {
     const { data } = await api.patch(`/reports/${report.id}/severity`, { severity });
     setReport((r: any) => ({ ...r, severity: data.severity }));
+  }
+
+  function startEdit() {
+    setEditTitle(report.title);
+    setEditDesc(report.description);
+    setEditing(true);
+  }
+
+  async function saveEdit() {
+    setSaving(true);
+    const { data } = await api.patch(`/reports/${report.id}/edit`, { title: editTitle, description: editDesc });
+    setReport((r: any) => ({ ...r, title: data.title, description: data.description }));
+    setEditing(false);
+    setSaving(false);
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Delete report ${report.public_id}? This cannot be undone.`)) return;
+    setDeleting(true);
+    await api.delete(`/reports/${report.id}`);
+    router.push('/dashboard/tracker');
   }
 
   if (loading) return <div className="glass-card rounded-2xl h-64 animate-pulse max-w-4xl mx-auto" />;
@@ -96,8 +125,29 @@ export default function ReportDetailPage() {
               )}
               <span className="text-xs text-gray-600 ml-auto">{report.category.replace('_', ' ')}</span>
             </div>
-            <h1 className="text-xl font-bold text-white mb-4">{report.title}</h1>
-            <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{report.description}</p>
+            {editing ? (
+              <div className="flex flex-col gap-3 mb-4">
+                <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                  className="w-full rounded-lg border border-aero/40 bg-white/5 px-3 py-2 text-base font-bold text-white focus:outline-none" />
+                <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={6}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-aero focus:outline-none resize-none" />
+                <div className="flex gap-2">
+                  <button onClick={saveEdit} disabled={saving}
+                    className="bg-aero text-black font-bold px-4 py-1.5 rounded-lg text-xs hover:brightness-110 transition disabled:opacity-40">
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                  <button onClick={() => setEditing(false)}
+                    className="border border-white/10 text-gray-400 px-4 py-1.5 rounded-lg text-xs hover:text-white transition">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-xl font-bold text-white mb-4">{report.title}</h1>
+                <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{report.description}</p>
+              </>
+            )}
             <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/5 text-xs text-gray-500">
               <span>Filed by <span className="text-gray-300 font-medium">{report.reporter.display_name}</span></span>
               <span>·</span>
@@ -106,6 +156,18 @@ export default function ReportDetailPage() {
                 <span>·</span>
                 <span>Assigned to <span className="text-gray-300 font-medium">{report.assignee.display_name}</span></span>
               </>}
+              {isStaff && !editing && (
+                <div className="ml-auto flex gap-2">
+                  <button onClick={startEdit}
+                    className="border border-white/10 text-gray-400 hover:text-white px-2.5 py-1 rounded-lg transition">
+                    ✏ Edit
+                  </button>
+                  <button onClick={handleDelete} disabled={deleting}
+                    className="border border-red-500/30 text-red-400 hover:bg-red-500/10 px-2.5 py-1 rounded-lg transition disabled:opacity-40">
+                    {deleting ? '…' : '🗑 Delete'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -192,9 +254,14 @@ export default function ReportDetailPage() {
                     <p className="text-xs text-gray-400 leading-snug">
                       <span className="text-gray-300 font-medium">{a.actor.display_name}</span>
                       {' '}{ACTION_LABEL[a.action] ?? a.action}
-                      {a.to_value && a.action === 'status_changed' && (
+                      {a.from_value && a.to_value && a.action === 'status_changed' && (
                         <span className={cn('ml-1 font-semibold', STATUS_COLOR[a.to_value])}>
-                          → {a.to_value.replace(/_/g, ' ')}
+                          {a.from_value.replace(/_/g, ' ')} → {a.to_value.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                      {a.from_value && a.to_value && a.action === 'severity_changed' && (
+                        <span className="ml-1 text-gray-300">
+                          {a.from_value} → {a.to_value}
                         </span>
                       )}
                     </p>
