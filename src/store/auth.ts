@@ -6,6 +6,7 @@ interface User {
   email: string;
   display_name: string;
   role: 'PLATFORM_ADMIN' | 'VA_MANAGER' | 'PILOT';
+  report_role?: string | null;
   airline_id: string | null;
   pilot_tier: 'FREE_ADS' | 'PRO_SUB';
   is_founder: boolean;

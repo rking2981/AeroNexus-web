@@ -20,6 +20,7 @@ const PILOT_NAV_BASE = [
   { href: '/dashboard/stats', label: 'Stats', icon: '📈' },
   { href: '/dashboard/contracts', label: 'Contract Board', icon: '📄' },
   { href: '/dashboard/cargo', label: 'Cargo Board', icon: '📦' },
+  { href: '/dashboard/tracker', label: 'Issue Tracker', icon: '🐛' },
 ];
 
 const MANAGER_NAV = [
