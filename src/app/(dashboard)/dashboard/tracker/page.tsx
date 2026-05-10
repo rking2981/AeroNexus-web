@@ -88,15 +88,15 @@ export default function TrackerPage() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Issue Tracker</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{total} report{total !== 1 ? 's' : ''}</p>
+          <h1 className="text-3xl font-bold mb-1">Issue Tracker</h1>
+          <p className="text-gray-400 text-sm">{total} report{total !== 1 ? 's' : ''} · File bugs, incidents, and community reports</p>
         </div>
         <Link href="/dashboard/tracker/new"
-          className="bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition">
+          className="bg-aero text-black font-bold px-4 py-2.5 rounded-xl text-sm hover:brightness-110 transition flex-shrink-0">
           + File Report
         </Link>
       </div>

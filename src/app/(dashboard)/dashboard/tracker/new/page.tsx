@@ -57,11 +57,15 @@ export default function NewReportPage() {
   const field = (key: keyof typeof form, value: string) => setForm(f => ({ ...f, [key]: value }));
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <Link href="/dashboard/tracker" className="text-gray-500 hover:text-white text-sm transition">← Tracker</Link>
-        <span className="text-gray-700">/</span>
-        <h1 className="text-xl font-bold">File a Report</h1>
+    <div className="p-8 max-w-2xl mx-auto">
+      <div className="mb-8">
+        <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+          <Link href="/dashboard/tracker" className="hover:text-white transition">Issue Tracker</Link>
+          <span>/</span>
+          <span className="text-gray-300">New Report</span>
+        </div>
+        <h1 className="text-3xl font-bold mb-1">File a Report</h1>
+        <p className="text-gray-400 text-sm">Describe the issue and we&apos;ll look into it.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">

@@ -65,12 +65,16 @@ export default function ReportDetailPage() {
   if (!report) return <div className="text-center text-gray-500 py-20">Report not found.</div>;
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 mb-5 text-sm text-gray-500">
-        <Link href="/dashboard/tracker" className="hover:text-white transition">Tracker</Link>
-        <span>/</span>
-        <span className="font-mono text-gray-400">{report.public_id}</span>
+    <div className="p-8 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+          <Link href="/dashboard/tracker" className="hover:text-white transition">Issue Tracker</Link>
+          <span>/</span>
+          <span className="font-mono text-gray-300">{report.public_id}</span>
+        </div>
+        <h1 className="text-3xl font-bold mb-1">{report.public_id}</h1>
+        <p className="text-gray-400 text-sm">{report.category.replace('_', ' ')} · Filed by {report.reporter.display_name}</p>
       </div>
 
       <div className="flex gap-6">
