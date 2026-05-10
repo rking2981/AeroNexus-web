@@ -158,7 +158,8 @@ function RouteArcMap({ route }: { route: Route }) {
 // ─── Demand Bar ───────────────────────────────────────────────────────────────
 
 function DemandBar({ label, value }: { label: string; value: number }) {
-  const pct = Math.round(value * 100);
+  const safe = isFinite(value) ? value : 0.5; // default to 50% if null/undefined/NaN
+  const pct = Math.round(safe * 100);
   const color = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500';
   return (
     <div>
@@ -239,7 +240,9 @@ function RouteCard({ route, isManager, onUpdate, onDelete, onReverse }: {
   const [reverseError, setReverseError] = useState('');
 
   const rtInfo = ROUTE_TYPES.find(r => r.key === route.route_type) ?? ROUTE_TYPES[0];
-  const demandAvg = (Number(route.origin.demand_index) + Number(route.destination.demand_index)) / 2;
+  const originDemand = isFinite(Number(route.origin.demand_index)) ? Number(route.origin.demand_index) : 0.5;
+  const destDemand   = isFinite(Number(route.destination.demand_index)) ? Number(route.destination.demand_index) : 0.5;
+  const demandAvg    = (originDemand + destDemand) / 2;
 
   async function handleTypeChange(newType: string) {
     setSavingType(true);
