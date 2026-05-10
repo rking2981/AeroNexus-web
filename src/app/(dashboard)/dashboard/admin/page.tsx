@@ -522,9 +522,95 @@ function WebsitesTab() {
   );
 }
 
+// ─── Tab: Stripe Purchases ────────────────────────────────────────────────────
+
+interface StripePurchase {
+  airline_id: string;
+  airline_name: string;
+  airline_icao: string;
+  country: string | null;
+  subscription_name: string | null;
+  subscription_interval: string | null;
+  subscription_tier: string;
+  subscription_status: string;
+  subscribed_at: string | null;
+  amount: number | null;
+  currency: string;
+  last_payment_at: string | null;
+  last_payment_amount: number | null;
+}
+
+function PurchasesTab() {
+  const [purchases, setPurchases] = useState<StripePurchase[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/admin/purchases')
+      .then(r => setPurchases(r.data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="glass-card rounded-2xl h-40 animate-pulse" />;
+
+  if (purchases.length === 0) return (
+    <div className="glass-card rounded-2xl p-12 text-center">
+      <p className="text-4xl mb-3">💳</p>
+      <p className="text-gray-400 text-sm">No Stripe purchases found.</p>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-gray-400">{purchases.length} subscription{purchases.length !== 1 ? 's' : ''} found</p>
+      <div className="glass-card rounded-2xl overflow-hidden">
+        <div className="grid px-4 py-2.5 border-b border-white/5 text-xs text-gray-500 uppercase tracking-widest"
+          style={{ gridTemplateColumns: '80px 1fr 60px 140px 100px 120px 110px 110px' }}>
+          <span>ICAO</span>
+          <span>Airline</span>
+          <span>Country</span>
+          <span>Subscription</span>
+          <span>Tier</span>
+          <span>Subscribed</span>
+          <span className="text-right">Amount</span>
+          <span className="text-right">Last Payment</span>
+        </div>
+        {purchases.map(p => (
+          <div key={p.airline_id} className="grid px-4 py-3 border-b border-white/5 last:border-0 items-center gap-2"
+            style={{ gridTemplateColumns: '80px 1fr 60px 140px 100px 120px 110px 110px' }}>
+            <span className="font-mono font-bold text-aero text-sm">{p.airline_icao}</span>
+            <span className="text-sm text-white truncate">{p.airline_name}</span>
+            <span className="text-sm text-gray-300 font-mono">{p.country ?? '—'}</span>
+            <div className="min-w-0">
+              <p className="text-sm text-white truncate">{p.subscription_name ?? '—'}</p>
+              {p.subscription_interval && (
+                <p className="text-xs text-gray-500 capitalize">{p.subscription_interval}ly</p>
+              )}
+            </div>
+            <Badge label={p.subscription_tier} color={tierColor(p.subscription_tier)} />
+            <span className="text-xs text-gray-400">
+              {p.subscribed_at ? new Date(p.subscribed_at).toLocaleDateString() : '—'}
+            </span>
+            <span className="text-right text-sm font-mono text-white">
+              {p.amount !== null ? `${p.amount.toFixed(2)} ${p.currency}` : '—'}
+            </span>
+            <div className="text-right">
+              {p.last_payment_at ? (
+                <>
+                  <p className="text-xs text-green-400 font-mono">{p.last_payment_amount?.toFixed(2)} {p.currency}</p>
+                  <p className="text-xs text-gray-500">{new Date(p.last_payment_at).toLocaleDateString()}</p>
+                </>
+              ) : <span className="text-xs text-gray-500">—</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Admin Page ──────────────────────────────────────────────────────────
 
-type Tab = 'stats' | 'users' | 'airlines' | 'fuel' | 'events' | 'websites';
+type Tab = 'stats' | 'users' | 'airlines' | 'fuel' | 'events' | 'websites' | 'purchases';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'stats',    label: 'Overview',    icon: '📊' },
@@ -532,7 +618,8 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'airlines', label: 'Airlines',    icon: '🏢' },
   { key: 'fuel',     label: 'Fuel Hubs',   icon: '⛽' },
   { key: 'events',   label: 'Fuel Events', icon: '⚡' },
-  { key: 'websites', label: 'VA Websites', icon: '🌐' },
+  { key: 'websites',  label: 'VA Websites', icon: '🌐' },
+  { key: 'purchases', label: 'Purchases',   icon: '💳' },
 ];
 
 export default function AdminPage() {
@@ -574,7 +661,8 @@ export default function AdminPage() {
       {tab === 'airlines' && <AirlinesTab />}
       {tab === 'fuel'     && <FuelHubsTab />}
       {tab === 'events'   && <FuelEventsTab />}
-      {tab === 'websites' && <WebsitesTab />}
+      {tab === 'websites'  && <WebsitesTab />}
+      {tab === 'purchases' && <PurchasesTab />}
     </div>
   );
 }
