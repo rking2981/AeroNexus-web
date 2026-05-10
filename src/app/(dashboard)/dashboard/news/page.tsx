@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { format } from 'date-fns';
 
 interface NewsPost {
   id: string;
@@ -68,7 +67,7 @@ export default function NewsPage() {
               </div>
               <span>{post.author.display_name}</span>
               <span>·</span>
-              <span>{format(new Date(post.created_at), 'MMM d, yyyy · h:mm a')}</span>
+              <span>{new Date(post.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
             </div>
           </article>
         ))}
