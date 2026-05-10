@@ -39,9 +39,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!_hasHydrated || !isAuthenticated() || !user?.airline_id) return;
     const store = useAuthStore.getState();
     const token = store.access_token;
+    const refresh_token = store.refresh_token ?? undefined;
     if (!token) return;
     startAcarsBridge({
       token,
+      refresh_token,
       airline_id: user.airline_id,
       display_name: user.display_name ?? 'Pilot',
       api_url: process.env.NEXT_PUBLIC_API_URL ?? 'https://aeronexus-api-production.up.railway.app',

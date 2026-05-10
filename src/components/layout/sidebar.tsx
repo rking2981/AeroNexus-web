@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
 import { useRouter } from 'next/navigation';
@@ -44,6 +45,24 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const [hasUnreadNews, setHasUnreadNews] = useState(false);
+
+  useEffect(() => {
+    async function checkNews() {
+      try {
+        const { data } = await api.get('/news/latest');
+        if (!data?.created_at) return;
+        const lastSeen = localStorage.getItem('aeronexus_news_last_seen');
+        setHasUnreadNews(!lastSeen || new Date(data.created_at) > new Date(lastSeen));
+      } catch { /* ignore */ }
+    }
+    checkNews();
+
+    // Clear indicator when user visits news page
+    const handleRead = () => setHasUnreadNews(false);
+    window.addEventListener('news-read', handleRead);
+    return () => window.removeEventListener('news-read', handleRead);
+  }, []);
 
   async function handleLogout() {
     try { await api.post('/auth/logout'); } catch { /* ignore */ }
@@ -118,6 +137,26 @@ export function Sidebar() {
             </div>
           </>
         )}
+
+        {/* News — separated from other sections */}
+        <div className="h-px bg-white/5 mx-3" />
+        <div>
+          <Link
+            href="/dashboard/news"
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition',
+              pathname.startsWith('/dashboard/news')
+                ? 'bg-aero/10 text-aero font-medium'
+                : 'text-gray-400 hover:text-white hover:bg-white/5',
+            )}
+          >
+            <span className="text-base">📰</span>
+            <span className="flex-1">News</span>
+            {hasUnreadNews && !pathname.startsWith('/dashboard/news') && (
+              <span className="flex items-center justify-center w-2 h-2 rounded-full bg-aero shrink-0 shadow-[0_0_6px_#00C8FF]" />
+            )}
+          </Link>
+        </div>
 
         {isAdmin && (
           <>

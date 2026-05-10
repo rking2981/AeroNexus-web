@@ -610,7 +610,126 @@ function PurchasesTab() {
 
 // ─── Main Admin Page ──────────────────────────────────────────────────────────
 
-type Tab = 'stats' | 'users' | 'airlines' | 'fuel' | 'events' | 'websites' | 'purchases';
+// (Tab type moved below with 'news' included)
+
+// ─── Tab: News Management ─────────────────────────────────────────────────────
+
+interface NewsPost {
+  id: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  created_at: string;
+  author: { display_name: string };
+}
+
+function NewsTab() {
+  const [posts, setPosts]       = useState<NewsPost[]>([]);
+  const [title, setTitle]       = useState('');
+  const [body, setBody]         = useState('');
+  const [pinned, setPinned]     = useState(false);
+  const [submitting, setSub]    = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  useEffect(() => { api.get('/news').then(r => setPosts(r.data)); }, []);
+
+  async function handlePost(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim() || !body.trim()) return;
+    setSub(true);
+    try {
+      const { data } = await api.post('/news', { title, body, pinned });
+      setPosts(p => [data, ...p]);
+      setTitle(''); setBody(''); setPinned(false);
+    } finally { setSub(false); }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('Delete this post?')) return;
+    setDeleting(id);
+    try {
+      await api.delete(`/news/${id}`);
+      setPosts(p => p.filter(n => n.id !== id));
+    } finally { setDeleting(null); }
+  }
+
+  async function handleTogglePin(id: string) {
+    const { data } = await api.patch(`/news/${id}/pin`);
+    setPosts(p => p.map(n => n.id === id ? { ...n, pinned: data.pinned } : n));
+  }
+
+  return (
+    <div className="flex flex-col gap-6 max-w-2xl">
+      {/* Compose */}
+      <div className="glass-card rounded-2xl p-5">
+        <h3 className="font-bold mb-4">Post News</h3>
+        <form onSubmit={handlePost} className="flex flex-col gap-3">
+          <input
+            value={title} onChange={e => setTitle(e.target.value)}
+            placeholder="Title"
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-aero focus:outline-none transition"
+            required
+          />
+          <textarea
+            value={body} onChange={e => setBody(e.target.value)}
+            placeholder="Write your update here…"
+            rows={5}
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-aero focus:outline-none transition resize-none"
+            required
+          />
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer select-none">
+              <input type="checkbox" checked={pinned} onChange={e => setPinned(e.target.checked)}
+                className="accent-[#00C8FF]" />
+              Pin this post
+            </label>
+            <button type="submit" disabled={submitting}
+              className="bg-aero text-black font-bold px-5 py-2 rounded-xl text-sm hover:brightness-110 transition disabled:opacity-50">
+              {submitting ? 'Posting…' : 'Post'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Existing posts */}
+      {posts.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-8">No posts yet.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {posts.map(post => (
+            <div key={post.id} className={`glass-card rounded-2xl p-4 ${post.pinned ? 'border border-aero/30' : ''}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    {post.pinned && <span className="text-xs text-aero font-bold">📌 Pinned</span>}
+                    <h4 className="font-semibold text-sm text-white truncate">{post.title}</h4>
+                  </div>
+                  <p className="text-xs text-gray-400 line-clamp-2 mb-2">{post.body}</p>
+                  <p className="text-xs text-gray-600">{new Date(post.created_at).toLocaleString()}</p>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button onClick={() => handleTogglePin(post.id)}
+                    title={post.pinned ? 'Unpin' : 'Pin'}
+                    className="text-xs border border-white/10 px-2 py-1 rounded-lg hover:bg-white/5 transition text-gray-400">
+                    {post.pinned ? '📌' : '📍'}
+                  </button>
+                  <button onClick={() => handleDelete(post.id)} disabled={deleting === post.id}
+                    className="text-xs border border-red-500/30 text-red-400 px-2 py-1 rounded-lg hover:bg-red-500/10 transition disabled:opacity-40">
+                    {deleting === post.id ? '…' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tab registry ─────────────────────────────────────────────────────────────
+
+type Tab = 'stats' | 'users' | 'airlines' | 'fuel' | 'events' | 'websites' | 'purchases' | 'news';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'stats',    label: 'Overview',    icon: '📊' },
@@ -620,6 +739,7 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'events',   label: 'Fuel Events', icon: '⚡' },
   { key: 'websites',  label: 'VA Websites', icon: '🌐' },
   { key: 'purchases', label: 'Purchases',   icon: '💳' },
+  { key: 'news',      label: 'News',        icon: '📰' },
 ];
 
 export default function AdminPage() {
@@ -663,6 +783,7 @@ export default function AdminPage() {
       {tab === 'events'   && <FuelEventsTab />}
       {tab === 'websites'  && <WebsitesTab />}
       {tab === 'purchases' && <PurchasesTab />}
+      {tab === 'news'      && <NewsTab />}
     </div>
   );
 }

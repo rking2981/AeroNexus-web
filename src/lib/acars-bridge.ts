@@ -14,6 +14,7 @@ let isStarted = false;
 
 export interface AcarsCredentials {
   token: string;
+  refresh_token?: string;
   airline_id: string;
   display_name: string;
   api_url: string;
@@ -63,6 +64,7 @@ function sendCredentials(creds: AcarsCredentials) {
   ws.send(JSON.stringify({
     type: 'set_credentials',
     token: creds.token,
+    refresh_token: creds.refresh_token,
     airline_id: creds.airline_id,
     display_name: creds.display_name,
     api_url: creds.api_url,
