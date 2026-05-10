@@ -312,9 +312,10 @@ function AirlineProfileView({
 export default function ApplyPage() {
   const { user } = useAuthStore();
   const [forms, setForms] = useState<AirlineForm[]>([]);
+  const [allAirlines, setAllAirlines] = useState<any[]>([]);
   const [myApps, setMyApps] = useState<MyApplication[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'browse' | 'my'>('browse');
+  const [tab, setTab] = useState<'browse' | 'directory' | 'my'>('browse');
 
   // Airline profile view
   const [selectedAirlineId, setSelectedAirlineId] = useState<string | null>(null);
@@ -330,9 +331,11 @@ export default function ApplyPage() {
   useEffect(() => {
     Promise.all([
       api.get('/applications/airlines'),
+      api.get('/applications/airlines/directory'),
       api.get('/applications/my'),
-    ]).then(([f, a]) => {
+    ]).then(([f, d, a]) => {
       setForms(f.data);
+      setAllAirlines(d.data);
       setMyApps(a.data);
     }).finally(() => setLoading(false));
   }, []);
@@ -407,8 +410,9 @@ export default function ApplyPage() {
           {/* Tabs */}
           <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
             {[
-              { key: 'browse', label: `Browse Airlines (${forms.length})` },
-              { key: 'my',     label: `My Applications${myApps.length > 0 ? ` (${myApps.length})` : ''}` },
+              { key: 'browse',    label: `Hiring (${forms.length})` },
+              { key: 'directory', label: `All Airlines (${allAirlines.length})` },
+              { key: 'my',        label: `My Applications${myApps.length > 0 ? ` (${myApps.length})` : ''}` },
             ].map(t => (
               <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
                 className={cn('px-5 py-2 rounded-lg text-sm font-medium transition',
@@ -466,6 +470,44 @@ export default function ApplyPage() {
                 })}
               </div>
             )
+          )}
+
+          {/* Directory tab — all airlines */}
+          {tab === 'directory' && (
+            <div className="flex flex-col gap-3">
+              {allAirlines.length === 0 ? (
+                <div className="glass-card rounded-2xl p-12 text-center text-gray-500">No airlines found.</div>
+              ) : allAirlines.map((a: any) => (
+                <div key={a.id} className="glass-card rounded-2xl p-5 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-lg"
+                    style={{ background: a.branding?.primary_color ? `${a.branding.primary_color}22` : 'rgba(0,200,255,0.1)' }}>
+                    {a.branding?.logo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.branding.logo_url} alt="" className="w-full h-full object-contain rounded-xl" />
+                    ) : '🏢'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-white">{a.name}</span>
+                      <span className="font-mono text-xs text-aero">{a.icao_code}</span>
+                      {a.iata_code && <span className="font-mono text-xs text-gray-500">{a.iata_code}</span>}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
+                      {a.hub_country && <span>📍 {a.hub_country}</span>}
+                      <span>👥 {a._count.users} pilots</span>
+                      <span>🛩️ {a._count.hulls} hulls</span>
+                      <span>🌐 {a._count.routes} routes</span>
+                    </div>
+                  </div>
+                  {a.application_form?.is_open && (
+                    <button onClick={() => { setSelectedAirlineId(a.id); loadProfile(a.id); setTab('browse'); }}
+                      className="flex-shrink-0 bg-aero/10 border border-aero/30 text-aero text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-aero/20 transition">
+                      Apply
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
 
           {/* My Applications tab */}

@@ -88,10 +88,43 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const emailUnverified = user && !(user as { email_verified?: boolean }).email_verified;
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — hidden on mobile unless open */}
+      <div className={`
+        fixed inset-y-0 left-0 z-30 lg:static lg:z-auto
+        transform transition-transform duration-200 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <Sidebar onClose={() => setSidebarOpen(false)} />
+      </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Mobile top bar */}
+        <div className="lg:hidden flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/5 bg-black/40">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition"
+            aria-label="Open menu"
+          >
+            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="17" y2="6" /><line x1="3" y1="12" x2="17" y2="12" /><line x1="3" y1="18" x2="17" y2="18" />
+            </svg>
+          </button>
+          <span className="text-sm font-bold tracking-tighter italic">AERO<span className="text-aero">NEXUS</span></span>
+          <div className="w-8" /> {/* balance */}
+        </div>
+
         {/* Maintenance / deployment banner */}
         {(isDown || recovering) && (
           <div className={`flex-shrink-0 px-6 py-3 flex items-center justify-center gap-3 text-sm font-medium transition-colors ${
