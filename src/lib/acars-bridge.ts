@@ -5,7 +5,11 @@
 // Runs silently in the background — no user interaction needed.
 
 const ACARS_WS_URL = 'ws://127.0.0.1:7437';
-const RECONNECT_DELAY_MS = 10000;
+// Long reconnect interval — browser always logs a failed WS attempt to the
+// console even when onerror is handled. A longer interval keeps the noise
+// minimal when ACARS is not running. Once ACARS starts, it opens the WS
+// server and the next reconnect attempt will succeed.
+const RECONNECT_DELAY_MS = 60000; // 1 minute
 
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -76,7 +80,10 @@ export function startAcarsBridge(creds: AcarsCredentials) {
   currentCredentials = creds;
   isStarted = true;
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  connect(creds);
+  // Delay first attempt by 3s so page load completes before the WS attempt
+  // (and the console error) appears. If ACARS is running it connects shortly
+  // after; if not, the next retry is 60s later.
+  reconnectTimer = setTimeout(() => connect(creds), 3000);
 }
 
 export function stopAcarsBridge() {
