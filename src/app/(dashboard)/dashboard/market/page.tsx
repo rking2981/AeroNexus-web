@@ -10,7 +10,8 @@ interface AircraftType {
   icao_code: string;
   manufacturer: string;
   name: string;
-  aircraft_category: string;
+  category: string;          // COMMERCIAL | CARGO | PRIVATE | HELICOPTER | SPECIAL_USE
+  aircraft_category: string; // FIXED_WING | HELICOPTER | SEAPLANE | BALLOON
   pax_capacity: number;
   cargo_capacity_kg: number;
   cruise_speed_kts: number | null;
@@ -56,10 +57,18 @@ interface PurchaseResult {
   delivery_to: string | null;
 }
 
+// Icons keyed by operational category (AircraftTypeCategory)
 const CATEGORY_ICON: Record<string, string> = {
   COMMERCIAL: '✈️', CARGO: '📦', PRIVATE: '🛩️',
   HELICOPTER: '🚁', SEAPLANE: '🛥️', SPECIAL_USE: '⭐',
 };
+// Fallback icons by physical category (AircraftCategory)
+const PHYS_CATEGORY_ICON: Record<string, string> = {
+  FIXED_WING: '✈️', HELICOPTER: '🚁', SEAPLANE: '🛥️', BALLOON: '🎈',
+};
+function getIcon(category?: string, aircraftCategory?: string): string {
+  return CATEGORY_ICON[category ?? ''] ?? PHYS_CATEGORY_ICON[aircraftCategory ?? ''] ?? '✈️';
+}
 
 const GRADE_COLORS: Record<string, string> = {
   A: 'text-green-400', B: 'text-green-300', C: 'text-amber-400',
@@ -431,23 +440,31 @@ export default function MarketPage() {
     }
   }, [isManager]);
 
-  // Granular filter matcher — works on both AircraftType and MarketListing hull
-  function matchesFilter(filter: string, a: { aircraft_category: string; engine_type?: string | null; engine_count?: number | null }): boolean {
+  // Granular filter matcher
+  // `category` = operational type (COMMERCIAL, CARGO, PRIVATE, HELICOPTER, SPECIAL_USE)
+  // `aircraft_category` = physical type (FIXED_WING, HELICOPTER, SEAPLANE, BALLOON)
+  function matchesFilter(filter: string, a: {
+    category?: string;
+    aircraft_category: string;
+    engine_type?: string | null;
+    engine_count?: number | null;
+  }): boolean {
     if (!filter) return true;
-    const cat = a.aircraft_category;
+    const opCat  = a.category ?? '';          // operational category
+    const physCat = a.aircraft_category ?? ''; // physical category
     const eng = a.engine_type ?? '';
     const cnt = a.engine_count ?? 0;
     switch (filter) {
-      case 'JETLINER':    return cat === 'COMMERCIAL' && eng === 'JET' && cnt >= 2;
-      case 'REGIONAL':    return cat === 'COMMERCIAL' && (eng === 'TURBOPROP' || (eng === 'JET' && cnt <= 2));
+      case 'JETLINER':    return opCat === 'COMMERCIAL' && eng === 'JET' && cnt >= 2;
+      case 'REGIONAL':    return opCat === 'COMMERCIAL' && (eng === 'TURBOPROP' || (eng === 'JET' && cnt <= 2));
+      case 'TURBOPROP':   return eng === 'TURBOPROP';
       case 'SINGLE_PROP': return eng === 'PISTON' && cnt === 1;
       case 'MULTI_PROP':  return eng === 'PISTON' && cnt > 1;
-      case 'TURBOPROP':   return eng === 'TURBOPROP';
-      case 'HELICOPTER':  return cat === 'HELICOPTER';
-      case 'CARGO':       return cat === 'CARGO';
-      case 'PRIVATE':     return cat === 'PRIVATE';
-      case 'SEAPLANE':    return cat === 'SEAPLANE';
-      case 'SPECIAL':     return cat === 'SPECIAL_USE';
+      case 'HELICOPTER':  return opCat === 'HELICOPTER' || physCat === 'HELICOPTER';
+      case 'CARGO':       return opCat === 'CARGO';
+      case 'PRIVATE':     return opCat === 'PRIVATE';
+      case 'SEAPLANE':    return physCat === 'SEAPLANE';
+      case 'SPECIAL':     return opCat === 'SPECIAL_USE';
       default:            return true;
     }
   }
@@ -459,15 +476,18 @@ export default function MarketPage() {
   );
 
   const filteredUsed = listings.filter((l) => {
-    // Used listings don't carry engine_type/count — filter by category only
-    const cat = l.hull.aircraft_category;
-    const catMatch = !activeFilter ||
-      (['JETLINER','REGIONAL'].includes(activeFilter) ? cat === 'COMMERCIAL' :
-       activeFilter === 'HELICOPTER' ? cat === 'HELICOPTER' :
-       activeFilter === 'CARGO'      ? cat === 'CARGO' :
-       activeFilter === 'PRIVATE'    ? cat === 'PRIVATE' :
-       activeFilter === 'SEAPLANE'   ? cat === 'SEAPLANE' :
-       activeFilter === 'SPECIAL'    ? cat === 'SPECIAL_USE' : true);
+    // Used listings don't carry engine_type/count directly — approximate by category
+    const physCat = l.hull.aircraft_category;
+    const catMatch = !activeFilter || (() => {
+      switch (activeFilter) {
+        case 'JETLINER': case 'REGIONAL': case 'CARGO': case 'PRIVATE':
+          // These require operational category — not available on listing hull, show all FIXED_WING
+          return physCat === 'FIXED_WING';
+        case 'HELICOPTER': return physCat === 'HELICOPTER';
+        case 'SEAPLANE':   return physCat === 'SEAPLANE';
+        default:           return true;
+      }
+    })();
     return catMatch && `${l.hull.aircraft_type} ${l.hull.registration}`.toLowerCase().includes(q);
   });
 
@@ -571,7 +591,7 @@ export default function MarketPage() {
                 )}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <span className="text-lg mr-2">{CATEGORY_ICON[type.aircraft_category] ?? '✈️'}</span>
+                    <span className="text-lg mr-2">{getIcon(type.category, type.aircraft_category)}</span>
                     <span className="font-bold text-sm text-gray-300">{type.manufacturer}</span>
                     <p className="font-bold text-base mt-0.5">{type.name}</p>
                     <p className="text-xs text-gray-500 font-mono">{type.icao_code}</p>
