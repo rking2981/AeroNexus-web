@@ -410,7 +410,7 @@ export default function MarketPage() {
   const [listings, setListings] = useState<MarketListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [activeFilter, setActiveFilter] = useState('');
   const [selected, setSelected] = useState<AircraftType | null>(null);
   const [spendable, setSpendable] = useState<number | null>(null);
 
@@ -431,15 +431,45 @@ export default function MarketPage() {
     }
   }, [isManager]);
 
+  // Granular filter matcher — works on both AircraftType and MarketListing hull
+  function matchesFilter(filter: string, a: { aircraft_category: string; engine_type?: string | null; engine_count?: number | null }): boolean {
+    if (!filter) return true;
+    const cat = a.aircraft_category;
+    const eng = a.engine_type ?? '';
+    const cnt = a.engine_count ?? 0;
+    switch (filter) {
+      case 'JETLINER':    return cat === 'COMMERCIAL' && eng === 'JET' && cnt >= 2;
+      case 'REGIONAL':    return cat === 'COMMERCIAL' && (eng === 'TURBOPROP' || (eng === 'JET' && cnt <= 2));
+      case 'SINGLE_PROP': return eng === 'PISTON' && cnt === 1;
+      case 'MULTI_PROP':  return eng === 'PISTON' && cnt > 1;
+      case 'TURBOPROP':   return eng === 'TURBOPROP';
+      case 'HELICOPTER':  return cat === 'HELICOPTER';
+      case 'CARGO':       return cat === 'CARGO';
+      case 'PRIVATE':     return cat === 'PRIVATE';
+      case 'SEAPLANE':    return cat === 'SEAPLANE';
+      case 'SPECIAL':     return cat === 'SPECIAL_USE';
+      default:            return true;
+    }
+  }
+
+  const q = search.toLowerCase();
   const filteredNew = newAircraft.filter((a) =>
-    (!categoryFilter || a.aircraft_category === categoryFilter) &&
-    `${a.manufacturer} ${a.name} ${a.icao_code}`.toLowerCase().includes(search.toLowerCase())
+    matchesFilter(activeFilter, a) &&
+    `${a.manufacturer} ${a.name} ${a.icao_code}`.toLowerCase().includes(q)
   );
 
-  const filteredUsed = listings.filter((l) =>
-    (!categoryFilter || l.hull.aircraft_category === categoryFilter) &&
-    `${l.hull.aircraft_type} ${l.hull.registration}`.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredUsed = listings.filter((l) => {
+    // Used listings don't carry engine_type/count — filter by category only
+    const cat = l.hull.aircraft_category;
+    const catMatch = !activeFilter ||
+      (['JETLINER','REGIONAL'].includes(activeFilter) ? cat === 'COMMERCIAL' :
+       activeFilter === 'HELICOPTER' ? cat === 'HELICOPTER' :
+       activeFilter === 'CARGO'      ? cat === 'CARGO' :
+       activeFilter === 'PRIVATE'    ? cat === 'PRIVATE' :
+       activeFilter === 'SEAPLANE'   ? cat === 'SEAPLANE' :
+       activeFilter === 'SPECIAL'    ? cat === 'SPECIAL_USE' : true);
+    return catMatch && `${l.hull.aircraft_type} ${l.hull.registration}`.toLowerCase().includes(q);
+  });
 
   const handleBuyUsed = useCallback(async (listingId: string) => {
     const reg = prompt('Enter a registration number for this aircraft (or leave blank to keep existing):');
@@ -475,36 +505,53 @@ export default function MarketPage() {
       )}
 
       {/* Filters */}
-      <div className="flex gap-3 mb-6 flex-wrap">
-        <div className="flex gap-1 glass-card rounded-xl p-1">
-          {(['new', 'used'] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={cn('px-5 py-2 rounded-lg text-sm font-medium transition capitalize',
-                tab === t ? 'bg-aero text-black' : 'text-gray-400 hover:text-white')}>
-              {t === 'new' ? '🏭 New from Manufacturer' : '🔄 Used Market'}
+      <div className="mb-6 flex flex-col gap-3">
+        {/* Tab + Search row */}
+        <div className="flex gap-3 flex-wrap items-center">
+          <div className="flex gap-1 glass-card rounded-xl p-1">
+            {(['new', 'used'] as const).map((t) => (
+              <button key={t} onClick={() => setTab(t)}
+                className={cn('px-5 py-2 rounded-lg text-sm font-medium transition capitalize',
+                  tab === t ? 'bg-aero text-black' : 'text-gray-400 hover:text-white')}>
+                {t === 'new' ? '🏭 New from Manufacturer' : '🔄 Used Market'}
+              </button>
+            ))}
+          </div>
+          <input
+            type="text"
+            placeholder="Search aircraft..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder-gray-500 focus:border-[#00D1FF] focus:outline-none transition flex-1 min-w-48"
+          />
+        </div>
+
+        {/* Filter chips */}
+        <div className="flex gap-2 flex-wrap">
+          {[
+            { key: '',            label: 'All',          icon: '🌐' },
+            { key: 'JETLINER',    label: 'Jetliners',    icon: '✈️' },
+            { key: 'REGIONAL',    label: 'Regional Jets / Turboprops', icon: '🛫' },
+            { key: 'TURBOPROP',   label: 'Turboprops',   icon: '🌀' },
+            { key: 'SINGLE_PROP', label: 'Single-Prop',  icon: '🛩️' },
+            { key: 'MULTI_PROP',  label: 'Multi-Prop',   icon: '🛩️' },
+            { key: 'HELICOPTER',  label: 'Helicopters',  icon: '🚁' },
+            { key: 'CARGO',       label: 'Cargo',        icon: '📦' },
+            { key: 'PRIVATE',     label: 'Private',      icon: '🎩' },
+            { key: 'SEAPLANE',    label: 'Seaplanes',    icon: '🛥️' },
+            { key: 'SPECIAL',     label: 'Special Use',  icon: '⭐' },
+          ].map(f => (
+            <button key={f.key} onClick={() => setActiveFilter(f.key)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition',
+                activeFilter === f.key
+                  ? 'bg-aero/20 border-aero/50 text-aero'
+                  : 'border-white/10 text-gray-400 hover:text-white hover:border-white/25',
+              )}>
+              <span>{f.icon}</span>{f.label}
             </button>
           ))}
         </div>
-        <input
-          type="text"
-          placeholder="Search..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder-gray-500 focus:border-[#00D1FF] focus:outline-none transition flex-1 min-w-48"
-        />
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="rounded-xl border border-white/10 bg-[#111] px-3 py-2 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition"
-        >
-          <option value="">All Categories</option>
-          <option value="COMMERCIAL">✈️ Commercial</option>
-          <option value="CARGO">📦 Cargo</option>
-          <option value="PRIVATE">🛩️ Private</option>
-          <option value="HELICOPTER">🚁 Helicopter</option>
-          <option value="SEAPLANE">🛥️ Seaplane</option>
-          <option value="SPECIAL_USE">⭐ Special Use</option>
-        </select>
       </div>
 
       {/* New aircraft grid */}
