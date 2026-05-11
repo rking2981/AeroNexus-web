@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { useAuthStore } from '@/store/auth';
+import axios from 'axios';
 import { api, publicApi } from '@/lib/api';
 import { startAcarsBridge, stopAcarsBridge } from '@/lib/acars-bridge';
 
@@ -27,11 +28,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [_hasHydrated, isAuthenticated, router]);
 
-  // Refresh user once after hydration to pick up latest server state
+  // Refresh user profile once after hydration to pick up server-side changes.
+  // We proactively attempt a token refresh first using the refresh_token so
+  // the subsequent /auth/me call has a fresh access token and never 401s.
   useEffect(() => {
-    if (_hasHydrated && isAuthenticated()) {
-      api.post('/auth/me').then(({ data }) => setUser(data)).catch(() => {});
+    if (!_hasHydrated || !isAuthenticated()) return;
+
+    async function refreshAndFetch() {
+      try {
+        // Attempt proactive token refresh to avoid 401 on /auth/me
+        const raw = localStorage.getItem('aeronexus-auth');
+        const parsed = raw ? JSON.parse(raw) : null;
+        const refreshToken = parsed?.state?.refresh_token;
+
+        if (refreshToken) {
+          const { data: tokens } = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
+            {},
+            { headers: { Authorization: `Bearer ${refreshToken}` } },
+          );
+          // Write new tokens into localStorage so api interceptor picks them up
+          parsed.state.access_token  = tokens.access_token;
+          parsed.state.refresh_token = tokens.refresh_token;
+          localStorage.setItem('aeronexus-auth', JSON.stringify(parsed));
+        }
+      } catch { /* refresh token also expired — let /auth/me 401 redirect to login */ }
+
+      try {
+        const { data } = await api.post('/auth/me');
+        setUser(data);
+      } catch { /* handled by interceptor */ }
     }
+
+    refreshAndFetch();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_hasHydrated]);
 
