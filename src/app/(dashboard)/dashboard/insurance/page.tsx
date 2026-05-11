@@ -103,6 +103,12 @@ export default function InsurancePage() {
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [purchaseError, setPurchaseError] = useState('');
 
+  // Change tier modal state
+  const [changingPolicy, setChangingPolicy] = useState<Policy | null>(null);
+  const [changeTier, setChangeTier] = useState<'BASIC' | 'STANDARD' | 'PREMIUM'>('STANDARD');
+  const [changeLoading, setChangeLoading] = useState(false);
+  const [changeError, setChangeError] = useState('');
+
   // Claim modal state
   const [filing, setFiling] = useState(false);
   const [claimType, setClaimType] = useState<'HULL_DAMAGE' | 'FLIGHT_NULLIFICATION' | 'PAX_LIABILITY'>('FLIGHT_NULLIFICATION');
@@ -152,8 +158,27 @@ export default function InsurancePage() {
   }
 
   async function handleCancelPolicy(id: string) {
+    if (!confirm('Cancel this policy? Coverage ends immediately.')) return;
     await api.delete(`/insurance/policies/${id}`);
     setPolicies(policies.filter((p) => p.id !== id));
+  }
+
+  async function handleChangeTier() {
+    if (!changingPolicy) return;
+    setChangeError(''); setChangeLoading(true);
+    try {
+      const { data } = await api.patch(`/insurance/policies/${changingPolicy.id}/tier`, { tier: changeTier });
+      setPolicies(policies.map(p => p.id === data.id ? data : p));
+      setChangingPolicy(null);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setChangeError(msg ?? 'Failed to change tier.');
+    } finally { setChangeLoading(false); }
+  }
+
+  // Returns the active policy for a given company slug
+  function policyForCompany(slug: string): Policy | undefined {
+    return policies.find(p => p.company.slug === slug && p.is_active);
   }
 
   async function handleFileClaim() {
@@ -265,15 +290,31 @@ export default function InsurancePage() {
               )}
 
               {company.eligible && isManager ? (
-                <button
-                  onClick={() => { setPurchasing(company); setSelectedTier('STANDARD'); setSelectedHull(''); }}
-                  className={cn('w-full py-2.5 rounded-xl font-bold text-sm transition',
-                    company.slug === 'vantage-aero' ? 'bg-aero text-black hover:brightness-110'
-                    : company.slug === 'rotorguard' ? 'bg-green-500 text-black hover:brightness-110'
-                    : company.slug === 'sentinel-civil' ? 'bg-blue-500 text-white hover:brightness-110'
-                    : 'bg-purple-500 text-white hover:brightness-110')}>
-                  Get Policy
-                </button>
+                (() => {
+                  const existing = policyForCompany(company.slug);
+                  return existing ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">
+                        Current: <span className="font-bold text-white">{existing.tier}</span>
+                      </span>
+                      <button
+                        onClick={() => { setChangingPolicy(existing); setChangeTier(existing.tier as 'BASIC' | 'STANDARD' | 'PREMIUM'); setChangeError(''); }}
+                        className="text-sm font-bold px-4 py-2 rounded-xl border border-white/20 hover:bg-white/5 transition">
+                        Change Plan
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setPurchasing(company); setSelectedTier('STANDARD'); setSelectedHull(''); }}
+                      className={cn('w-full py-2.5 rounded-xl font-bold text-sm transition',
+                        company.slug === 'vantage-aero' ? 'bg-aero text-black hover:brightness-110'
+                        : company.slug === 'rotorguard' ? 'bg-green-500 text-black hover:brightness-110'
+                        : company.slug === 'sentinel-civil' ? 'bg-blue-500 text-white hover:brightness-110'
+                        : 'bg-purple-500 text-white hover:brightness-110')}>
+                      Get Policy
+                    </button>
+                  );
+                })()
               ) : !company.eligible ? (
                 <p className="text-xs text-red-400 text-center py-2">{company.reason}</p>
               ) : null}
@@ -327,10 +368,17 @@ export default function InsurancePage() {
                 }
               </div>
               {isManager && (
-                <button onClick={() => handleCancelPolicy(policy.id)}
-                  className="text-xs text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition">
-                  Cancel Policy
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setChangingPolicy(policy); setChangeTier(policy.tier as 'BASIC' | 'STANDARD' | 'PREMIUM'); setChangeError(''); }}
+                    className="text-xs border border-white/20 px-3 py-1.5 rounded-lg hover:bg-white/5 transition">
+                    Change Plan
+                  </button>
+                  <button onClick={() => handleCancelPolicy(policy.id)}
+                    className="text-xs text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition">
+                    Cancel
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -438,6 +486,68 @@ export default function InsurancePage() {
                 {purchaseLoading ? 'Purchasing...' : 'Purchase Policy'}
               </button>
               <button onClick={() => { setPurchasing(null); setPurchaseError(''); }}
+                className="px-5 text-sm text-gray-400 hover:text-white transition border border-white/10 rounded-xl">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change tier modal */}
+      {changingPolicy && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-card rounded-2xl p-8 w-full max-w-md border border-white/10">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-2xl">{COMPANY_ICONS[changingPolicy.company.slug]}</span>
+              <h2 className={cn('text-xl font-bold', COMPANY_ACCENT[changingPolicy.company.slug])}>
+                {changingPolicy.company.name}
+              </h2>
+            </div>
+            <p className="text-sm text-gray-400 mb-6">
+              Current plan: <span className="font-bold text-white">{changingPolicy.tier}</span>
+              {' · '}${Number(changingPolicy.monthly_premium).toFixed(2)}/mo
+            </p>
+
+            <div className="flex flex-col gap-2 mb-5">
+              {(['BASIC', 'STANDARD', 'PREMIUM'] as const).map((tier) => (
+                <label key={tier}
+                  className={cn('flex items-center justify-between p-4 rounded-xl border cursor-pointer transition',
+                    changeTier === tier ? 'border-aero bg-aero/10' : 'border-white/10 hover:border-white/20',
+                    tier === changingPolicy.tier && 'opacity-50 cursor-not-allowed')}>
+                  <div className="flex items-center gap-3">
+                    <input type="radio" name="change-tier" value={tier}
+                      checked={changeTier === tier}
+                      disabled={tier === changingPolicy.tier}
+                      onChange={() => setChangeTier(tier)}
+                      className="accent-[#00C8FF]" />
+                    <div>
+                      <p className="text-sm font-medium">
+                        {TIER_MULTIPLIERS[tier].label}
+                        {tier === changingPolicy.tier && <span className="ml-2 text-xs text-gray-500">(current)</span>}
+                      </p>
+                      <p className="text-xs text-gray-500">{TIER_MULTIPLIERS[tier].desc}</p>
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {changeError && (
+              <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400 mb-4">
+                {changeError}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={handleChangeTier}
+                disabled={changeLoading || changeTier === changingPolicy.tier}
+                className="flex-1 bg-aero text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
+                {changeLoading ? 'Updating…' : changeTier === changingPolicy.tier ? 'Select a different tier' :
+                  (changeTier === 'PREMIUM' || (changeTier === 'STANDARD' && changingPolicy.tier === 'BASIC'))
+                    ? 'Upgrade' : 'Downgrade'}
+              </button>
+              <button onClick={() => { setChangingPolicy(null); setChangeError(''); }}
                 className="px-5 text-sm text-gray-400 hover:text-white transition border border-white/10 rounded-xl">
                 Cancel
               </button>
