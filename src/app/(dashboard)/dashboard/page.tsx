@@ -55,8 +55,8 @@ export default function DashboardPage() {
           </div>
         </div>
         <a
-          href="https://github.com/rking2981/aeronexus-acars/releases/download/1.0/AeroNexus.ACARS.Setup.1.0.exe"
-          download="AeroNexus ACARS Setup 1.0.exe"
+          href="https://gofile.io/d/xAbHBH"
+          target="_blank" rel="noopener noreferrer"
           className="flex-shrink-0 bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition"
         >
           ⬇ Download

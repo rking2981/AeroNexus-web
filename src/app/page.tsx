@@ -182,8 +182,8 @@ export default async function HomePage() {
             </Link>
             {/* Secondary CTA — ghost */}
             <a
-              href="https://github.com/rking2981/aeronexus-acars/releases/download/1.0/AeroNexus.ACARS.Setup.1.0.exe"
-              download="AeroNexus ACARS Setup 1.0.exe"
+              href="https://gofile.io/d/xAbHBH"
+              target="_blank" rel="noopener noreferrer"
               className="border border-white/20 text-white/60 px-8 py-4 rounded-lg font-medium text-base hover:border-white/40 hover:text-white/80 transition"
             >
               Download ACARS
