@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import { AdSenseUnit } from '@/components/shared/AdSenseUnit';
 import { cn } from '@/lib/utils';
 
 interface Route {
@@ -308,6 +309,9 @@ export default function BookFlightPage() {
         <h1 className="text-3xl font-bold mb-1">Book a Flight</h1>
         <p className="text-gray-400 text-sm">Select a route and aircraft — passengers are calculated automatically.</p>
       </div>
+
+      {/* AdSense — FREE_ADS pilots only */}
+      <AdSenseUnit slot="3456789012" format="horizontal" className="mb-6" />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Route selection */}

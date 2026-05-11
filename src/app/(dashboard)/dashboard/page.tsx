@@ -3,6 +3,7 @@
 import { useAuthStore } from '@/store/auth';
 import Link from 'next/link';
 import Image from 'next/image';
+import { AdSenseUnit } from '@/components/shared/AdSenseUnit';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -105,6 +106,9 @@ export default function DashboardPage() {
           </Link>
         </div>
       )}
+
+      {/* AdSense — FREE_ADS pilots only */}
+      <AdSenseUnit slot="1234567890" format="horizontal" className="mt-6" />
     </div>
   );
 }

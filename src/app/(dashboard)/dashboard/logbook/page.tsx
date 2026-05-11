@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { AdSenseUnit } from '@/components/shared/AdSenseUnit';
 
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -303,6 +304,9 @@ export default function LogbookPage() {
           </Link>
         </div>
       )}
+
+      {/* AdSense — FREE_ADS pilots only */}
+      <AdSenseUnit slot="2345678901" format="horizontal" className="mb-6" />
 
       {flights.length === 0 ? (
         <div className="glass-card rounded-2xl p-12 text-center">
