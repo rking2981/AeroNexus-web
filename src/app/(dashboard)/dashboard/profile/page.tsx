@@ -493,6 +493,30 @@ export default function ProfilePage() {
 
           {/* Discord Link */}
           <DiscordLinkSection />
+
+          {/* Leave Airline — only shown if pilot (not manager) and in an airline */}
+          {u.airline && u.role === 'PILOT' && (
+            <div className="mt-6 pt-6 border-t border-red-500/20">
+              <h3 className="font-bold mb-1 text-sm text-red-400">Danger Zone</h3>
+              <p className="text-xs text-gray-500 mb-4">
+                Leaving <span className="text-gray-300 font-medium">{u.airline.name}</span> will remove you from the roster immediately. You can rejoin by applying again.
+              </p>
+              <button
+                onClick={async () => {
+                  if (!confirm(`Leave ${u.airline!.name}? You will be removed from the roster immediately.`)) return;
+                  try {
+                    await api.post('/pilots/leave');
+                    window.location.reload();
+                  } catch {
+                    alert('Could not leave airline. You may have an active flight in progress.');
+                  }
+                }}
+                className="border border-red-500/30 text-red-400 text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-red-500/10 transition"
+              >
+                Leave {u.airline.name}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
