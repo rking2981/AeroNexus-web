@@ -97,6 +97,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} h-full`}>
+      <head>
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3384657062371102"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="min-h-full flex flex-col antialiased">{children}</body>
     </html>
   );
