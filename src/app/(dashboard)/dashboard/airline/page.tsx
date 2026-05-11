@@ -18,6 +18,9 @@ interface Airline {
   subscription_tier: string;
   subscription_status: string;
   branding: Record<string, string> | null;
+  trial_days_left: number | null;
+  trial_expired: boolean;
+  trial_expires_at: string | null;
 }
 
 export default function AirlinePage() {
@@ -70,6 +73,43 @@ export default function AirlinePage() {
           Settings
         </Link>
       </div>
+
+      {/* Trial banner */}
+      {airline.trial_days_left !== null && (
+        <div className={`mb-6 rounded-2xl p-4 flex items-center justify-between gap-4 border ${
+          airline.trial_expired
+            ? 'bg-red-500/10 border-red-500/30'
+            : airline.trial_days_left <= 2
+            ? 'bg-amber-500/10 border-amber-500/30'
+            : 'bg-aero/5 border-aero/20'
+        }`}>
+          <div className="flex items-center gap-3">
+            <span className="text-xl">{airline.trial_expired ? '🔒' : '⏳'}</span>
+            <div>
+              <p className={`text-sm font-bold ${airline.trial_expired ? 'text-red-400' : airline.trial_days_left <= 2 ? 'text-amber-400' : 'text-aero'}`}>
+                {airline.trial_expired
+                  ? 'Your free trial has expired'
+                  : `Free trial — ${airline.trial_days_left} day${airline.trial_days_left !== 1 ? 's' : ''} remaining`}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {airline.trial_expired
+                  ? 'Subscribe to restore access to airline management features.'
+                  : 'Subscribe before your trial ends to keep access to all features.'}
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/dashboard/founders"
+            className={`flex-shrink-0 font-bold text-sm px-4 py-2 rounded-xl transition ${
+              airline.trial_expired
+                ? 'bg-red-500 text-white hover:bg-red-400'
+                : 'bg-aero text-black hover:brightness-110'
+            }`}
+          >
+            Subscribe →
+          </Link>
+        </div>
+      )}
 
       {/* Balance card */}
       <div className="glass-card rounded-2xl p-6 mb-6">
