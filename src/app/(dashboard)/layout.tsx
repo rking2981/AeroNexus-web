@@ -19,6 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [recovering, setRecovering] = useState(false);
   const failCount = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (_hasHydrated && !isAuthenticated()) {
@@ -87,8 +88,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!isAuthenticated()) return null;
 
   const emailUnverified = user && !(user as { email_verified?: boolean }).email_verified;
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden">
