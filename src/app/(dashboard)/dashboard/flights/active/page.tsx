@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -59,10 +59,24 @@ export default function ActiveFlightPage() {
   const [ofpSynced, setOfpSynced] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
 
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
+    // Initial load
     api.get('/flights/active')
       .then(r => setFlight(r.data))
       .finally(() => setLoading(false));
+
+    // Poll every 10s — update status silently without showing the loading spinner
+    pollRef.current = setInterval(() => {
+      api.get('/flights/active').then(r => {
+        if (r.data) {
+          setFlight(prev => prev ? { ...prev, status: r.data.status } : r.data);
+        }
+      }).catch(() => {});
+    }, 10_000);
+
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
   async function generateFlightPlan() {
