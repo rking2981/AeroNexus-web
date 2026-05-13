@@ -62,6 +62,13 @@ function timerColor(expiresAt: string, now: number): string {
   return 'text-gray-400';
 }
 
+interface ActiveFlight {
+  id: string;
+  origin_icao: string;
+  destination_icao: string;
+  status: string;
+}
+
 export default function CargoPage() {
   const [available, setAvailable] = useState<CargoShipment[]>([]);
   const [claimed, setClaimed] = useState<CargoShipment[]>([]);
@@ -73,6 +80,7 @@ export default function CargoPage() {
   const [now, setNow] = useState(Date.now());
   const [searchInput, setSearchInput] = useState('');
   const [searchedIcao, setSearchedIcao] = useState('');
+  const [activeFlight, setActiveFlight] = useState<ActiveFlight | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -80,9 +88,12 @@ export default function CargoPage() {
     return () => clearInterval(id);
   }, []);
 
-  // Load claimed shipments on mount
+  // Load claimed shipments and active flight on mount
   useEffect(() => {
     loadClaimed();
+    api.get('/flights/active').then(({ data }) => {
+      if (data?.status === 'BOARDING') setActiveFlight(data);
+    }).catch(() => {});
   }, []);
 
   async function loadClaimed() {
@@ -189,6 +200,15 @@ export default function CargoPage() {
           </button>
         </div>
         <p className="text-xs text-gray-600 mt-2">Enter a 3–4 character ICAO code and press Enter or Search</p>
+        {activeFlight && (
+          <button
+            onClick={() => { setSearchInput(activeFlight.origin_icao); search(activeFlight.origin_icao); }}
+            className="mt-3 flex items-center gap-2 text-xs text-aero border border-aero/20 bg-aero/5 hover:bg-aero/10 px-3 py-1.5 rounded-lg transition w-fit"
+          >
+            ✈️ Find cargo for my booked flight
+            <span className="font-mono text-white">{activeFlight.origin_icao} → {activeFlight.destination_icao}</span>
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
