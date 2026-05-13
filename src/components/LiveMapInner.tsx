@@ -24,18 +24,19 @@ interface MarkerState {
   interpStart: number; // timestamp when this interpolation began
 }
 
-function buildSvg(hdg: number, category: string, sel: boolean): string {
+function buildSvg(hdg: number, category: string, sel: boolean, noTelemetry = false): string {
   const isHeli = category === 'HELICOPTER';
-  const color = sel ? '#ffffff' : '#00D1FF';
+  const color = sel ? '#ffffff' : noTelemetry ? '#6B7280' : '#00D1FF';
+  const opacity = noTelemetry ? 0.5 : sel ? 1 : 0.9;
   const size = sel ? 32 : 24;
   return isHeli
     ? `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg);filter:drop-shadow(0 0 4px ${color}88)">
-        <circle cx="12" cy="12" r="3" fill="${color}"/>
-        <line x1="2" y1="12" x2="22" y2="12" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
-        <line x1="12" y1="2" x2="12" y2="8" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="3" fill="${color}" opacity="${opacity}"/>
+        <line x1="2" y1="12" x2="22" y2="12" stroke="${color}" stroke-width="2" stroke-linecap="round" opacity="${opacity}"/>
+        <line x1="12" y1="2" x2="12" y2="8" stroke="${color}" stroke-width="2" stroke-linecap="round" opacity="${opacity}"/>
       </svg>`
     : `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg);filter:drop-shadow(0 0 4px ${color}88)">
-        <path d="M12 2L8 10H4L6 12H8L7 17L5 18V20L12 18L19 20V18L17 17L16 12H18L20 10H16L12 2Z" fill="${color}" opacity="${sel ? 1 : 0.9}"/>
+        <path d="M12 2L8 10H4L6 12H8L7 17L5 18V20L12 18L19 20V18L17 17L16 12H18L20 10H16L12 2Z" fill="${color}" opacity="${opacity}"/>
       </svg>`;
 }
 
@@ -130,7 +131,8 @@ export default function LiveMapInner({ flights, selected, onSelect, pollInterval
         state.marker.setLngLat([lng, lat]);
 
         const isSelected = selectedRef.current?.id === state.marker.getElement().dataset.flightId;
-        state.el.innerHTML = buildSvg(hdg, state.el.dataset.category ?? '', isSelected);
+        const noTelemetry = state.el.dataset.noTelemetry === '1';
+        state.el.innerHTML = buildSvg(hdg, state.el.dataset.category ?? '', isSelected, noTelemetry);
       });
 
       rafRef.current = requestAnimationFrame(tick);
@@ -182,7 +184,8 @@ export default function LiveMapInner({ flights, selected, onSelect, pollInterval
           el.style.cssText = `width:24px;height:24px;cursor:pointer;`;
           el.dataset.flightId = flight.id;
           el.dataset.category = flight.hull.aircraft_category;
-          el.innerHTML = buildSvg(toHdg, flight.hull.aircraft_category, false);
+          el.dataset.noTelemetry = flight._no_telemetry ? '1' : '';
+          el.innerHTML = buildSvg(toHdg, flight.hull.aircraft_category, false, !!flight._no_telemetry);
           el.addEventListener('click', (e) => {
             e.stopPropagation();
             onSelect(selectedRef.current?.id === flight.id ? null : flight);
@@ -250,9 +253,10 @@ export default function LiveMapInner({ flights, selected, onSelect, pollInterval
             {[
               { label: 'Aircraft', value: `${selected.hull.registration}\n${selected.hull.aircraft_type}` },
               { label: 'Pilot', value: `${selected.pilot.display_name}${selected.airline ? '\n' + selected.airline.name : ''}` },
-              selected.current_alt_ft != null ? { label: 'Altitude', value: `FL${Math.round(selected.current_alt_ft / 100).toString().padStart(3, '0')}\n${selected.current_alt_ft.toLocaleString()} ft` } : null,
-              selected.current_spd_kts != null ? { label: 'Speed', value: `${selected.current_spd_kts} kts` } : null,
-              selected.current_hdg != null ? { label: 'Heading', value: `${selected.current_hdg.toString().padStart(3, '0')}°` } : null,
+              selected._no_telemetry ? { label: 'Position', value: 'No ACARS signal\n(shown at origin)' } : null,
+              !selected._no_telemetry && selected.current_alt_ft != null ? { label: 'Altitude', value: `FL${Math.round(selected.current_alt_ft / 100).toString().padStart(3, '0')}\n${selected.current_alt_ft.toLocaleString()} ft` } : null,
+              !selected._no_telemetry && selected.current_spd_kts != null ? { label: 'Speed', value: `${selected.current_spd_kts} kts` } : null,
+              !selected._no_telemetry && selected.current_hdg != null ? { label: 'Heading', value: `${selected.current_hdg.toString().padStart(3, '0')}°` } : null,
               { label: 'Status', value: selected.status },
             ].filter(Boolean).map((row) => (
               <div key={row!.label}>

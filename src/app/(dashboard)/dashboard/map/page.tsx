@@ -13,6 +13,7 @@ export interface LiveFlight {
   current_alt_ft: number | null;
   current_hdg: number | null;
   current_spd_kts: number | null;
+  _no_telemetry?: boolean;
   hull: { registration: string; aircraft_type: string; aircraft_category: string };
   pilot: { display_name: string };
   airline: { name: string; icao_code: string } | null;
@@ -190,7 +191,14 @@ export default function MapPage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [fetchFlights]);
 
-  const positioned = flights.filter((f) => f.current_lat && f.current_lon);
+  // Flights with live ACARS position, plus flights without one using origin airport as fallback
+  const positioned = flights.map((f) => {
+    if (f.current_lat && f.current_lon) return f;
+    if (f.route?.origin.latitude && f.route?.origin.longitude) {
+      return { ...f, current_lat: f.route.origin.latitude, current_lon: f.route.origin.longitude, _no_telemetry: true };
+    }
+    return null;
+  }).filter(Boolean) as (LiveFlight & { _no_telemetry?: boolean })[];
 
   function handleSelect(f: LiveFlight) {
     setSelected((prev) => prev?.id === f.id ? null : f);
@@ -243,7 +251,7 @@ export default function MapPage() {
 
         {/* Rows */}
         <div style={{ overflowY: 'auto', flex: 1 }}>
-          {positioned.length === 0 ? (
+          {flights.length === 0 ? (
             <div style={{ padding: '32px 16px', textAlign: 'center' }}>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginBottom: 8 }}>
                 {'NO ACTIVE FLIGHTS'.split('').map((c, i) => <FlipTile key={i} char={c === ' ' ? ' ' : c} dim={c === ' '} />)}
@@ -255,7 +263,7 @@ export default function MapPage() {
               )}
             </div>
           ) : (
-            positioned.map((f) => (
+            flights.map((f) => (
               <FlipRow
                 key={f.id}
                 flight={f}
