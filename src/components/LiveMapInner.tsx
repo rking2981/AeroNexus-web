@@ -35,8 +35,8 @@ function buildSvg(hdg: number, category: string, sel: boolean, noTelemetry = fal
         <line x1="2" y1="12" x2="22" y2="12" stroke="${color}" stroke-width="2" stroke-linecap="round" opacity="${opacity}"/>
         <line x1="12" y1="2" x2="12" y2="8" stroke="${color}" stroke-width="2" stroke-linecap="round" opacity="${opacity}"/>
       </svg>`
-    : `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="transform:rotate(${hdg}deg);filter:drop-shadow(0 0 4px ${color}88)">
-        <path d="M12 2L8 10H4L6 12H8L7 17L5 18V20L12 18L19 20V18L17 17L16 12H18L20 10H16L12 2Z" fill="${color}" opacity="${opacity}"/>
+    : `<svg width="${size}" height="${size}" viewBox="0 0 100 100" fill="none" style="transform:rotate(${hdg}deg);filter:drop-shadow(0 0 4px ${color}88)">
+        <path d="M50 4 C49 4 47 8 46 16 C46 20 45 24 45 30 L4 58 L4 66 L45 54 L44 72 L36 78 L36 84 L50 80 L64 84 L64 78 L56 72 L55 54 L96 66 L96 58 L55 30 C55 24 54 20 54 16 C53 8 51 4 50 4Z" fill="${color}" opacity="${opacity}"/>
       </svg>`;
 }
 
