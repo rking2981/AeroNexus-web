@@ -26,7 +26,7 @@ interface MarkerState {
 
 function buildSvg(hdg: number, category: string, sel: boolean, noTelemetry = false): string {
   const isHeli = category === 'HELICOPTER';
-  const color = sel ? '#ffffff' : noTelemetry ? '#6B7280' : '#00D1FF';
+  const color = sel ? '#FACC15' : noTelemetry ? '#6B7280' : '#00D1FF';
   const opacity = noTelemetry ? 0.5 : sel ? 1 : 0.9;
   const size = sel ? 32 : 24;
   return isHeli
@@ -242,7 +242,7 @@ export default function LiveMapInner({ flights, selected, onSelect, pollInterval
       />
 
       {selected && (
-        <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(0,102,255,0.3)', borderRadius: 16, padding: 16, minWidth: 260 }}>
+        <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(250,204,21,0.4)', borderRadius: 16, padding: 16, minWidth: 260 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
             <div>
               <p style={{ fontFamily: 'monospace', fontWeight: 700, color: '#00D1FF', fontSize: 18, margin: 0 }}>
