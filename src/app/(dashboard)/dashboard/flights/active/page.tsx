@@ -10,6 +10,7 @@ interface ActiveFlight {
   id: string;
   status: string;
   pax_count: number;
+  cargo_kg: number;
   departed_at: string | null;
   taxi_at: string | null;
   takeoff_at: string | null;
@@ -56,12 +57,33 @@ export default function ActiveFlightPage() {
   const [ofpLoading, setOfpLoading] = useState(false);
   const [ofpError, setOfpError] = useState('');
   const [ofpSynced, setOfpSynced] = useState(false);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
 
   useEffect(() => {
     api.get('/flights/active')
       .then(r => setFlight(r.data))
       .finally(() => setLoading(false));
   }, []);
+
+  async function generateFlightPlan() {
+    if (!flight) return;
+    setGeneratingPlan(true); setOfpError('');
+    try {
+      const { data } = await api.post('/integrations/simbrief/dispatch-url', {
+        origin:       flight.route.origin.icao,
+        destination:  flight.route.destination.icao,
+        aircraft_icao: flight.hull.aircraft_type,
+        registration: flight.hull.registration,
+        airline_icao: flight.airline?.icao_code,
+        pax_count:    flight.pax_count,
+        cargo_kg:     flight.cargo_kg > 0 ? flight.cargo_kg : undefined,
+      });
+      window.open(data.url, '_blank', 'noopener,noreferrer');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setOfpError(msg ?? 'Could not generate SimBrief flight plan.');
+    } finally { setGeneratingPlan(false); }
+  }
 
   async function fetchOFP() {
     setOfpLoading(true); setOfpError(''); setOfpSynced(false);
@@ -241,12 +263,16 @@ export default function ActiveFlightPage() {
 
       {/* SimBrief OFP Panel */}
       <div className="glass-card rounded-2xl p-6 mb-6">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">SimBrief OFP</h3>
-            <p className="text-xs text-gray-600 mt-0.5">Operational Flight Plan from SimBrief</p>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">SimBrief</h3>
+            <p className="text-xs text-gray-600 mt-0.5">Flight planning &amp; OFP import</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
+            <button onClick={generateFlightPlan} disabled={generatingPlan}
+              className="text-xs bg-aero text-black font-bold px-3 py-1.5 rounded-lg hover:brightness-110 transition disabled:opacity-50">
+              {generatingPlan ? 'Opening…' : '📋 Generate Flight Plan'}
+            </button>
             <button onClick={fetchOFP} disabled={ofpLoading}
               className="text-xs border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition text-gray-400 hover:text-white disabled:opacity-50">
               {ofpLoading ? 'Loading…' : ofp ? 'Refresh OFP' : 'Load OFP'}
@@ -273,7 +299,10 @@ export default function ActiveFlightPage() {
         )}
 
         {!ofp && !ofpError && (
-          <p className="text-xs text-gray-600">Load your latest SimBrief OFP to see fuel, weights, and route data. Set your SimBrief username in Profile settings first.</p>
+          <p className="text-xs text-gray-600">
+            Click <span className="text-white">Generate Flight Plan</span> to open SimBrief pre-filled with your flight details.
+            Once generated, click <span className="text-white">Load OFP</span> to import the fuel and weight data.
+          </p>
         )}
 
         {ofp && (() => {
