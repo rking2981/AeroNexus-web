@@ -34,8 +34,8 @@ const CARGO_ICONS: Record<string, string> = {
 };
 
 function formatWeight(kg: number): string {
-  if (kg >= 1000) return `${(kg / 1000).toFixed(1)}t`;
-  return `${kg.toLocaleString()} kg`;
+  const lbs = Math.round(kg * 2.20462).toLocaleString();
+  return `${kg.toLocaleString()} kg / ${lbs} lbs`;
 }
 
 function formatValue(v: number): string {

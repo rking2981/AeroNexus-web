@@ -578,7 +578,7 @@ export default function ContractsPage() {
                         <span className="text-gray-500">→</span>
                         <span className="font-mono font-bold text-white">{m.destination_icao}</span>
                         <span className="text-xs text-gray-500">· {m.distance_nm.toLocaleString()} nm</span>
-                        {m.cargo_kg && <span className="text-xs text-amber-400">· {(m.cargo_kg / 1000).toFixed(1)}t cargo</span>}
+                        {m.cargo_kg && <span className="text-xs text-amber-400">· {m.cargo_kg.toLocaleString()} kg / {Math.round(m.cargo_kg * 2.20462).toLocaleString()} lbs cargo</span>}
                       </div>
                       <div className="flex gap-4 text-xs text-gray-500 flex-wrap">
                         {m.mission_type !== 'TRAINING' && <span>💰 ${Number(m.pilot_pay).toLocaleString()}</span>}
@@ -721,7 +721,7 @@ function ContractCard({
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-400 mb-2">
           <span>{c.distance_nm.toLocaleString()} nm</span>
           <span>Posted by <span className="text-white">{c.airline?.icao_code ?? '—'}</span></span>
-          {c.cargo_kg && <span>Cargo: {c.cargo_kg.toLocaleString()} kg</span>}
+          {c.cargo_kg && <span>Cargo: {c.cargo_kg.toLocaleString()} kg / {Math.round(c.cargo_kg * 2.20462).toLocaleString()} lbs</span>}
           {c.notes && <span className="italic text-gray-500 text-xs">"{c.notes}"</span>}
         </div>
         <div className="flex flex-wrap gap-4 text-sm">

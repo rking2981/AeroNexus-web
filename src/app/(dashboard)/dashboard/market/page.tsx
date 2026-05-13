@@ -83,7 +83,7 @@ function formatPrice(n: number) {
 
 function formatWeight(kg: number | null) {
   if (!kg) return '—';
-  return `${(kg / 1000).toFixed(0)}t`;
+  return `${kg.toLocaleString()} kg / ${Math.round(kg * 2.20462).toLocaleString()} lbs`;
 }
 
 // ─── Aircraft detail + purchase modal ──────────────────────────────────────
@@ -212,7 +212,7 @@ function AircraftDetailModal({
                   { label: 'Category', value: type.aircraft_category },
                   { label: 'ICAO Code', value: type.icao_code, mono: true },
                   { label: 'PAX Capacity', value: type.pax_capacity > 0 ? `${type.pax_capacity} seats` : '—' },
-                  { label: 'Cargo Capacity', value: type.cargo_capacity_kg > 0 ? `${type.cargo_capacity_kg.toLocaleString()} kg` : '—' },
+                  { label: 'Cargo Capacity', value: type.cargo_capacity_kg > 0 ? formatWeight(type.cargo_capacity_kg) : '—' },
                   { label: 'Cruise Speed', value: type.cruise_speed_kts ? `${type.cruise_speed_kts} kts` : '—' },
                   { label: 'Max Range', value: type.max_range_nm ? `${type.max_range_nm.toLocaleString()} nm` : '—' },
                   { label: 'MTOW', value: formatWeight(type.max_takeoff_weight) },

@@ -279,7 +279,7 @@ export default function BookFlightPage() {
                 { label: 'Gross Weight', value: `${booked.weight_info.gross_weight_kg.toLocaleString()} kg${booked.weight_info.mtow_kg ? ` / ${booked.weight_info.mtow_kg.toLocaleString()} kg MTOW` : ''}` },
                 { label: 'Est. Fuel Burn', value: `${booked.weight_info.est_fuel_burn_kg.toLocaleString()} kg${booked.weight_info.est_fuel_cost ? ` · ~$${booked.weight_info.est_fuel_cost.toLocaleString()}` : ''}` },
               ] : []),
-              ...(selectedCargo ? [{ label: 'Cargo', value: `${selectedCargo.cargo_type} · ${selectedCargo.weight_kg.toLocaleString()} kg · +$${Number(selectedCargo.total_value).toLocaleString()}` }] : []),
+              ...(selectedCargo ? [{ label: 'Cargo', value: `${selectedCargo.cargo_type} · ${selectedCargo.weight_kg.toLocaleString()} kg / ${Math.round(selectedCargo.weight_kg * 2.20462).toLocaleString()} lbs · +$${Number(selectedCargo.total_value).toLocaleString()}` }] : []),
             ].map((item) => (
               <div key={item.label} className="glass-card rounded-lg p-3">
                 <p className="text-xs text-gray-500">{item.label}</p>
@@ -460,7 +460,7 @@ export default function BookFlightPage() {
                       selectedCargo?.id === c.id
                         ? 'border-green-500/40 bg-green-500/10 text-green-300'
                         : 'border-white/10 hover:border-white/20 hover:bg-white/5 text-gray-300')}>
-                    <span>{c.cargo_type} · {c.weight_kg.toLocaleString()} kg</span>
+                    <span>{c.cargo_type} · {c.weight_kg.toLocaleString()} kg / {Math.round(c.weight_kg * 2.20462).toLocaleString()} lbs</span>
                     <span className={cn('font-bold', selectedCargo?.id === c.id ? 'text-green-400' : 'text-gray-400')}>
                       +${Number(c.total_value).toLocaleString()}
                     </span>
