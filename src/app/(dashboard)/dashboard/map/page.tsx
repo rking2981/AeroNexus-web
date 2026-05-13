@@ -182,6 +182,8 @@ export default function MapPage() {
       const { data } = await publicApi.get('/flights/live');
       setFlights(data);
       setLastUpdate(new Date());
+      // Keep selected in sync with fresh data so position/speed/altitude stay current
+      setSelected(prev => prev ? (data.find((f: LiveFlight) => f.id === prev.id) ?? prev) : null);
     } catch { /* ignore */ }
   }, []);
 

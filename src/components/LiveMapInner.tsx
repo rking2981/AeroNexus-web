@@ -79,6 +79,7 @@ export default function LiveMapInner({ flights, selected, onSelect, pollInterval
   const mapReadyRef = useRef(false);
   const rafRef = useRef<number | null>(null);
   const selectedRef = useRef<LiveFlight | null>(selected);
+  const selectedIdRef = useRef<string | null>(null);
   useEffect(() => { selectedRef.current = selected; }, [selected]);
 
   // ─── Map init ───────────────────────────────────────────────────────────────
@@ -221,11 +222,15 @@ export default function LiveMapInner({ flights, selected, onSelect, pollInterval
       const from: [number, number] = [Number(selected.route.origin.longitude), Number(selected.route.origin.latitude)];
       const to: [number, number] = [Number(selected.route.destination.longitude), Number(selected.route.destination.latitude)];
       src.setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: greatCircleArc(from, to) }, properties: {} });
-      if (selected.current_lat && selected.current_lon) {
+      // Only flyTo when a new flight is selected, not on every position poll update
+      const isNewSelection = selected.id !== selectedIdRef.current;
+      if (isNewSelection && selected.current_lat && selected.current_lon) {
         map.flyTo({ center: [Number(selected.current_lon), Number(selected.current_lat)], zoom: Math.max(map.getZoom(), 5), duration: 900 });
       }
+      selectedIdRef.current = selected.id;
     } else {
       src.setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} });
+      selectedIdRef.current = null;
     }
   }, [selected]);
 
