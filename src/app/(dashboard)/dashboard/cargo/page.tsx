@@ -70,6 +70,7 @@ export default function CargoPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [now, setNow] = useState(Date.now());
+  const [originFilter, setOriginFilter] = useState('');
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -77,16 +78,29 @@ export default function CargoPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    load(originFilter);
   }, []);
 
-  async function load() {
+  async function load(origin?: string) {
     setLoading(true);
     try {
-      const { data } = await api.get('/cargo/board');
+      const params = origin && origin.trim().length >= 3 ? `?origin=${origin.trim().toUpperCase()}` : '';
+      const { data } = await api.get(`/cargo/board${params}`);
       setAvailable(data.available);
       setClaimed(data.claimed);
     } finally { setLoading(false); }
+  }
+
+  function handleOriginChange(value: string) {
+    setOriginFilter(value);
+    if (value === '' || value.trim().length >= 3) {
+      load(value);
+    }
+  }
+
+  function handleOriginClear() {
+    setOriginFilter('');
+    load('');
   }
 
   async function handleClaim(id: string) {
@@ -140,6 +154,34 @@ export default function CargoPage() {
           Cargo revenue is credited automatically when the flight completes.
           Shipments expire every 6 hours and a fresh batch is generated hourly.
         </div>
+      </div>
+
+      {/* Origin filter */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="relative flex-1 max-w-xs">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">✈️</span>
+          <input
+            type="text"
+            value={originFilter}
+            onChange={(e) => handleOriginChange(e.target.value)}
+            placeholder="Filter by origin ICAO (e.g. KJFK)"
+            maxLength={4}
+            className="w-full pl-9 pr-8 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-aero/50 uppercase"
+          />
+          {originFilter && (
+            <button
+              onClick={handleOriginClear}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {originFilter.trim().length >= 3 && (
+          <span className="text-xs text-gray-500">
+            Showing departures from <span className="text-aero font-mono">{originFilter.trim().toUpperCase()}</span>
+          </span>
+        )}
       </div>
 
       {/* Tabs */}
