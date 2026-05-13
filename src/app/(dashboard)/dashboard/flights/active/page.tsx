@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -60,17 +60,31 @@ export default function ActiveFlightPage() {
   const [ofpSynced, setOfpSynced] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
 
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
+    // Initial load
     api.get('/flights/active')
       .then(r => setFlight(r.data))
       .finally(() => setLoading(false));
 
-    // Subscribe to real-time status updates from ACARS desktop app
+    // Instant update from ACARS WebSocket when FSM fires a transition
     const unsubscribe = onFlightStatus((status) => {
       setFlight(prev => prev ? { ...prev, status } : prev);
     });
 
-    return () => unsubscribe();
+    // Fallback poll every 10s — catches cases where ACARS isn't connected
+    // or the page loaded after the last WebSocket status message
+    pollRef.current = setInterval(() => {
+      api.get('/flights/active').then(r => {
+        if (r.data) setFlight(prev => prev ? { ...prev, status: r.data.status } : r.data);
+      }).catch(() => {});
+    }, 10_000);
+
+    return () => {
+      unsubscribe();
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
   async function generateFlightPlan() {
