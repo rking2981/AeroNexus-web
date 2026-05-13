@@ -24,6 +24,21 @@ export function onFlightStatus(handler: FlightStatusHandler): () => void {
   return () => flightStatusHandlers.delete(handler);
 }
 
+export interface AcarsSimData {
+  lat: number; lon: number;
+  alt_ft: number; heading: number;
+  speed_kts: number; ground_speed_kts: number;
+  vs_fpm: number;
+}
+
+type SimDataHandler = (data: AcarsSimData) => void;
+const simDataHandlers = new Set<SimDataHandler>();
+
+export function onSimData(handler: SimDataHandler): () => void {
+  simDataHandlers.add(handler);
+  return () => simDataHandlers.delete(handler);
+}
+
 export interface AcarsCredentials {
   token: string;
   refresh_token?: string;
@@ -48,12 +63,15 @@ function connect(creds: AcarsCredentials) {
 
     ws.onmessage = (evt) => {
       try {
-        const msg = JSON.parse(evt.data) as { type: string; status?: string };
+        const msg = JSON.parse(evt.data) as { type: string; status?: string; data?: unknown };
         if (msg.type === 'connected') {
           if (currentCredentials) sendCredentials(currentCredentials);
         }
         if (msg.type === 'flight_status' && msg.status) {
           flightStatusHandlers.forEach(h => h(msg.status!));
+        }
+        if (msg.type === 'sim_data' && msg.data) {
+          simDataHandlers.forEach(h => h(msg.data as AcarsSimData));
         }
       } catch { /* ignore */ }
     };

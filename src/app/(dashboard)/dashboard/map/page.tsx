@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { publicApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { onSimData } from '@/lib/acars-bridge';
 
 export interface LiveFlight {
   id: string;
@@ -192,6 +193,37 @@ export default function MapPage() {
     intervalRef.current = setInterval(fetchFlights, 10000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [fetchFlights]);
+
+  // Update selected flight's live telemetry and marker position from ACARS WebSocket
+  // This fires every second (sim data rate) so the popup stays current even when selected
+  useEffect(() => {
+    const unsub = onSimData((data) => {
+      setSelected(prev => {
+        if (!prev || prev._no_telemetry) return prev;
+        return {
+          ...prev,
+          current_lat:     String(data.lat),
+          current_lon:     String(data.lon),
+          current_alt_ft:  Math.round(data.alt_ft),
+          current_hdg:     Math.round(data.heading),
+          current_spd_kts: Math.round(data.speed_kts),
+        };
+      });
+      // Also update the matching flight in the flights array so the marker moves
+      setFlights(prev => prev.map(f =>
+        f.current_lat && !f._no_telemetry
+          ? { ...f,
+              current_lat:     String(data.lat),
+              current_lon:     String(data.lon),
+              current_hdg:     Math.round(data.heading),
+              current_spd_kts: Math.round(data.speed_kts),
+              current_alt_ft:  Math.round(data.alt_ft),
+            }
+          : f,
+      ));
+    });
+    return () => unsub();
+  }, []);
 
   // Flights with live ACARS position, plus flights without one using origin airport as fallback
   const positioned = flights.map((f) => {
