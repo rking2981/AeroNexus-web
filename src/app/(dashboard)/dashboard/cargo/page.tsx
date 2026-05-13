@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -57,41 +57,67 @@ function timeLeft(expiresAt: string, now: number): string {
 function timerColor(expiresAt: string, now: number): string {
   const ms = new Date(expiresAt).getTime() - now;
   if (ms <= 0) return 'text-red-500';
-  if (ms < 300_000) return 'text-red-400';   // < 5 min
-  if (ms < 900_000) return 'text-amber-400'; // < 15 min
+  if (ms < 300_000) return 'text-red-400';
+  if (ms < 900_000) return 'text-amber-400';
   return 'text-gray-400';
 }
 
 export default function CargoPage() {
   const [available, setAvailable] = useState<CargoShipment[]>([]);
   const [claimed, setClaimed] = useState<CargoShipment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [claimedLoading, setClaimedLoading] = useState(true);
   const [tab, setTab] = useState<'available' | 'claimed'>('available');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [now, setNow] = useState(Date.now());
-  const [originFilter, setOriginFilter] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchedIcao, setSearchedIcao] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
 
+  // Load claimed shipments on mount
   useEffect(() => {
-    load();
+    loadClaimed();
   }, []);
 
-  async function load() {
-    setLoading(true);
+  async function loadClaimed() {
+    setClaimedLoading(true);
     try {
       const { data } = await api.get('/cargo/board');
+      setClaimed(data.claimed);
+    } finally { setClaimedLoading(false); }
+  }
+
+  async function search(icao: string) {
+    const code = icao.trim().toUpperCase();
+    if (code.length < 3) return;
+    setLoading(true);
+    setError('');
+    setSearchedIcao(code);
+    try {
+      const { data } = await api.get(`/cargo/board?origin=${code}`);
       setAvailable(data.available);
       setClaimed(data.claimed);
+      setTab('available');
+    } catch {
+      setError('Failed to load cargo');
     } finally { setLoading(false); }
   }
 
-  function handleOriginClear() {
-    setOriginFilter('');
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') search(searchInput);
+  }
+
+  function handleClear() {
+    setSearchInput('');
+    setSearchedIcao('');
+    setAvailable([]);
+    inputRef.current?.focus();
   }
 
   async function handleClaim(id: string) {
@@ -120,14 +146,12 @@ export default function CargoPage() {
     } finally { setActionLoading(null); }
   }
 
-  if (loading) return <div className="p-8"><div className="glass-card rounded-2xl h-64 animate-pulse" /></div>;
-
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-1">Cargo Board</h1>
         <p className="text-gray-400 text-sm">
-          Claim cargo shipments and carry them on your flights for additional revenue.
+          Search for available cargo shipments by departure airport.
         </p>
       </div>
 
@@ -137,48 +161,40 @@ export default function CargoPage() {
         </div>
       )}
 
-      {/* Info banner */}
-      <div className="glass-card rounded-2xl p-4 mb-6 border border-aero/10 bg-aero/5 flex gap-3 text-sm text-gray-300">
-        <span className="text-aero text-base flex-shrink-0">ℹ️</span>
-        <div>
-          Claim a shipment, then select it when booking a flight with a matching route.
-          Cargo revenue is credited automatically when the flight completes.
-          Shipments expire every 6 hours and a fresh batch is generated hourly.
+      {/* Search bar */}
+      <div className="glass-card rounded-2xl p-5 mb-6">
+        <label className="text-xs text-gray-400 block mb-2 font-medium uppercase tracking-wide">Search by Departure Airport</label>
+        <div className="flex gap-3">
+          <div className="relative flex-1 max-w-xs">
+            <input
+              ref={inputRef}
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value.toUpperCase())}
+              onKeyDown={handleKeyDown}
+              placeholder="ICAO code (e.g. KJFK)"
+              maxLength={4}
+              className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-aero/50 font-mono uppercase"
+            />
+            {searchInput && (
+              <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs">✕</button>
+            )}
+          </div>
+          <button
+            onClick={() => search(searchInput)}
+            disabled={searchInput.trim().length < 3 || loading}
+            className="px-5 py-2.5 bg-aero text-black font-bold rounded-xl text-sm hover:brightness-110 transition disabled:opacity-40"
+          >
+            {loading ? 'Searching…' : 'Search'}
+          </button>
         </div>
-      </div>
-
-      {/* Origin filter */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="relative flex-1 max-w-xs">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">✈️</span>
-          <input
-            type="text"
-            value={originFilter}
-            onChange={(e) => setOriginFilter(e.target.value)}
-            placeholder="Filter by origin ICAO (e.g. KJFK)"
-            maxLength={4}
-            className="w-full pl-9 pr-8 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-aero/50 uppercase"
-          />
-          {originFilter && (
-            <button
-              onClick={handleOriginClear}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-        {originFilter.trim().length >= 3 && (
-          <span className="text-xs text-gray-500">
-            Showing departures from <span className="text-aero font-mono">{originFilter.trim().toUpperCase()}</span>
-          </span>
-        )}
+        <p className="text-xs text-gray-600 mt-2">Enter a 3–4 character ICAO code and press Enter or Search</p>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
         {([
-          { key: 'available', label: `Available (${available.filter(s => !originFilter.trim() || s.origin_icao.startsWith(originFilter.trim().toUpperCase())).length})` },
+          { key: 'available', label: `Available${searchedIcao ? ` at ${searchedIcao} (${available.length})` : ''}` },
           { key: 'claimed',   label: `My Shipments (${claimed.length})` },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -190,22 +206,24 @@ export default function CargoPage() {
       </div>
 
       {/* Available shipments */}
-      {tab === 'available' && (() => {
-        const filtered = originFilter.trim()
-          ? available.filter(s => s.origin_icao.startsWith(originFilter.trim().toUpperCase()))
-          : available;
-        return filtered.length === 0 ? (
+      {tab === 'available' && (
+        !searchedIcao ? (
+          <div className="glass-card rounded-2xl p-16 text-center">
+            <p className="text-5xl mb-4">🔍</p>
+            <p className="text-white font-semibold mb-1">Search for cargo</p>
+            <p className="text-gray-400 text-sm">Enter a departure airport ICAO code above to see available shipments.</p>
+          </div>
+        ) : loading ? (
+          <div className="glass-card rounded-2xl h-48 animate-pulse" />
+        ) : available.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
             <p className="text-4xl mb-3">📦</p>
-            <p className="text-gray-400 text-sm">
-              {originFilter.trim() ? `No cargo departing from ${originFilter.trim().toUpperCase()}.` : 'No cargo available right now. Check back soon — shipments refresh every 15 minutes.'}
-            </p>
+            <p className="text-gray-400 text-sm">No cargo available departing from <span className="font-mono text-white">{searchedIcao}</span>. Try another airport or check back later.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filtered.map(s => (
+            {available.map(s => (
               <div key={s.id} className="glass-card rounded-2xl p-5 flex flex-col gap-3 border border-transparent hover:border-white/10 transition">
-                {/* Header */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{CARGO_ICONS[s.cargo_type] ?? '📦'}</span>
@@ -225,7 +243,6 @@ export default function CargoPage() {
                   </div>
                 </div>
 
-                {/* Stats */}
                 <div className="flex gap-4 text-xs text-gray-400">
                   <span>⚖️ {formatWeight(s.weight_kg)}</span>
                   <span className={cn('font-mono text-xs', timerColor(s.expires_at, now))}>⏳ {timeLeft(s.expires_at, now)}</span>
@@ -241,15 +258,17 @@ export default function CargoPage() {
               </div>
             ))}
           </div>
-        );
-      })()}
+        )
+      )}
 
       {/* Claimed shipments */}
       {tab === 'claimed' && (
-        claimed.length === 0 ? (
+        claimedLoading ? (
+          <div className="glass-card rounded-2xl h-48 animate-pulse" />
+        ) : claimed.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
             <p className="text-4xl mb-3">📋</p>
-            <p className="text-gray-400 text-sm">No shipments claimed yet. Browse the available board to pick some up.</p>
+            <p className="text-gray-400 text-sm">No shipments claimed yet. Search for cargo above to pick some up.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
