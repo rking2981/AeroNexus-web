@@ -182,7 +182,7 @@ export default async function HomePage() {
             </Link>
             {/* Secondary CTA — ghost */}
             <a
-              href="https://pub-0c30dc19c1234fbc95ad95a8b4d19af7.r2.dev/AeroNexus%20ACARS%20Setup%200.1.0.exe"
+              href="https://pub-0c30dc19c1234fbc95ad95a8b4d19af7.r2.dev/AeroNexus%20ACARS%20Setup%201.1.0.exe"
               target="_blank" rel="noopener noreferrer"
               className="border border-white/20 text-white/60 px-8 py-4 rounded-lg font-medium text-base hover:border-white/40 hover:text-white/80 transition"
             >
