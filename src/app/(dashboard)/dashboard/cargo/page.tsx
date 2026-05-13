@@ -64,9 +64,11 @@ function timerColor(expiresAt: string, now: number): string {
 
 interface ActiveFlight {
   id: string;
-  origin_icao: string;
-  destination_icao: string;
   status: string;
+  route: {
+    origin: { icao: string };
+    destination: { icao: string };
+  } | null;
 }
 
 export default function CargoPage() {
@@ -200,13 +202,13 @@ export default function CargoPage() {
           </button>
         </div>
         <p className="text-xs text-gray-600 mt-2">Enter a 3–4 character ICAO code and press Enter or Search</p>
-        {activeFlight && (
+        {activeFlight?.route && (
           <button
-            onClick={() => { setSearchInput(activeFlight.origin_icao); search(activeFlight.origin_icao); }}
+            onClick={() => { setSearchInput(activeFlight.route!.origin.icao); search(activeFlight.route!.origin.icao); }}
             className="mt-3 flex items-center gap-2 text-xs text-aero border border-aero/20 bg-aero/5 hover:bg-aero/10 px-3 py-1.5 rounded-lg transition w-fit"
           >
             ✈️ Find cargo for my booked flight
-            <span className="font-mono text-white">{activeFlight.origin_icao} → {activeFlight.destination_icao}</span>
+            <span className="font-mono text-white">{activeFlight.route.origin.icao} → {activeFlight.route.destination.icao}</span>
           </button>
         )}
       </div>
