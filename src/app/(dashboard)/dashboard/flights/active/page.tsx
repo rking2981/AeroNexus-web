@@ -330,30 +330,37 @@ export default function ActiveFlightPage() {
       )}
 
       {/* Actions */}
-      <div className="flex gap-3">
-        {flight.status === 'BOARDING' && (
-          <button onClick={handleDispatch} disabled={dispatching}
-            className="flex-1 bg-aero text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
-            {dispatching ? 'Dispatching…' : 'Dispatch Flight 🛫'}
-          </button>
-        )}
-        {(flight.status === 'BOARDING' || flight.status === 'TAXI') && (
-          <button onClick={handleCancel} disabled={cancelling}
-            className="px-6 border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold py-3 rounded-xl transition text-sm disabled:opacity-50">
-            {cancelling ? 'Cancelling…' : 'Cancel Flight'}
-          </button>
-        )}
-        {flight.status === 'LANDED' && (
-          <button onClick={handleComplete} disabled={dispatching}
-            className="flex-1 bg-green-500 text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
-            {dispatching ? 'Completing…' : 'Complete Flight ✓'}
-          </button>
-        )}
-        {flight.status !== 'BOARDING' && flight.status !== 'TAXI' && flight.status !== 'LANDED' && (
-          <div className="glass-card rounded-xl p-4 text-sm text-gray-400 flex-1">
-            Flight is in progress via ACARS. Status updates automatically.
+      <div className="flex flex-col gap-3">
+
+        {/* ACARS status banner — shown once flight is underway */}
+        {flight.status !== 'BOARDING' && (
+          <div className="glass-card rounded-xl p-4 flex items-center gap-3 border border-aero/20">
+            <span className="text-aero text-lg">🖥️</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-aero">ACARS is controlling this flight</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Flight status, phase detection, and completion are handled automatically by the ACARS desktop client.
+                Open ACARS to monitor your flight.
+              </p>
+            </div>
           </div>
         )}
+
+        {/* Dispatch — only shown at BOARDING, starts the flight clock */}
+        {flight.status === 'BOARDING' && (
+          <div className="flex gap-3">
+            <button onClick={handleDispatch} disabled={dispatching}
+              className="flex-1 bg-aero text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
+              {dispatching ? 'Dispatching…' : '🛫 Ready to Taxi — Start Flight'}
+            </button>
+          </div>
+        )}
+
+        {/* Cancel — always available regardless of status */}
+        <button onClick={handleCancel} disabled={cancelling}
+          className="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-50">
+          {cancelling ? 'Cancelling…' : 'Cancel Flight'}
+        </button>
       </div>
     </div>
   );
