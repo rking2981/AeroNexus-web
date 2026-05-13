@@ -80,10 +80,12 @@ export default function CargoPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [now, setNow] = useState(Date.now());
-  const [searchInput, setSearchInput] = useState('');
-  const [searchedIcao, setSearchedIcao] = useState('');
+  const [originInput, setOriginInput] = useState('');
+  const [destInput, setDestInput] = useState('');
+  const [searchedOrigin, setSearchedOrigin] = useState('');
+  const [searchedDest, setSearchedDest] = useState('');
   const [activeFlight, setActiveFlight] = useState<ActiveFlight | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const originRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -106,14 +108,18 @@ export default function CargoPage() {
     } finally { setClaimedLoading(false); }
   }
 
-  async function search(icao: string) {
-    const code = icao.trim().toUpperCase();
-    if (code.length < 3) return;
+  async function search(origin: string, dest?: string) {
+    const originCode = origin.trim().toUpperCase();
+    if (originCode.length < 3) return;
+    const destCode = dest?.trim().toUpperCase() ?? '';
     setLoading(true);
     setError('');
-    setSearchedIcao(code);
+    setSearchedOrigin(originCode);
+    setSearchedDest(destCode);
     try {
-      const { data } = await api.get(`/cargo/board?origin=${code}`);
+      const params = new URLSearchParams({ origin: originCode });
+      if (destCode.length >= 3) params.set('dest', destCode);
+      const { data } = await api.get(`/cargo/board?${params}`);
       setAvailable(data.available);
       setClaimed(data.claimed);
       setTab('available');
@@ -123,14 +129,16 @@ export default function CargoPage() {
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') search(searchInput);
+    if (e.key === 'Enter') search(originInput, destInput);
   }
 
   function handleClear() {
-    setSearchInput('');
-    setSearchedIcao('');
+    setOriginInput('');
+    setDestInput('');
+    setSearchedOrigin('');
+    setSearchedDest('');
     setAvailable([]);
-    inputRef.current?.focus();
+    originRef.current?.focus();
   }
 
   async function handleClaim(id: string) {
@@ -176,35 +184,55 @@ export default function CargoPage() {
 
       {/* Search bar */}
       <div className="glass-card rounded-2xl p-5 mb-6">
-        <label className="text-xs text-gray-400 block mb-2 font-medium uppercase tracking-wide">Search by Departure Airport</label>
-        <div className="flex gap-3">
-          <div className="relative flex-1 max-w-xs">
+        <label className="text-xs text-gray-400 block mb-2 font-medium uppercase tracking-wide">Search Cargo</label>
+        <div className="flex gap-2 items-center flex-wrap">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">FROM</span>
             <input
-              ref={inputRef}
+              ref={originRef}
               type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value.toUpperCase())}
+              value={originInput}
+              onChange={(e) => setOriginInput(e.target.value.toUpperCase())}
               onKeyDown={handleKeyDown}
-              placeholder="ICAO code (e.g. KJFK)"
+              placeholder="KJFK"
               maxLength={4}
-              className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-aero/50 font-mono uppercase"
+              className="pl-14 pr-4 py-2.5 w-36 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-aero/50 font-mono"
             />
-            {searchInput && (
-              <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs">✕</button>
-            )}
+          </div>
+          <span className="text-gray-600">→</span>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">TO</span>
+            <input
+              type="text"
+              value={destInput}
+              onChange={(e) => setDestInput(e.target.value.toUpperCase())}
+              onKeyDown={handleKeyDown}
+              placeholder="EGLL"
+              maxLength={4}
+              className="pl-10 pr-4 py-2.5 w-36 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-aero/50 font-mono"
+            />
           </div>
           <button
-            onClick={() => search(searchInput)}
-            disabled={searchInput.trim().length < 3 || loading}
+            onClick={() => search(originInput, destInput)}
+            disabled={originInput.trim().length < 3 || loading}
             className="px-5 py-2.5 bg-aero text-black font-bold rounded-xl text-sm hover:brightness-110 transition disabled:opacity-40"
           >
             {loading ? 'Searching…' : 'Search'}
           </button>
+          {(originInput || destInput) && (
+            <button onClick={handleClear} className="text-xs text-gray-500 hover:text-white transition">Clear</button>
+          )}
         </div>
-        <p className="text-xs text-gray-600 mt-2">Enter a 3–4 character ICAO code and press Enter or Search</p>
+        <p className="text-xs text-gray-600 mt-2">Origin is required · Destination is optional</p>
         {activeFlight?.route && (
           <button
-            onClick={() => { setSearchInput(activeFlight.route!.origin.icao); search(activeFlight.route!.origin.icao); }}
+            onClick={() => {
+              const o = activeFlight.route!.origin.icao;
+              const d = activeFlight.route!.destination.icao;
+              setOriginInput(o);
+              setDestInput(d);
+              search(o, d);
+            }}
             className="mt-3 flex items-center gap-2 text-xs text-aero border border-aero/20 bg-aero/5 hover:bg-aero/10 px-3 py-1.5 rounded-lg transition w-fit"
           >
             ✈️ Find cargo for my booked flight
@@ -216,7 +244,7 @@ export default function CargoPage() {
       {/* Tabs */}
       <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
         {([
-          { key: 'available', label: `Available${searchedIcao ? ` at ${searchedIcao} (${available.length})` : ''}` },
+          { key: 'available', label: `Available${searchedOrigin ? ` (${available.length})` : ''}` },
           { key: 'claimed',   label: `My Shipments (${claimed.length})` },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -229,7 +257,7 @@ export default function CargoPage() {
 
       {/* Available shipments */}
       {tab === 'available' && (
-        !searchedIcao ? (
+        !searchedOrigin ? (
           <div className="glass-card rounded-2xl p-16 text-center">
             <p className="text-5xl mb-4">🔍</p>
             <p className="text-white font-semibold mb-1">Search for cargo</p>
@@ -240,7 +268,11 @@ export default function CargoPage() {
         ) : available.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
             <p className="text-4xl mb-3">📦</p>
-            <p className="text-gray-400 text-sm">No cargo available departing from <span className="font-mono text-white">{searchedIcao}</span>. Try another airport or check back later.</p>
+            <p className="text-gray-400 text-sm">
+              No cargo found for <span className="font-mono text-white">{searchedOrigin}</span>
+              {searchedDest && <> → <span className="font-mono text-white">{searchedDest}</span></>}.
+              {searchedDest ? ' Try removing the destination filter or check back later.' : ' Try another airport or check back later.'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
