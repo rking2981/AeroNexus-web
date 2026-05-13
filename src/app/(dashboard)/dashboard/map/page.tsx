@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
@@ -58,7 +58,7 @@ const LiveMapInner = dynamic(() => import('@/components/LiveMapInner'), {
 
 // ─── Flip tile — single character cell ───────────────────────────────────────
 
-function FlipTile({ char, dim = false }: { char: string; dim?: boolean }) {
+function FlipTile({ char, dim = false, color }: { char: string; dim?: boolean; color?: string }) {
   return (
     <span style={{
       display: 'inline-flex',
@@ -66,8 +66,8 @@ function FlipTile({ char, dim = false }: { char: string; dim?: boolean }) {
       justifyContent: 'center',
       width: 22,
       height: 30,
-      background: dim ? '#1a1a1a' : '#111',
-      color: dim ? '#444' : '#fff',
+      background: dim ? '#1a1a1a' : '#181818',
+      color: dim ? '#555' : color ?? '#D1D5DB',
       fontFamily: "Impact, 'Arial Narrow', 'Arial Black', sans-serif",
       fontWeight: 700,
       fontSize: 17,
@@ -98,7 +98,7 @@ function FlipWord({ value, width, color }: { value: string; width: number; color
   return (
     <div style={{ display: 'flex', alignItems: 'center' }}>
       {chars.map((c, i) => (
-        <FlipTile key={i} char={c === ' ' ? ' ' : c} dim={c === ' '} />
+        <FlipTile key={i} char={c === ' ' ? ' ' : c} dim={c === ' '} color={c !== ' ' ? color : undefined} />
       ))}
     </div>
   );
