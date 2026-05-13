@@ -16,6 +16,14 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let currentCredentials: AcarsCredentials | null = null;
 let isStarted = false;
 
+type FlightStatusHandler = (status: string) => void;
+const flightStatusHandlers = new Set<FlightStatusHandler>();
+
+export function onFlightStatus(handler: FlightStatusHandler): () => void {
+  flightStatusHandlers.add(handler);
+  return () => flightStatusHandlers.delete(handler);
+}
+
 export interface AcarsCredentials {
   token: string;
   refresh_token?: string;
@@ -40,10 +48,12 @@ function connect(creds: AcarsCredentials) {
 
     ws.onmessage = (evt) => {
       try {
-        const msg = JSON.parse(evt.data) as { type: string };
+        const msg = JSON.parse(evt.data) as { type: string; status?: string };
         if (msg.type === 'connected') {
-          // ACARS confirmed connection — send credentials immediately
           if (currentCredentials) sendCredentials(currentCredentials);
+        }
+        if (msg.type === 'flight_status' && msg.status) {
+          flightStatusHandlers.forEach(h => h(msg.status!));
         }
       } catch { /* ignore */ }
     };
