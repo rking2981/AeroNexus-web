@@ -78,29 +78,20 @@ export default function CargoPage() {
   }, []);
 
   useEffect(() => {
-    load(originFilter);
+    load();
   }, []);
 
-  async function load(origin?: string) {
+  async function load() {
     setLoading(true);
     try {
-      const params = origin && origin.trim().length >= 3 ? `?origin=${origin.trim().toUpperCase()}` : '';
-      const { data } = await api.get(`/cargo/board${params}`);
+      const { data } = await api.get('/cargo/board');
       setAvailable(data.available);
       setClaimed(data.claimed);
     } finally { setLoading(false); }
   }
 
-  function handleOriginChange(value: string) {
-    setOriginFilter(value);
-    if (value === '' || value.trim().length >= 3) {
-      load(value);
-    }
-  }
-
   function handleOriginClear() {
     setOriginFilter('');
-    load('');
   }
 
   async function handleClaim(id: string) {
@@ -163,7 +154,7 @@ export default function CargoPage() {
           <input
             type="text"
             value={originFilter}
-            onChange={(e) => handleOriginChange(e.target.value)}
+            onChange={(e) => setOriginFilter(e.target.value)}
             placeholder="Filter by origin ICAO (e.g. KJFK)"
             maxLength={4}
             className="w-full pl-9 pr-8 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-aero/50 uppercase"
@@ -187,7 +178,7 @@ export default function CargoPage() {
       {/* Tabs */}
       <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
         {([
-          { key: 'available', label: `Available (${available.length})` },
+          { key: 'available', label: `Available (${available.filter(s => !originFilter.trim() || s.origin_icao.startsWith(originFilter.trim().toUpperCase())).length})` },
           { key: 'claimed',   label: `My Shipments (${claimed.length})` },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -199,15 +190,20 @@ export default function CargoPage() {
       </div>
 
       {/* Available shipments */}
-      {tab === 'available' && (
-        available.length === 0 ? (
+      {tab === 'available' && (() => {
+        const filtered = originFilter.trim()
+          ? available.filter(s => s.origin_icao.startsWith(originFilter.trim().toUpperCase()))
+          : available;
+        return filtered.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
             <p className="text-4xl mb-3">📦</p>
-            <p className="text-gray-400 text-sm">No cargo available right now. Check back soon — shipments refresh hourly.</p>
+            <p className="text-gray-400 text-sm">
+              {originFilter.trim() ? `No cargo departing from ${originFilter.trim().toUpperCase()}.` : 'No cargo available right now. Check back soon — shipments refresh every 15 minutes.'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {available.map(s => (
+            {filtered.map(s => (
               <div key={s.id} className="glass-card rounded-2xl p-5 flex flex-col gap-3 border border-transparent hover:border-white/10 transition">
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3">
@@ -245,8 +241,8 @@ export default function CargoPage() {
               </div>
             ))}
           </div>
-        )
-      )}
+        );
+      })()}
 
       {/* Claimed shipments */}
       {tab === 'claimed' && (
