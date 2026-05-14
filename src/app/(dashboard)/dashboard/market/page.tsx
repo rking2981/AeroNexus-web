@@ -102,6 +102,7 @@ function AircraftDetailModal({
   spendable: number | null;
 }) {
   const [mode, setMode] = useState<ModalState>('detail');
+  const [paymentMode, setPaymentMode] = useState<'BUY' | 'LEASE'>('BUY');
   const [reg, setReg] = useState('');
   const [buyLoading, setBuyLoading] = useState(false);
   const [buyError, setBuyError] = useState('');
@@ -134,14 +135,16 @@ function AircraftDetailModal({
       const { data } = await api.post('/market/buy/new', {
         aircraft_type_id: type.id,
         registration: reg.toUpperCase(),
-        payment_type: 'BUY',
+        payment_type: paymentMode,
       });
       setPurchaseResult(data);
       setMode('post_purchase');
-      showToast(`${type.manufacturer} ${type.name} purchased!`);
+      showToast(paymentMode === 'LEASE'
+        ? `${type.manufacturer} ${type.name} leased from AeroNexus!`
+        : `${type.manufacturer} ${type.name} purchased!`);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setBuyError(msg ?? 'Purchase failed');
+      setBuyError(msg ?? (paymentMode === 'LEASE' ? 'Lease failed' : 'Purchase failed'));
     } finally { setBuyLoading(false); }
   }
 
@@ -242,10 +245,29 @@ function AircraftDetailModal({
               )}
 
               {isManager && type.base_price && (() => {
-                const canAfford = spendable === null || spendable >= type.base_price!;
+                const weeklyFee = Math.round(type.base_price! * 0.001);
+                const canAffordBuy = spendable === null || spendable >= type.base_price!;
+                const canAffordLease = true; // no upfront cost
+                const canAfford = paymentMode === 'BUY' ? canAffordBuy : canAffordLease;
                 return (
-                <div className="flex flex-col gap-2">
-                  {!canAfford && (
+                <div className="flex flex-col gap-3">
+                  {/* Buy / Lease toggle */}
+                  <div className="flex gap-1 glass-card rounded-xl p-1">
+                    {(['BUY', 'LEASE'] as const).map(m => (
+                      <button key={m} onClick={() => setPaymentMode(m)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${paymentMode === m ? 'bg-aero text-black' : 'text-gray-400 hover:text-white'}`}>
+                        {m === 'BUY' ? `Buy ${formatPrice(type.base_price!)}` : `Lease ${formatPrice(weeklyFee)}/wk`}
+                      </button>
+                    ))}
+                  </div>
+                  {paymentMode === 'LEASE' && (
+                    <div className="rounded-xl border border-aero/20 bg-aero/5 px-4 py-3 text-xs text-gray-300">
+                      <p className="font-bold text-aero mb-1">Platform Lease — AeroNexus</p>
+                      <p>No upfront cost. Weekly fee of <span className="text-white font-mono">{formatPrice(weeklyFee)}</span> charged automatically.</p>
+                      <p className="text-gray-500 mt-1">Return the aircraft at any time to end the lease.</p>
+                    </div>
+                  )}
+                  {paymentMode === 'BUY' && !canAffordBuy && (
                     <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-2.5 flex items-center justify-between text-sm">
                       <span className="text-red-400">Insufficient funds</span>
                       <span className="text-gray-500 text-xs font-mono">
@@ -259,8 +281,7 @@ function AircraftDetailModal({
                     value={reg}
                     onChange={e => setReg(e.target.value.toUpperCase())}
                     maxLength={12}
-                    disabled={!canAfford}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-aero focus:outline-none transition disabled:opacity-40"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-aero focus:outline-none transition"
                   />
                   {buyError && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{buyError}</p>}
                   <button
@@ -268,7 +289,7 @@ function AircraftDetailModal({
                     disabled={!reg.trim() || !canAfford}
                     className="w-full bg-aero text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Purchase {formatPrice(type.base_price)}
+                    {paymentMode === 'BUY' ? `Purchase ${formatPrice(type.base_price!)}` : `Lease — ${formatPrice(weeklyFee)}/week`}
                   </button>
                 </div>
                 );
@@ -276,36 +297,52 @@ function AircraftDetailModal({
             </>
           )}
 
-          {/* ── Confirm purchase ── */}
+          {/* ── Confirm purchase / lease ── */}
           {mode === 'purchasing' && (
             <div className="flex flex-col gap-4">
               <div className="glass-card rounded-xl p-4 flex flex-col gap-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Aircraft price</span>
-                  <span className="font-mono font-bold">{formatPrice(type.base_price ?? 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Registration</span>
-                  <span className="font-mono text-aero">{reg.toUpperCase()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Delivery</span>
-                  <span className="text-gray-500 text-xs">Chosen after purchase</span>
-                </div>
-                <div className="flex justify-between border-t border-white/10 pt-2 font-bold">
-                  <span>Charged now</span>
-                  <span className="text-aero">{formatPrice(type.base_price ?? 0)}</span>
-                </div>
+                {paymentMode === 'BUY' ? <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Aircraft price</span>
+                    <span className="font-mono font-bold">{formatPrice(type.base_price ?? 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Registration</span>
+                    <span className="font-mono text-aero">{reg.toUpperCase()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Delivery</span>
+                    <span className="text-gray-500 text-xs">Chosen after purchase</span>
+                  </div>
+                  <div className="flex justify-between border-t border-white/10 pt-2 font-bold">
+                    <span>Charged now</span>
+                    <span className="text-aero">{formatPrice(type.base_price ?? 0)}</span>
+                  </div>
+                </> : <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Leased from</span>
+                    <span className="font-bold text-aero">AeroNexus</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Registration</span>
+                    <span className="font-mono text-aero">{reg.toUpperCase()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Weekly fee</span>
+                    <span className="font-mono font-bold">{formatPrice(Math.round((type.base_price ?? 0) * 0.001))}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-white/10 pt-2 font-bold">
+                    <span>Charged now</span>
+                    <span className="text-green-400">$0 upfront</span>
+                  </div>
+                </>}
               </div>
-              <p className="text-xs text-gray-500 text-center">
-                Aircraft will appear in your fleet at <span className="font-mono text-aero">{type.manufacturer_icao ?? 'factory'}</span>. Choose delivery or fly it yourself after purchase.
-              </p>
               {buyError && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{buyError}</p>}
               <div className="flex gap-3">
                 <button onClick={() => setMode('detail')} className="flex-1 border border-white/10 text-gray-400 hover:text-white py-2.5 rounded-xl text-sm transition">Back</button>
                 <button onClick={handlePurchase} disabled={buyLoading}
                   className="flex-1 bg-aero text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
-                  {buyLoading ? 'Purchasing…' : 'Confirm Purchase'}
+                  {buyLoading ? (paymentMode === 'LEASE' ? 'Leasing…' : 'Purchasing…') : (paymentMode === 'LEASE' ? 'Confirm Lease' : 'Confirm Purchase')}
                 </button>
               </div>
             </div>

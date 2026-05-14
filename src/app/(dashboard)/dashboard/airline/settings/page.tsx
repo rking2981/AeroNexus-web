@@ -362,6 +362,8 @@ interface Airline {
   subscription_tier: string;
   subscription_status: string;
   website_slug: string | null;
+  multiplier_mode: string;
+  flight_multiplier: number;
   branding: {
     primary_color?: string;
     secondary_color?: string;
@@ -474,6 +476,10 @@ export default function AirlineSettingsPage() {
   const [slugSaving, setSlugSaving] = useState(false);
   const [slugSaved, setSlugSaved] = useState(false);
   const [slugError, setSlugError] = useState('');
+  const [multiplierMode, setMultiplierMode] = useState<'DYNAMIC' | 'FIXED'>('DYNAMIC');
+  const [multiplierValue, setMultiplierValue] = useState(100);
+  const [multiplierSaving, setMultiplierSaving] = useState(false);
+  const [multiplierSaved, setMultiplierSaved] = useState(false);
 
   const isEnterprise = airline?.subscription_tier === 'ENTERPRISE' || airline?.subscription_tier === 'FOUNDERS';
 
@@ -496,6 +502,8 @@ export default function AirlineSettingsPage() {
         banner_url: a.branding?.banner_url ?? '',
       });
       setSlug(a.website_slug ?? '');
+      setMultiplierMode((a.multiplier_mode as 'DYNAMIC' | 'FIXED') ?? 'DYNAMIC');
+      setMultiplierValue(a.flight_multiplier ?? 100);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -531,6 +539,21 @@ export default function AirlineSettingsPage() {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setBrandingError(msg ?? 'Failed to save branding');
     } finally { setBrandingSaving(false); }
+  }
+
+  async function saveMultiplier() {
+    setMultiplierSaving(true);
+    try {
+      await api.patch('/airline/multiplier', {
+        mode: multiplierMode,
+        multiplier: multiplierMode === 'FIXED' ? multiplierValue : undefined,
+      });
+      setMultiplierSaved(true);
+      setTimeout(() => setMultiplierSaved(false), 3000);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      console.error(msg);
+    } finally { setMultiplierSaving(false); }
   }
 
   async function saveSlug() {
@@ -776,6 +799,71 @@ export default function AirlineSettingsPage() {
 
       {/* Expenses tab */}
       {tab === 'expenses' && (
+        <div className="flex flex-col gap-6">
+
+        {/* Flight Multiplier */}
+        <div className="glass-card rounded-2xl p-6">
+          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Flight Revenue Multiplier</h2>
+          <p className="text-xs text-gray-500 mb-5">
+            Applied to flight revenue after pilot cut. Allows your airline to grow while keeping pilot earnings realistic.
+            Maximum multiplier decreases as your total airline value grows.
+          </p>
+
+          {/* Dynamic caps reference */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-5">
+            {[
+              { cap: '100×', label: 'Under $3.5B', color: 'text-green-400' },
+              { cap: '75×',  label: 'Under $4.0B', color: 'text-aero' },
+              { cap: '50×',  label: 'Under $4.5B', color: 'text-amber-400' },
+              { cap: '35×',  label: 'Under $5.0B', color: 'text-orange-400' },
+              { cap: '25×',  label: 'Over $5.0B',  color: 'text-red-400' },
+            ].map(b => (
+              <div key={b.cap} className="glass-card rounded-xl p-3 text-center border border-white/5">
+                <p className={`text-lg font-bold ${b.color}`}>{b.cap}</p>
+                <p className="text-[10px] text-gray-500">{b.label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {/* Mode toggle */}
+            <div className="flex gap-1 glass-card rounded-xl p-1 w-fit">
+              {(['DYNAMIC', 'FIXED'] as const).map(m => (
+                <button key={m} onClick={() => setMultiplierMode(m)}
+                  className={`px-5 py-2 rounded-lg text-sm font-medium transition ${multiplierMode === m ? 'bg-aero text-black' : 'text-gray-400 hover:text-white'}`}>
+                  {m === 'DYNAMIC' ? '⚡ Dynamic (recommended)' : '🔒 Fixed'}
+                </button>
+              ))}
+            </div>
+
+            {multiplierMode === 'DYNAMIC' && (
+              <p className="text-xs text-gray-500">Always uses the highest multiplier your airline's current value allows.</p>
+            )}
+
+            {multiplierMode === 'FIXED' && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-gray-500">Choose a fixed multiplier for a more simulation-focused experience. Cannot exceed your dynamic cap.</p>
+                <div className="flex gap-2 flex-wrap">
+                  {[25, 35, 50, 75, 100].map(v => (
+                    <button key={v} onClick={() => setMultiplierValue(v)}
+                      className={`px-4 py-2 rounded-xl text-sm font-bold border transition ${multiplierValue === v ? 'bg-aero text-black border-aero' : 'border-white/10 text-gray-400 hover:text-white hover:border-white/30'}`}>
+                      {v}×
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button onClick={saveMultiplier} disabled={multiplierSaving}
+                className="px-5 py-2 bg-aero text-black font-bold rounded-xl text-sm hover:brightness-110 transition disabled:opacity-50">
+                {multiplierSaving ? 'Saving…' : 'Save'}
+              </button>
+              {multiplierSaved && <span className="text-xs text-green-400">✓ Saved</span>}
+            </div>
+          </div>
+        </div>
+
         <div className="glass-card rounded-2xl p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">Expense Configuration</h2>
           <div className="flex flex-col gap-0">
@@ -822,6 +910,7 @@ export default function AirlineSettingsPage() {
               </div>
             ))}
           </div>
+        </div>
         </div>
       )}
 
