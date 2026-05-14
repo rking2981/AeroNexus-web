@@ -95,7 +95,11 @@ function AlliancesContent() {
     setSearchLoading(true);
     try {
       const { data } = await api.get(`/alliances/search?q=${encodeURIComponent(q)}`);
-      setSearchResults(data);
+      setSearchResults(Array.isArray(data) ? data : []);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      console.error('[Alliance search error]', msg ?? err);
+      setSearchResults([]);
     } finally {
       setSearchLoading(false);
     }
