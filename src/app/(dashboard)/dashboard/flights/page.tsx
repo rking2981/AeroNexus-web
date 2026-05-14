@@ -55,6 +55,8 @@ interface PaxPreview {
   estimated_revenue: number;
   capacity: number;
   abuse_cap_active: boolean;
+  hull_override: boolean;
+  cabin_split_used: { economy: number; business: number; first: number };
   prices: { economy: number; business: number; first: number };
   factors: {
     demand: number;
@@ -455,11 +457,14 @@ export default function BookFlightPage() {
                         </span>
                       </div>
                       {(preview.pax_business > 0 || preview.pax_first > 0) && (
-                        <div className="flex gap-3 text-xs text-gray-500 mb-2">
+                        <div className="flex gap-3 text-xs text-gray-500 mb-1">
                           <span>💺 {preview.pax_economy} eco</span>
                           {preview.pax_business > 0 && <span>🪑 {preview.pax_business} biz</span>}
                           {preview.pax_first > 0 && <span>👑 {preview.pax_first} first</span>}
                         </div>
+                      )}
+                      {preview.hull_override && (
+                        <p className="text-[10px] text-aero/60 mb-2">✦ Cabin split from aircraft config</p>
                       )}
                       <p className="text-xs text-green-400 mb-2">~${preview.estimated_revenue.toLocaleString()} est. revenue</p>
                     </>
