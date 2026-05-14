@@ -867,7 +867,7 @@ export default function AirlineSettingsPage() {
         <div className="glass-card rounded-2xl p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">Expense Configuration</h2>
           <div className="flex flex-col gap-0">
-            {airline.expense_configs.map((config, i) => (
+            {airline.expense_configs.filter(c => c.expense_type !== 'FUEL').map((config, i) => (
               <div key={config.id}
                 className={cn('flex items-center gap-4 py-4', i !== 0 && 'border-t border-white/5')}>
                 {/* Toggle */}
