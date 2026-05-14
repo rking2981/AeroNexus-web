@@ -773,6 +773,10 @@ export default function AdminPage() {
             <span>{t.icon}</span>{t.label}
           </button>
         ))}
+        <button onClick={() => router.push('/dashboard/admin/flights')}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 text-gray-400 hover:text-white">
+          <span>✈️</span>Flights
+        </button>
       </div>
 
       {/* Tab content */}
