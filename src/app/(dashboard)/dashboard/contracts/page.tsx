@@ -363,8 +363,8 @@ export default function ContractsPage() {
             </div>
             {/* Pilot Pay */}
             <div>
-              <label className="text-xs text-gray-400 block mb-1.5">Pilot Pay ($) *</label>
-              <input type="number" min="0" step="0.01" value={postForm.pilot_pay}
+              <label className="text-xs text-gray-400 block mb-1.5">Pilot Pay ($) * <span className="text-gray-600">(max $50,000)</span></label>
+              <input type="number" min="1" max="50000" step="0.01" value={postForm.pilot_pay}
                 onChange={(e) => setPostForm({ ...postForm, pilot_pay: e.target.value })}
                 placeholder="1500.00" required className={inputCls} />
             </div>

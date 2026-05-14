@@ -360,8 +360,8 @@ export default function SkyOpsMissionBuilder({ onClose, onCreated }: MissionBuil
                 )}
 
                 {s1.mission_type !== 'TRAINING' && (
-                  <Field label="💰 Pilot Pay ($)" hint="Leave as 0 for XP-only">
-                    <input type="number" value={s1.pilot_pay} onChange={e => p1('pilot_pay', e.target.value)}
+                  <Field label="💰 Pilot Pay ($)" hint="Max $50,000 per mission">
+                    <input type="number" min="0" max="50000" value={s1.pilot_pay} onChange={e => p1('pilot_pay', e.target.value)}
                       placeholder="e.g. 5000" className={inputCls} />
                   </Field>
                 )}
