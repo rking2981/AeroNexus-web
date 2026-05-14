@@ -52,7 +52,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatBlockTime(min: number) {
+function formatBlockTime(min: number | null | undefined) {
+  if (!min || isNaN(min)) return '—';
   const h = Math.floor(min / 60); const m = min % 60;
   return `${h}h ${m.toString().padStart(2, '0')}m`;
 }
