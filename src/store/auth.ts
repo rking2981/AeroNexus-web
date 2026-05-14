@@ -13,6 +13,7 @@ interface User {
   email_verified: boolean;
   reputation: number;
   avatar_url?: string | null;
+  permissions?: Record<string, boolean> | null;
   airline?: {
     subscription_tier: string;
     subscription_status: string;

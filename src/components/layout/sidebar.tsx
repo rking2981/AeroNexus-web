@@ -75,6 +75,9 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
   const isAdmin = user?.role === 'PLATFORM_ADMIN';
   const isPilotWithoutAirline = user?.role === 'PILOT' && !user?.airline_id;
+  // Pilots with any position permission granted by their airline can see management sections
+  const hasAnyPermission = !!(user?.permissions && Object.values(user.permissions).some(Boolean));
+  const canSeeManagement = isManager || hasAnyPermission;
 
   const pilotNav = user?.is_founder
     ? PILOT_NAV_BASE
@@ -123,7 +126,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
           </>
         )}
 
-        {isManager && (
+        {canSeeManagement && (
           <>
             <div className="h-px bg-white/5 mx-3" />
             <div>
