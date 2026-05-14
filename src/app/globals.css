@@ -36,6 +36,19 @@ input[type="color"] {
   cursor: pointer !important;
 }
 
+/* Force select option readability — browser native dropdowns don't inherit
+   the page's dark background so options appear as dark-on-dark without this. */
+select option {
+  background-color: #1a1a1a;
+  color: #f0f0f0;
+}
+
+select option:checked,
+select option:hover {
+  background-color: #00D1FF;
+  color: #000000;
+}
+
 .glass-card {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
