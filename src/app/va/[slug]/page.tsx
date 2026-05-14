@@ -1,4 +1,3 @@
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
@@ -89,19 +88,13 @@ async function fetchVaData(slug: string) {
 
 export default async function VaWebsitePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const headersList = await headers();
-
-  const airlineName = headersList.get('x-va-airline-name');
-  const brandingRaw = headersList.get('x-va-branding');
-
-  if (!airlineName) notFound();
 
   // Fetch full airline info + public data
   const airlineRes = await fetch(`${API_URL}/va-site/${slug}`, { cache: 'no-store' });
   if (!airlineRes.ok) notFound();
   const airline: AirlinePublic = await airlineRes.json();
 
-  const branding: Branding = brandingRaw ? JSON.parse(brandingRaw) : (airline.branding ?? {});
+  const branding: Branding = airline.branding ?? {};
 
   // Resolve CSS variables from branding
   const primary = branding.primary_color ?? '#00D1FF';
