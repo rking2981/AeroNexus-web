@@ -564,8 +564,8 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
             onChange={e => setForm({ ...form, aircraft_type: e.target.value })} />
         </div>
         <div>
-          <label className="text-xs text-gray-400 block mb-1">Base Ticket Price *</label>
-          <input type="number" placeholder="299" value={form.base_ticket_price} className={inputCls}
+          <label className="text-xs text-gray-400 block mb-1">Base Ticket Price * <span className="text-gray-600">(max $2,500/pax)</span></label>
+          <input type="number" placeholder="299" min="1" max="2500" value={form.base_ticket_price} className={inputCls}
             onChange={e => setForm({ ...form, base_ticket_price: e.target.value })} />
         </div>
         <div>
