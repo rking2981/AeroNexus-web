@@ -250,8 +250,9 @@ function AircraftDetailModal({
               )}
 
               {isManager && type.base_price && (() => {
-                const weeklyFee = Math.round(type.base_price! * 0.001);
-                const canAffordBuy = spendable === null || spendable >= type.base_price!;
+                const priceConverted = type.base_price! * currency.fx_rate;
+                const weeklyFee = Math.round(priceConverted * 0.001);
+                const canAffordBuy = spendable === null || spendable >= priceConverted;
                 const canAffordLease = true; // no upfront cost
                 const canAfford = paymentMode === 'BUY' ? canAffordBuy : canAffordLease;
                 return (
@@ -631,7 +632,7 @@ export default function MarketPage() {
           {filteredNew.length === 0 ? (
             <div className="col-span-3 text-center text-gray-500 py-12">No aircraft found</div>
           ) : filteredNew.map((type) => {
-            const canAfford = !isManager || spendable === null || (type.base_price !== null && spendable >= type.base_price);
+            const canAfford = !isManager || spendable === null || (type.base_price !== null && spendable >= type.base_price * currency.fx_rate);
             return (
               <button key={type.id} onClick={() => setSelected(type)}
                 className={cn(
