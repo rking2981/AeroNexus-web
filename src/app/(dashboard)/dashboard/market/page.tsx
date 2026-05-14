@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, useCallback } from 'react';
 import { api, publicApi } from '@/lib/api';
@@ -75,10 +75,11 @@ const GRADE_COLORS: Record<string, string> = {
   D: 'text-orange-400', E: 'text-red-400', F: 'text-red-600',
 };
 
-function formatPrice(n: number) {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toLocaleString()}`;
+function formatPrice(n: number, symbol = '$', fxRate = 1) {
+  const v = n * fxRate;
+  if (v >= 1_000_000) return `${symbol}${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${symbol}${(v / 1_000).toFixed(0)}K`;
+  return `${symbol}${v.toLocaleString()}`;
 }
 
 function formatWeight(kg: number | null) {
@@ -95,12 +96,16 @@ function AircraftDetailModal({
   onClose,
   isManager,
   spendable,
+  currency,
 }: {
   type: AircraftType;
   onClose: () => void;
   isManager: boolean;
   spendable: number | null;
+  currency: { symbol: string; code: string; fx_rate: number };
 }) {
+  const fp = (n: number) => formatPrice(n, currency.symbol, currency.fx_rate);
+
   const [mode, setMode] = useState<ModalState>('detail');
   const [paymentMode, setPaymentMode] = useState<'BUY' | 'LEASE'>('BUY');
   const [reg, setReg] = useState('');
@@ -197,7 +202,7 @@ function AircraftDetailModal({
               <p className="text-xs font-mono text-gray-500 mt-0.5">{type.icao_code}</p>
             </div>
             <div className="text-right flex-shrink-0">
-              <p className="text-2xl font-bold text-aero">{formatPrice(type.base_price ?? 0)}</p>
+              <p className="text-2xl font-bold text-aero">{fp(type.base_price ?? 0)}</p>
               {type.manufacturer_icao && (
                 <p className="text-xs text-gray-500 mt-0.5">
                   Factory: <span className="font-mono text-aero">{type.manufacturer_icao}</span>
@@ -235,7 +240,7 @@ function AircraftDetailModal({
                 <div className="glass-card rounded-xl p-3 mb-5 border border-amber-500/20 bg-amber-500/5">
                   <p className="text-xs text-amber-300 font-medium mb-1">🚚 Estimated Delivery Fee</p>
                   <p className="text-sm text-amber-200">
-                    {formatPrice(deliveryEstimate.fee)}
+                    {fp(deliveryEstimate.fee)}
                     <span className="text-gray-500 text-xs ml-2">
                       ({deliveryEstimate.from} → {deliveryEstimate.to ?? 'your hub'}, {deliveryEstimate.distance_nm.toLocaleString()} nm)
                     </span>
@@ -256,14 +261,14 @@ function AircraftDetailModal({
                     {(['BUY', 'LEASE'] as const).map(m => (
                       <button key={m} onClick={() => setPaymentMode(m)}
                         className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${paymentMode === m ? 'bg-aero text-black' : 'text-gray-400 hover:text-white'}`}>
-                        {m === 'BUY' ? `Buy ${formatPrice(type.base_price!)}` : `Lease ${formatPrice(weeklyFee)}/wk`}
+                        {m === 'BUY' ? `Buy ${fp(type.base_price!)}` : `Lease ${fp(weeklyFee)}/wk`}
                       </button>
                     ))}
                   </div>
                   {paymentMode === 'LEASE' && (
                     <div className="rounded-xl border border-aero/20 bg-aero/5 px-4 py-3 text-xs text-gray-300">
                       <p className="font-bold text-aero mb-1">Platform Lease — AeroNexus</p>
-                      <p>No upfront cost. Weekly fee of <span className="text-white font-mono">{formatPrice(weeklyFee)}</span> charged automatically.</p>
+                      <p>No upfront cost. Weekly fee of <span className="text-white font-mono">{fp(weeklyFee)}</span> charged automatically.</p>
                       <p className="text-gray-500 mt-1">Return the aircraft at any time to end the lease.</p>
                     </div>
                   )}
@@ -271,7 +276,7 @@ function AircraftDetailModal({
                     <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-2.5 flex items-center justify-between text-sm">
                       <span className="text-red-400">Insufficient funds</span>
                       <span className="text-gray-500 text-xs font-mono">
-                        Balance: {formatPrice(spendable ?? 0)} · Need: {formatPrice(type.base_price!)}
+                        Balance: {fp(spendable ?? 0)} · Need: {fp(type.base_price!)}
                       </span>
                     </div>
                   )}
@@ -289,7 +294,7 @@ function AircraftDetailModal({
                     disabled={!reg.trim() || !canAfford}
                     className="w-full bg-aero text-black font-bold py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {paymentMode === 'BUY' ? `Purchase ${formatPrice(type.base_price!)}` : `Lease — ${formatPrice(weeklyFee)}/week`}
+                    {paymentMode === 'BUY' ? `Purchase ${fp(type.base_price!)}` : `Lease — ${fp(weeklyFee)}/week`}
                   </button>
                 </div>
                 );
@@ -304,7 +309,7 @@ function AircraftDetailModal({
                 {paymentMode === 'BUY' ? <>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Aircraft price</span>
-                    <span className="font-mono font-bold">{formatPrice(type.base_price ?? 0)}</span>
+                    <span className="font-mono font-bold">{fp(type.base_price ?? 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Registration</span>
@@ -316,7 +321,7 @@ function AircraftDetailModal({
                   </div>
                   <div className="flex justify-between border-t border-white/10 pt-2 font-bold">
                     <span>Charged now</span>
-                    <span className="text-aero">{formatPrice(type.base_price ?? 0)}</span>
+                    <span className="text-aero">{fp(type.base_price ?? 0)}</span>
                   </div>
                 </> : <>
                   <div className="flex justify-between">
@@ -329,7 +334,7 @@ function AircraftDetailModal({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Weekly fee</span>
-                    <span className="font-mono font-bold">{formatPrice(Math.round((type.base_price ?? 0) * 0.001))}</span>
+                    <span className="font-mono font-bold">{fp(Math.round((type.base_price ?? 0) * 0.001))}</span>
                   </div>
                   <div className="flex justify-between border-t border-white/10 pt-2 font-bold">
                     <span>Charged now</span>
@@ -369,7 +374,7 @@ function AircraftDetailModal({
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-bold">🚚 Delivery</span>
                   {purchaseResult.delivery_fee > 0 && (
-                    <span className="text-aero font-bold">{formatPrice(purchaseResult.delivery_fee)}</span>
+                    <span className="text-aero font-bold">{fp(purchaseResult.delivery_fee)}</span>
                   )}
                 </div>
                 <p className="text-xs text-gray-400">
@@ -432,7 +437,7 @@ function AircraftDetailModal({
               <p className="text-sm text-gray-300">
                 Your aircraft is now at <span className="font-mono font-bold text-aero">{deliveryDone.delivered_to}</span>.
               </p>
-              <p className="text-xs text-gray-500 mt-1">Delivery fee: {formatPrice(deliveryDone.delivery_fee)} charged.</p>
+              <p className="text-xs text-gray-500 mt-1">Delivery fee: {fp(deliveryDone.delivery_fee)} charged.</p>
             </div>
           )}
 
@@ -459,6 +464,7 @@ export default function MarketPage() {
   const [activeFilter, setActiveFilter] = useState('');
   const [selected, setSelected] = useState<AircraftType | null>(null);
   const [spendable, setSpendable] = useState<number | null>(null);
+  const [currency, setCurrency] = useState<{ symbol: string; code: string; fx_rate: number }>({ symbol: '$', code: 'USD', fx_rate: 1 });
 
   useEffect(() => {
     Promise.all([
@@ -469,10 +475,17 @@ export default function MarketPage() {
       setListings(l.data);
     }).finally(() => setLoading(false));
 
-    // Fetch airline balance for affordability check
+    // Fetch airline balance + currency for affordability check and price display
     if (isManager) {
       api.get('/airline/finances').then(({ data }) => {
         setSpendable(data.balance ?? null);
+        if (data.currency) {
+          setCurrency({
+            symbol: data.currency.symbol ?? '$',
+            code:   data.currency.code   ?? 'USD',
+            fx_rate: data.fx_rate ?? 1,
+          });
+        }
       }).catch(() => {});
     }
   }, [isManager]);
@@ -558,6 +571,7 @@ export default function MarketPage() {
           onClose={() => setSelected(null)}
           isManager={isManager}
           spendable={spendable}
+          currency={currency}
         />
       )}
 
@@ -635,7 +649,7 @@ export default function MarketPage() {
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className={cn('font-bold text-lg', canAfford ? 'text-aero' : 'text-red-400')}>
-                      {formatPrice(type.base_price ?? 0)}
+                      {formatPrice(type.base_price ?? 0, currency.symbol, currency.fx_rate)}
                     </p>
                     {type.manufacturer_icao && (
                       <p className="text-xs text-gray-500 mt-0.5">
@@ -690,9 +704,9 @@ export default function MarketPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-xl">{formatPrice(listing.asking_price)}</p>
+                    <p className="font-bold text-xl">{formatPrice(listing.asking_price, currency.symbol, currency.fx_rate)}</p>
                     <p className="text-xs text-gray-500">
-                      Fair value: {formatPrice(listing.fair_value)}
+                      Fair value: {formatPrice(listing.fair_value, currency.symbol, currency.fx_rate)}
                       {discount > 0 && <span className="text-green-400 ml-1">({discount}% below)</span>}
                       {discount < 0 && <span className="text-red-400 ml-1">({Math.abs(discount)}% above)</span>}
                     </p>
@@ -718,7 +732,7 @@ export default function MarketPage() {
                 {isManager && (
                   <button onClick={() => handleBuyUsed(listing.id)}
                     className="w-full bg-aero text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition text-sm">
-                    Buy for {formatPrice(listing.asking_price)}
+                    Buy for {formatPrice(listing.asking_price, currency.symbol, currency.fx_rate)}
                   </button>
                 )}
               </div>
