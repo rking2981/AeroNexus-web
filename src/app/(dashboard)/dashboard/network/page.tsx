@@ -443,8 +443,8 @@ function RouteCard({ route, isManager, onUpdate, onDelete, onReverse }: {
             { label: 'Aircraft', value: route.aircraft_type },
             { label: 'Weekly Flights', value: route.weekly_flights?.toString() ?? '0' },
             { label: '💺 Economy', value: `$${Number(route.effective_ticket_price).toLocaleString()}` },
-            { label: '🪑 Business', value: `$${Math.round(Number(route.business_price ?? Number(route.base_ticket_price) * 2.5)).toLocaleString()}` },
-            { label: '👑 First', value: `$${Math.round(Number(route.first_price ?? Number(route.base_ticket_price) * 4)).toLocaleString()}` },
+            { label: '🪑 Business', value: `$${Math.round(route.business_price != null ? Number(route.business_price) : Number(route.base_ticket_price) * 2.5).toLocaleString()}` },
+            { label: '👑 First', value: `$${Math.round(route.first_price != null ? Number(route.first_price) : Number(route.base_ticket_price) * 4).toLocaleString()}` },
             { label: 'Cabin Split', value: route.cabin_split ? `${Math.round(route.cabin_split.economy * 100)}% eco / ${Math.round(route.cabin_split.business * 100)}% biz / ${Math.round(route.cabin_split.first * 100)}% first` : '100% economy' },
           ].map(r => (
             <div key={r.label}>
