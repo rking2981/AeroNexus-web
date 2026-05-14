@@ -20,6 +20,9 @@ interface Route {
   id: string; distance_nm: number; aircraft_type: string; route_type: string;
   flight_number: string | null;
   status: string; is_saturated: boolean; base_ticket_price: number;
+  business_price: number | null; first_price: number | null;
+  cabin_split: { economy: number; business: number; first: number } | null;
+  demand_score: number | null; weekly_flights: number | null;
   effective_ticket_price: number; estimated_block_min: number;
   origin: { icao: string; name: string; city: string | null; latitude: string; longitude: string; demand_index: string; timezone: string };
   destination: { icao: string; name: string; city: string | null; latitude: string; longitude: string; demand_index: string; timezone: string };
@@ -435,10 +438,14 @@ function RouteCard({ route, isManager, onUpdate, onDelete, onReverse }: {
       {expanded && (
         <div className="px-4 pb-4 border-t border-white/5 pt-3 grid grid-cols-2 gap-4 text-xs">
           {[
-            { label: 'Avg Demand', value: `${Math.round(demandAvg * 100)}%` },
+            { label: 'Demand Score', value: route.demand_score ? `${Math.round(Number(route.demand_score) * 100)}%` : `${Math.round(demandAvg * 100)}%` },
             { label: 'Block Time', value: formatBlockTime(route.estimated_block_min) },
             { label: 'Aircraft', value: route.aircraft_type },
-            { label: 'Ticket', value: `$${Number(route.effective_ticket_price).toLocaleString()}` },
+            { label: 'Weekly Flights', value: route.weekly_flights?.toString() ?? '0' },
+            { label: '💺 Economy', value: `$${Number(route.effective_ticket_price).toLocaleString()}` },
+            { label: '🪑 Business', value: `$${Math.round(Number(route.business_price ?? Number(route.base_ticket_price) * 2.5)).toLocaleString()}` },
+            { label: '👑 First', value: `$${Math.round(Number(route.first_price ?? Number(route.base_ticket_price) * 4)).toLocaleString()}` },
+            { label: 'Cabin Split', value: route.cabin_split ? `${Math.round(route.cabin_split.economy * 100)}% eco / ${Math.round(route.cabin_split.business * 100)}% biz / ${Math.round(route.cabin_split.first * 100)}% first` : '100% economy' },
           ].map(r => (
             <div key={r.label}>
               <p className="text-gray-500 mb-0.5">{r.label}</p>
@@ -472,7 +479,10 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
   const [destResults, setDestResults] = useState<Airport[]>([]);
   const [selectedOrigin, setSelectedOrigin] = useState<Airport | null>(null);
   const [selectedDest, setSelectedDest] = useState<Airport | null>(null);
-  const [form, setForm] = useState({ aircraft_type: '', base_ticket_price: '', route_type: 'SCHEDULED', flight_number: '' });
+  const [form, setForm] = useState({
+    aircraft_type: '', base_ticket_price: '', route_type: 'SCHEDULED', flight_number: '',
+    cabin_economy: '100', cabin_business: '0', cabin_first: '0',
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -486,6 +496,10 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
     if (!selectedOrigin || !selectedDest || !form.aircraft_type || !form.base_ticket_price) return;
     setLoading(true); setError('');
     try {
+      const eco = parseFloat(form.cabin_economy) / 100;
+      const biz = parseFloat(form.cabin_business) / 100;
+      const fst = parseFloat(form.cabin_first) / 100;
+      const total = eco + biz + fst;
       const { data } = await api.post('/network/routes', {
         origin_id: selectedOrigin.icao,
         destination_id: selectedDest.icao,
@@ -494,6 +508,9 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
         base_ticket_price: parseFloat(form.base_ticket_price),
         route_type: form.route_type,
         flight_number: form.flight_number || undefined,
+        cabin_split: Math.abs(total - 1.0) < 0.01
+          ? { economy: eco, business: biz, first: fst }
+          : { economy: 1.0, business: 0, first: 0 },
       });
       onAdd(data);
     } catch (err: unknown) {
@@ -564,9 +581,41 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
             onChange={e => setForm({ ...form, aircraft_type: e.target.value })} />
         </div>
         <div>
-          <label className="text-xs text-gray-400 block mb-1">Base Ticket Price * <span className="text-gray-600">(max $2,500/pax)</span></label>
+          <label className="text-xs text-gray-400 block mb-1">Economy Price * <span className="text-gray-600">(max $2,500/pax · Business auto 2.5× · First auto 4×)</span></label>
           <input type="number" placeholder="299" min="1" max="2500" value={form.base_ticket_price} className={inputCls}
             onChange={e => setForm({ ...form, base_ticket_price: e.target.value })} />
+          {form.base_ticket_price && Number(form.base_ticket_price) > 5000 && (
+            <p className="text-xs text-amber-400 mt-1">⚠️ Prices above $5,000 result in 0 passengers — market won't support it.</p>
+          )}
+          {form.base_ticket_price && Number(form.base_ticket_price) > 0 && Number(form.base_ticket_price) <= 2500 && (
+            <p className="text-xs text-gray-600 mt-1">
+              Business: ${Math.round(Number(form.base_ticket_price) * 2.5).toLocaleString()} · First: ${Math.round(Number(form.base_ticket_price) * 4).toLocaleString()}
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 block mb-1">Cabin Split <span className="text-gray-600">(% of seats · must total 100%)</span></label>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { key: 'cabin_economy', label: '💺 Economy', field: 'cabin_economy' as const },
+              { key: 'cabin_business', label: '🪑 Business', field: 'cabin_business' as const },
+              { key: 'cabin_first', label: '👑 First', field: 'cabin_first' as const },
+            ].map(c => (
+              <div key={c.key}>
+                <label className="text-[10px] text-gray-500 block mb-1">{c.label}</label>
+                <div className="relative">
+                  <input type="number" min="0" max="100" value={form[c.field]} className={inputCls}
+                    onChange={e => setForm({ ...form, [c.field]: e.target.value })} />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {(() => {
+            const total = (parseFloat(form.cabin_economy) || 0) + (parseFloat(form.cabin_business) || 0) + (parseFloat(form.cabin_first) || 0);
+            return total !== 100 ? <p className="text-xs text-red-400 mt-1">Total: {total}% — must equal 100%</p>
+              : <p className="text-xs text-green-400 mt-1">✓ {total}%</p>;
+          })()}
         </div>
         <div>
           <label className="text-xs text-gray-400 block mb-1">Route Type</label>

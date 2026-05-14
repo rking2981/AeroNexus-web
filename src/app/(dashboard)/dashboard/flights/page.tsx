@@ -17,6 +17,10 @@ interface Route {
   status: string;
   base_ticket_price: number;
   effective_ticket_price: number;
+  business_price: number | null;
+  first_price: number | null;
+  cabin_split: { economy: number; business: number; first: number } | null;
+  demand_score: number | null;
   origin: { icao: string; name: string; city: string | null; facility_type: string };
   destination: { icao: string; name: string; city: string | null; facility_type: string };
 }
@@ -44,12 +48,20 @@ interface CargoShipment {
 
 interface PaxPreview {
   estimated_pax: number;
+  pax_economy: number;
+  pax_business: number;
+  pax_first: number;
+  load_factor: number;
+  estimated_revenue: number;
   capacity: number;
+  abuse_cap_active: boolean;
+  prices: { economy: number; business: number; first: number };
   factors: {
     demand: number;
     price: number;
     concurrent: number;
     reputation: number;
+    frequency: number;
     competitors: number;
     concurrent_flights: number;
   };
@@ -341,10 +353,16 @@ export default function BookFlightPage() {
                     </span>
                     <span className="text-sm">{ROUTE_TYPE_ICONS[route.route_type] ?? '🗓️'}</span>
                   </div>
-                  <span className="text-xs text-aero font-bold">${route.effective_ticket_price}</span>
+                  <div className="text-right">
+                    <span className="text-xs text-aero font-bold">${route.effective_ticket_price}</span>
+                    {route.business_price && Number(route.business_price) > 0 && (
+                      <span className="text-xs text-gray-500 ml-1">/ ${Math.round(Number(route.business_price)).toLocaleString()} biz</span>
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs text-gray-500">
                   {route.distance_nm.toLocaleString()} nm · {route.aircraft_type}
+                  {route.demand_score && <span className="ml-2 text-gray-600">· {Math.round(Number(route.demand_score) * 100)}% demand</span>}
                 </p>
               </button>
             ))}
@@ -414,8 +432,8 @@ export default function BookFlightPage() {
             </div>
 
             {/* Right: PAX estimate */}
-            <div className="flex-shrink-0 min-w-48">
-              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">Estimated PAX</h3>
+            <div className="flex-shrink-0 min-w-56">
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">Passenger Forecast</h3>
               {previewLoading ? (
                 <div className="flex flex-col gap-2">
                   <div className="h-8 w-24 bg-white/5 rounded animate-pulse" />
@@ -423,24 +441,36 @@ export default function BookFlightPage() {
                 </div>
               ) : preview ? (
                 <div>
-                  <div className="flex items-baseline gap-2 mb-3">
-                    <span className="text-3xl font-bold text-aero">{preview.estimated_pax}</span>
-                    <span className="text-sm text-gray-500">/ {preview.capacity} seats</span>
-                    <span className={cn('text-xs font-bold',
-                      preview.estimated_pax / preview.capacity >= 0.7 ? 'text-green-400'
-                      : preview.estimated_pax / preview.capacity >= 0.4 ? 'text-amber-400' : 'text-red-400')}>
-                      ({Math.round(preview.estimated_pax / preview.capacity * 100)}% load)
-                    </span>
-                  </div>
+                  {preview.abuse_cap_active ? (
+                    <p className="text-xs text-red-400 mb-2">⚠️ Economy price exceeds $5,000 — market won't support this route. 0 passengers.</p>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="text-3xl font-bold text-aero">{preview.estimated_pax}</span>
+                        <span className="text-sm text-gray-500">/ {preview.capacity} seats</span>
+                        <span className={cn('text-xs font-bold',
+                          preview.load_factor >= 70 ? 'text-green-400'
+                          : preview.load_factor >= 40 ? 'text-amber-400' : 'text-red-400')}>
+                          ({preview.load_factor}% load)
+                        </span>
+                      </div>
+                      {(preview.pax_business > 0 || preview.pax_first > 0) && (
+                        <div className="flex gap-3 text-xs text-gray-500 mb-2">
+                          <span>💺 {preview.pax_economy} eco</span>
+                          {preview.pax_business > 0 && <span>🪑 {preview.pax_business} biz</span>}
+                          {preview.pax_first > 0 && <span>👑 {preview.pax_first} first</span>}
+                        </div>
+                      )}
+                      <p className="text-xs text-green-400 mb-2">~${preview.estimated_revenue.toLocaleString()} est. revenue</p>
+                    </>
+                  )}
                   <div className="flex flex-col gap-1.5">
                     <FactorBar label={`Demand${preview.factors.competitors > 0 ? ` (${preview.factors.competitors} competitors)` : ''}`} value={preview.factors.demand} color="text-blue-400" />
                     <FactorBar label={`Price${preview.factors.competitors > 0 ? ' vs market' : ' (no competition)'}`} value={preview.factors.price} color="text-green-400" />
                     <FactorBar label={`Market share${preview.factors.concurrent_flights > 0 ? ` (${preview.factors.concurrent_flights} concurrent)` : ''}`} value={preview.factors.concurrent} color="text-amber-400" />
-                    <FactorBar label="Pilot reputation" value={Math.min(100, preview.factors.reputation)} color="text-purple-400" />
+                    <FactorBar label="Reputation" value={Math.min(100, preview.factors.reputation)} color="text-purple-400" />
+                    <FactorBar label="Frequency bonus" value={Math.min(100, preview.factors.frequency ?? 100)} color="text-cyan-400" />
                   </div>
-                  <p className="text-[10px] text-gray-600 mt-2">
-                    Actual count may vary slightly — final PAX set at booking.
-                  </p>
                 </div>
               ) : (
                 <p className="text-xs text-gray-600">Unable to estimate</p>
