@@ -382,7 +382,7 @@ interface ExpenseConfig {
 }
 
 const EXPENSE_LABELS: Record<string, string> = {
-  FUEL: 'Fuel Cost',
+  // FUEL intentionally excluded — charged automatically at live market rate
   LANDING_FEE: 'Landing Fees',
   PILOT_PAY: 'Pilot Pay',
   CATERING: 'Catering',
