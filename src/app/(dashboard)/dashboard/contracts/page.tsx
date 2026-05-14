@@ -136,6 +136,7 @@ export default function ContractsPage() {
     cargo_kg: '',
     notes: '',
     pilot_pay: '',
+    contract_value: '',
     xp_bonus: '250',
   });
   const [postError, setPostError] = useState('');
@@ -236,12 +237,13 @@ export default function ContractsPage() {
         cargo_kg: postForm.cargo_kg ? Number(postForm.cargo_kg) : undefined,
         notes: postForm.notes || undefined,
         pilot_pay: Number(postForm.pilot_pay),
+        contract_value: postForm.contract_value ? Number(postForm.contract_value) : undefined,
         xp_bonus: Number(postForm.xp_bonus),
       });
       setShowPost(false);
       setPostForm({
         origin_icao: '', destination_icao: '', required_aircraft_icao: '', aircraft_category: 'FIXED_WING',
-        cargo_kg: '', notes: '', pilot_pay: '', xp_bonus: '250',
+        cargo_kg: '', notes: '', pilot_pay: '', contract_value: '', xp_bonus: '250',
       });
       await Promise.all([fetchBoard(), fetchMyContracts()]);
       setActiveTab('posted');
@@ -367,6 +369,13 @@ export default function ContractsPage() {
               <input type="number" min="1" max="50000" step="0.01" value={postForm.pilot_pay}
                 onChange={(e) => setPostForm({ ...postForm, pilot_pay: e.target.value })}
                 placeholder="1500.00" required className={inputCls} />
+            </div>
+            {/* Contract Value */}
+            <div>
+              <label className="text-xs text-gray-400 block mb-1.5">Contract Value ($) <span className="text-gray-600">— what your airline earns on completion (max $500,000)</span></label>
+              <input type="number" min="0" max="500000" step="0.01" value={postForm.contract_value}
+                onChange={(e) => setPostForm({ ...postForm, contract_value: e.target.value })}
+                placeholder="e.g. 25000" className={inputCls} />
             </div>
             {/* Aircraft Category */}
             <div>

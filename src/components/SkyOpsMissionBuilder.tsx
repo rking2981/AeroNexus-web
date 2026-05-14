@@ -84,6 +84,7 @@ interface Step1Form {
   aircraft_category: string;
   required_aircraft_icao: string;
   pilot_pay: string;
+  contract_value: string;
   xp_bonus: string;
   cargo_kg: string;
   min_block_time_min: string;
@@ -168,7 +169,7 @@ export default function SkyOpsMissionBuilder({ onClose, onCreated }: MissionBuil
     mission_type: '', mission_style: '', origin_icao: '',
     destination_icao: '', range_min: '10', range_max: '50',
     callsign: '', aircraft_category: 'FIXED_WING',
-    required_aircraft_icao: '', pilot_pay: '', xp_bonus: '500',
+    required_aircraft_icao: '', pilot_pay: '', contract_value: '', xp_bonus: '500',
     cargo_kg: '', min_block_time_min: '',
     training_min_happiness: '80', training_max_vs_fpm: '-350',
   });
@@ -251,6 +252,7 @@ export default function SkyOpsMissionBuilder({ onClose, onCreated }: MissionBuil
         required_aircraft_icao: s1.required_aircraft_icao || undefined,
         cargo_kg: s1.cargo_kg ? Number(s1.cargo_kg) : undefined,
         pilot_pay: s1.mission_type === 'TRAINING' ? 0 : Number(s1.pilot_pay || 0),
+        contract_value: s1.contract_value ? Number(s1.contract_value) : undefined,
         xp_bonus: Number(s1.xp_bonus || 500),
         min_block_time_min: s1.min_block_time_min ? Number(s1.min_block_time_min) : undefined,
         skyops_brief,
@@ -363,6 +365,13 @@ export default function SkyOpsMissionBuilder({ onClose, onCreated }: MissionBuil
                   <Field label="💰 Pilot Pay ($)" hint="Max $50,000 per mission">
                     <input type="number" min="0" max="50000" value={s1.pilot_pay} onChange={e => p1('pilot_pay', e.target.value)}
                       placeholder="e.g. 5000" className={inputCls} />
+                  </Field>
+                )}
+
+                {s1.mission_type !== 'TRAINING' && (
+                  <Field label="💵 Contract Value ($)" hint="What your airline earns on completion (max $500,000, optional)">
+                    <input type="number" min="0" max="500000" value={s1.contract_value} onChange={e => p1('contract_value', e.target.value)}
+                      placeholder="e.g. 25000" className={inputCls} />
                   </Field>
                 )}
 
