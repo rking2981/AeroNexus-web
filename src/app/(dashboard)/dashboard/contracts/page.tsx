@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { api, publicApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+import { AirlineLink } from '@/components/AirlineLink';
 import MissionBriefingModal from '@/components/MissionBriefingModal';
 import SkyOpsMissionBuilder from '@/components/SkyOpsMissionBuilder';
 
@@ -580,7 +581,7 @@ export default function ContractsPage() {
                           {MISSION_ICONS[m.mission_type]} {MISSION_LABELS[m.mission_type] ?? m.mission_type}
                         </span>
                         <StatusBadge status={m.status} />
-                        <span className="text-xs text-gray-500">{m.airline?.name} ({m.airline?.icao_code})</span>
+                        {m.airline && <AirlineLink airline={m.airline} className="text-xs text-gray-500" showIcao />}
                       </div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-mono font-bold text-aero">{m.origin_icao}</span>
@@ -729,7 +730,7 @@ function ContractCard({
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-400 mb-2">
           <span>{c.distance_nm.toLocaleString()} nm</span>
-          <span>Posted by <span className="text-white">{c.airline?.icao_code ?? '—'}</span></span>
+          <span>Posted by {c.airline ? <AirlineLink airline={c.airline} className="text-white" /> : '—'}</span>
           {c.cargo_kg && <span>Cargo: {c.cargo_kg.toLocaleString()} kg / {Math.round(c.cargo_kg * 2.20462).toLocaleString()} lbs</span>}
           {c.notes && <span className="italic text-gray-500 text-xs">"{c.notes}"</span>}
         </div>

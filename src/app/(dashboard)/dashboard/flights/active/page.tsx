@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { onFlightStatus } from '@/lib/acars-bridge';
 import { cn } from '@/lib/utils';
+import { AirlineLink } from '@/components/AirlineLink';
 
 interface ActiveFlight {
   id: string;
@@ -22,7 +23,7 @@ interface ActiveFlight {
     origin: { icao: string; name: string };
     destination: { icao: string; name: string };
   };
-  airline: { name: string; icao_code: string } | null;
+  airline: { name: string; icao_code: string; website_slug?: string | null } | null;
 }
 
 const STATUS_STEPS = [
@@ -208,7 +209,9 @@ export default function ActiveFlightPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold mb-1">Active Flight</h1>
-          <p className="text-gray-400 text-sm">{flight.airline?.name ?? 'Your Airline'}</p>
+          <p className="text-gray-400 text-sm">
+            {flight.airline ? <AirlineLink airline={flight.airline} className="text-gray-400 hover:text-aero" /> : 'Your Airline'}
+          </p>
         </div>
         <span className={cn('text-sm font-bold px-3 py-1.5 rounded-full border', STATUS_COLORS[flight.status] ?? 'text-gray-400 border-white/10')}>
           {flight.status}

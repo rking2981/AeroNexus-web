@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+import { AirlineLink } from '@/components/AirlineLink';
 
 interface Partner {
   id: string;
@@ -12,6 +13,7 @@ interface Partner {
   icao_code: string;
   logo_url: string | null;
   subscription_tier: string;
+  website_slug?: string | null;
 }
 
 interface AllianceItem {
@@ -173,8 +175,7 @@ function AlliancesContent() {
                 {req.from_airline && <AirlineLogo airline={req.from_airline} />}
                 <div>
                   <p className="font-medium text-sm">
-                    <span className="text-white">{req.from_airline?.name}</span>
-                    <span className="text-gray-400"> ({req.from_airline?.icao_code})</span>
+                    {req.from_airline && <AirlineLink airline={req.from_airline} className="text-white font-medium" showIcao />}
                     <span className="text-gray-400"> wants to ally with your airline</span>
                   </p>
                   {req.message && <p className="text-xs text-gray-400 mt-0.5 italic">"{req.message}"</p>}
@@ -227,7 +228,7 @@ function AlliancesContent() {
                 <div className="flex items-center gap-3">
                   <AirlineLogo airline={a.partner} />
                   <div>
-                    <p className="font-bold">{a.partner.name}</p>
+                    <AirlineLink airline={a.partner} className="font-bold" />
                     <p className="text-xs text-gray-500">{a.partner.icao_code} · Allied since {new Date(a.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
@@ -272,7 +273,7 @@ function AlliancesContent() {
                 <div className="flex items-center gap-3">
                   {req.from_airline && <AirlineLogo airline={req.from_airline} />}
                   <div>
-                    <p className="text-sm font-medium">{req.from_airline?.name} <span className="text-gray-500">({req.from_airline?.icao_code})</span></p>
+                    {req.from_airline && <AirlineLink airline={req.from_airline} className="text-sm font-medium" showIcao />}
                     {req.message && <p className="text-xs text-gray-400 italic">"{req.message}"</p>}
                   </div>
                 </div>
@@ -301,7 +302,7 @@ function AlliancesContent() {
                 <div className="flex items-center gap-3">
                   {req.to_airline && <AirlineLogo airline={req.to_airline} />}
                   <div>
-                    <p className="text-sm font-medium">{req.to_airline?.name} <span className="text-gray-500">({req.to_airline?.icao_code})</span></p>
+                    {req.to_airline && <AirlineLink airline={req.to_airline} className="text-sm font-medium" showIcao />}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -343,7 +344,7 @@ function AlliancesContent() {
                   <div className="flex items-center gap-3">
                     <AirlineLogo airline={airline} />
                     <div>
-                      <p className="font-medium text-sm">{airline.name}</p>
+                      <AirlineLink airline={airline} className="font-medium text-sm" />
                       <p className="text-xs text-gray-500">{airline.icao_code} · {airline.subscription_tier}</p>
                     </div>
                   </div>
