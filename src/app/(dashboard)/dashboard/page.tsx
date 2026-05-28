@@ -55,7 +55,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <a
-          href="https://pub-0c30dc19c1234fbc95ad95a8b4d19af7.r2.dev/AeroNexus%20ACARS%20Setup%201.2.0.exe"
+          href="https://pub-0c30dc19c1234fbc95ad95a8b4d19af7.r2.dev/AeroNexus%20ACARS%20Setup%201.3.8.exe"
           target="_blank" rel="noopener noreferrer"
           className="flex-shrink-0 bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition"
         >
