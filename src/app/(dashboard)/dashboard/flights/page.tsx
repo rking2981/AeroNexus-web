@@ -171,7 +171,7 @@ export default function BookFlightPage() {
     setPreviewLoading(true);
     setPreview(null);
     try {
-      const { data } = await api.get(`/flights/preview-pax?route_id=${routeId}&hull_id=${hullId}`);
+      const { data } = await api.get(`/flights/preview-pax?route_id=${routeId}&hull_id=${hullId}`, { timeout: 8000 });
       setPreview(data);
     } catch { /* ignore */ } finally { setPreviewLoading(false); }
   }, []);
@@ -193,7 +193,7 @@ export default function BookFlightPage() {
       const { data } = await api.post('/flights/book', {
         route_id: selectedRoute.id,
         hull_id: selectedHull.id,
-      });
+      }, { timeout: 15000 });
       setBooked(data);
       // Attach cargo if selected
       if (selectedCargo && selectedHull) {
@@ -534,7 +534,7 @@ export default function BookFlightPage() {
           )}
           <button
             onClick={handleBook}
-            disabled={booking || previewLoading || !!incompatibleMsg}
+            disabled={booking || !!incompatibleMsg}
             className="mt-4 bg-aero text-black font-bold px-8 py-3 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50"
           >
             {booking ? 'Booking...' : `Book Flight${preview ? ` · ~${preview.estimated_pax} PAX` : ''}`}
