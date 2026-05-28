@@ -246,7 +246,8 @@ export default function LogbookPage() {
   const [data, setData] = useState<{ flights: Flight[]; ad_context: { show_ad: boolean } } | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Flight | null>(null);
-  const isFreeAds = (user as { pilot_tier?: string })?.pilot_tier === 'FREE_ADS';
+  const u = user as { pilot_tier?: string; role?: string } | null;
+  const isFreeAds = u?.pilot_tier === 'FREE_ADS' && u?.role !== 'ADMIN';
 
   useEffect(() => {
     api.get('/flights/logbook')
