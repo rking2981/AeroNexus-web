@@ -299,7 +299,7 @@ export default function LogbookPage() {
       {isFreeAds && (
         <div className="glass-card rounded-2xl p-4 mb-6 border border-amber-500/20 flex items-center justify-between">
           <p className="text-sm text-gray-400">Free pilots see their last 10 flights.</p>
-          <Link href="/dashboard/billing" className="text-xs text-aero hover:underline">
+          <Link href="/dashboard/airline/settings" className="text-xs text-aero hover:underline">
             Upgrade for unlimited history →
           </Link>
         </div>
