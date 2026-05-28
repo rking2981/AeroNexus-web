@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import Image from 'next/image';
 import { PricingSection } from '@/components/pricing-section';
 import { HeroCanvas } from '@/components/hero-canvas';
+import { ScreenshotGallery } from '@/components/screenshot-gallery';
 
 export const metadata: Metadata = {
   title: 'AeroNexus — Virtual Airline Management Platform for MSFS 2024 & X-Plane',
@@ -273,77 +273,7 @@ export default async function HomePage() {
           </p>
         </div>
 
-        {/* Featured screenshot — Dashboard */}
-        <div className="mb-6 rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-          <div className="bg-white/5 px-5 py-2.5 flex items-center gap-2 border-b border-white/10">
-            <span className="w-3 h-3 rounded-full bg-red-500/60" />
-            <span className="w-3 h-3 rounded-full bg-yellow-500/60" />
-            <span className="w-3 h-3 rounded-full bg-green-500/60" />
-            <span className="text-xs text-gray-500 ml-3 font-mono">aeronexus.app/dashboard</span>
-          </div>
-          <Image
-            src="/screenshots/dashboard.png"
-            alt="AeroNexus dashboard — airline management home"
-            width={1366}
-            height={768}
-            className="w-full h-auto"
-            priority
-          />
-        </div>
-
-        {/* 2-column row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {[
-            { src: '/screenshots/routes-hubs.png', alt: 'Routes & Hubs — route planning with live demand scores', label: 'Routes & Hubs' },
-            { src: '/screenshots/fleet.png', alt: 'Fleet management — aircraft status, wear tracking', label: 'Fleet Management' },
-          ].map((img) => (
-            <div key={img.src} className="rounded-2xl overflow-hidden border border-white/10 shadow-xl">
-              <div className="bg-white/5 px-5 py-2.5 flex items-center gap-2 border-b border-white/10">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-                <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
-                <span className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <span className="text-xs text-gray-500 ml-2 font-mono">{img.label}</span>
-              </div>
-              <Image src={img.src} alt={img.alt} width={760} height={430} className="w-full h-auto" />
-            </div>
-          ))}
-        </div>
-
-        {/* 3-column row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            { src: '/screenshots/crew-center.png', alt: 'Crew Center — pilot roster, rank structure, applications', label: 'Crew Center' },
-            { src: '/screenshots/finances.png', alt: 'Finances — P&L dashboard, transactions, operating summary', label: 'Finances' },
-            { src: '/screenshots/insurance.png', alt: 'Insurance marketplace — policy comparison and management', label: 'Insurance' },
-          ].map((img) => (
-            <div key={img.src} className="rounded-2xl overflow-hidden border border-white/10 shadow-xl">
-              <div className="bg-white/5 px-5 py-2.5 flex items-center gap-2 border-b border-white/10">
-                <span className="w-2 h-2 rounded-full bg-red-500/60" />
-                <span className="w-2 h-2 rounded-full bg-yellow-500/60" />
-                <span className="w-2 h-2 rounded-full bg-green-500/60" />
-                <span className="text-xs text-gray-500 ml-2 font-mono">{img.label}</span>
-              </div>
-              <Image src={img.src} alt={img.alt} width={500} height={350} className="w-full h-auto" />
-            </div>
-          ))}
-        </div>
-
-        {/* Airport directory — full width accent */}
-        <div className="mt-6 rounded-2xl overflow-hidden border border-aero/20 shadow-xl shadow-aero/5">
-          <div className="bg-white/5 px-5 py-2.5 flex items-center gap-2 border-b border-white/10">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
-            <span className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-            <span className="text-xs text-gray-500 ml-2 font-mono">Airport Directory — 85,289 facilities</span>
-          </div>
-          <Image
-            src="/screenshots/airport-directory.png"
-            alt="Airport directory — search 85,289 airports, heliports and seaplane bases"
-            width={1366}
-            height={768}
-            className="w-full h-auto"
-          />
-        </div>
+        <ScreenshotGallery />
       </section>
 
       {/* Managed Website */}
