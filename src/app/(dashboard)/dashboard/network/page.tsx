@@ -647,7 +647,8 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
 
 export default function NetworkPage() {
   const { user } = useAuthStore();
-  const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
+  const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN'
+    || !!(user as { permissions?: Record<string, boolean> } | null)?.permissions?.can_manage_routes;
 
   const [hubs, setHubs] = useState<Hub[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
