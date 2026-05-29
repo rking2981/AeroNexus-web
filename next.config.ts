@@ -14,6 +14,14 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: '/acars/download',
+        destination: 'https://aeronexus-api-production.up.railway.app/acars/download',
+      },
+    ];
+  },
   async headers() {
     return [
       {

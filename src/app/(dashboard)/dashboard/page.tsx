@@ -55,7 +55,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <a
-          href="https://aeronexus-api-production.up.railway.app/acars/download"
+          href="https://aeronexus.app/acars/download"
           target="_blank" rel="noopener noreferrer"
           className="flex-shrink-0 bg-aero text-black font-bold px-4 py-2 rounded-xl text-sm hover:brightness-110 transition"
         >

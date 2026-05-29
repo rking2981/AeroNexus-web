@@ -183,7 +183,7 @@ export default async function HomePage() {
             </Link>
             {/* Secondary CTA — ghost */}
             <a
-              href="https://aeronexus-api-production.up.railway.app/acars/download"
+              href="https://aeronexus.app/acars/download"
               target="_blank" rel="noopener noreferrer"
               className="border border-white/20 text-white/60 px-8 py-4 rounded-lg font-medium text-base hover:border-white/40 hover:text-white/80 transition"
             >
