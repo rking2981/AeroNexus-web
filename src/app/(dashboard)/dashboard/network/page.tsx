@@ -233,6 +233,7 @@ function RouteCard({ route, isManager, onUpdate, onDelete, onReverse }: {
   onReverse: (newRoute: Route) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [editingRoute, setEditingRoute] = useState(false);
   const [editingWaypoints, setEditingWaypoints] = useState(false);
   const [wpInput, setWpInput] = useState(route.waypoints.map(w => w.icao).join(', '));
   const [savingWp, setSavingWp] = useState(false);
@@ -395,6 +396,10 @@ function RouteCard({ route, isManager, onUpdate, onDelete, onReverse }: {
           </button>
           {isManager && (
             <>
+              <button onClick={() => setEditingRoute(true)}
+                className="text-[10px] text-aero border border-aero/20 px-2 py-1 rounded-lg hover:bg-aero/10 transition">
+                Edit
+              </button>
               <button onClick={() => setEditingWaypoints(!editingWaypoints)}
                 className="text-[10px] text-aero border border-aero/20 px-2 py-1 rounded-lg hover:bg-aero/10 transition">
                 Waypoints
@@ -409,6 +414,9 @@ function RouteCard({ route, isManager, onUpdate, onDelete, onReverse }: {
                 Delete
               </button>
             </>
+          )}
+          {editingRoute && (
+            <EditRouteModal route={route} onClose={() => setEditingRoute(false)} onSave={(updated) => { onUpdate(updated); setEditingRoute(false); }} />
           )}
           {reverseError && (
             <p className="text-[10px] text-red-400 max-w-24 text-right">{reverseError}</p>
@@ -467,6 +475,139 @@ function RouteCard({ route, isManager, onUpdate, onDelete, onReverse }: {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Edit Route Modal ─────────────────────────────────────────────────────────
+
+function EditRouteModal({ route, onSave, onClose }: { route: Route; onSave: (updated: Partial<Route> & { id: string }) => void; onClose: () => void }) {
+  const [form, setForm] = useState({
+    aircraft_type: route.aircraft_type,
+    base_ticket_price: String(route.base_ticket_price),
+    business_price: route.business_price != null ? String(Math.round(Number(route.business_price))) : '',
+    first_price: route.first_price != null ? String(Math.round(Number(route.first_price))) : '',
+    flight_number: route.flight_number ?? '',
+    route_type: route.route_type,
+    status: route.status,
+    cabin_economy: String(Math.round((route.cabin_split?.economy ?? 1) * 100)),
+    cabin_business: String(Math.round((route.cabin_split?.business ?? 0) * 100)),
+    cabin_first: String(Math.round((route.cabin_split?.first ?? 0) * 100)),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const inputCls = 'w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-aero focus:outline-none transition';
+
+  const cabinTotal = (parseFloat(form.cabin_economy) || 0) + (parseFloat(form.cabin_business) || 0) + (parseFloat(form.cabin_first) || 0);
+
+  async function save() {
+    setSaving(true); setError('');
+    try {
+      const eco = parseFloat(form.cabin_economy) / 100;
+      const biz = parseFloat(form.cabin_business) / 100;
+      const fst = parseFloat(form.cabin_first) / 100;
+      const payload = {
+        aircraft_type: form.aircraft_type,
+        base_ticket_price: parseFloat(form.base_ticket_price),
+        business_price: form.business_price ? parseFloat(form.business_price) : null,
+        first_price: form.first_price ? parseFloat(form.first_price) : null,
+        flight_number: form.flight_number || null,
+        route_type: form.route_type,
+        status: form.status,
+        cabin_split: Math.abs(eco + biz + fst - 1.0) < 0.01
+          ? { economy: eco, business: biz, first: fst }
+          : { economy: 1.0, business: 0, first: 0 },
+      };
+      await api.patch(`/network/routes/${route.id}`, payload);
+      onSave({
+        id: route.id,
+        ...payload,
+        effective_ticket_price: payload.base_ticket_price,
+      });
+      onClose();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Failed to save changes.');
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="glass-card rounded-2xl p-6 w-full max-w-lg border border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-bold text-lg">Edit Route — {route.origin.icao} → {route.destination.icao}</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl leading-none">✕</button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Aircraft Type</label>
+            <input value={form.aircraft_type} onChange={e => setForm({ ...form, aircraft_type: e.target.value })} className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Flight Number</label>
+            <input value={form.flight_number} onChange={e => setForm({ ...form, flight_number: e.target.value.toUpperCase() })} maxLength={8} placeholder="AN100" className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Economy Price ($)</label>
+            <input type="number" min="1" max="5000" value={form.base_ticket_price}
+              onChange={e => setForm({ ...form, base_ticket_price: e.target.value })} className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Business Price <span className="text-gray-600">(blank = auto 2.5×)</span></label>
+            <input type="number" min="1" value={form.business_price} placeholder={form.base_ticket_price ? String(Math.round(Number(form.base_ticket_price) * 2.5)) : ''}
+              onChange={e => setForm({ ...form, business_price: e.target.value })} className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">First Price <span className="text-gray-600">(blank = auto 4×)</span></label>
+            <input type="number" min="1" value={form.first_price} placeholder={form.base_ticket_price ? String(Math.round(Number(form.base_ticket_price) * 4)) : ''}
+              onChange={e => setForm({ ...form, first_price: e.target.value })} className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Route Type</label>
+            <select value={form.route_type} onChange={e => setForm({ ...form, route_type: e.target.value })}
+              className="w-full rounded-xl border border-white/10 bg-[#111] px-3 py-2 text-sm text-white focus:border-aero focus:outline-none transition">
+              {ROUTE_TYPES.map(rt => <option key={rt.key} value={rt.key}>{rt.icon} {rt.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Status</label>
+            <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
+              className="w-full rounded-xl border border-white/10 bg-[#111] px-3 py-2 text-sm text-white focus:border-aero focus:outline-none transition">
+              {['ACTIVE', 'SUSPENDED', 'SEASONAL'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="text-xs text-gray-400 block mb-1">Cabin Split <span className="text-gray-600">(% · must total 100%)</span></label>
+          <div className="grid grid-cols-3 gap-2">
+            {([['cabin_economy', '💺 Economy'], ['cabin_business', '🪑 Business'], ['cabin_first', '👑 First']] as const).map(([field, label]) => (
+              <div key={field}>
+                <label className="text-[10px] text-gray-500 block mb-1">{label}</label>
+                <div className="relative">
+                  <input type="number" min="0" max="100" value={form[field]}
+                    onChange={e => setForm({ ...form, [field]: e.target.value })} className={inputCls} />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {cabinTotal !== 100
+            ? <p className="text-xs text-red-400 mt-1">Total: {cabinTotal}% — must equal 100%</p>
+            : <p className="text-xs text-green-400 mt-1">✓ {cabinTotal}%</p>}
+        </div>
+
+        {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
+        <div className="flex gap-3 mt-5">
+          <button onClick={save} disabled={saving || cabinTotal !== 100}
+            className="bg-aero text-black font-bold px-5 py-2 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
+            {saving ? 'Saving…' : 'Save Changes'}
+          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-sm transition">Cancel</button>
+        </div>
+      </div>
     </div>
   );
 }
