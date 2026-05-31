@@ -4,9 +4,18 @@ import { useAuthStore } from '@/store/auth';
 import Link from 'next/link';
 import Image from 'next/image';
 import { AdSenseUnit } from '@/components/shared/AdSenseUnit';
+import { useEffect, useState } from 'react';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
+  const [acarsVersion, setAcarsVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('https://aeronexus-api-production.up.railway.app/acars/version')
+      .then(r => r.json())
+      .then(d => setAcarsVersion(d.version))
+      .catch(() => null);
+  }, []);
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
   return (
@@ -50,7 +59,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-aero/10 flex items-center justify-center text-xl flex-shrink-0">🖥️</div>
           <div>
-            <p className="font-semibold text-sm">AeroNexus ACARS <span className="text-aero">v1.2.0</span></p>
+            <p className="font-semibold text-sm">AeroNexus ACARS <span className="text-aero">{acarsVersion ? `v${acarsVersion}` : '...'}</span></p>
             <p className="text-xs text-gray-500 mt-0.5">Desktop client for MSFS 2024 &amp; X-Plane — automatic flight tracking, scoring &amp; telemetry</p>
           </div>
         </div>
