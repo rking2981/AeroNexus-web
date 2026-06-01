@@ -54,6 +54,11 @@ select option:hover {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.mobile-sheet {
+  background: #0a0a12 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .text-aero { color: #00D1FF; }
 .bg-aero { background-color: #00D1FF; }
 .border-aero { border-color: #00D1FF; }
