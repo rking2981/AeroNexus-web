@@ -945,7 +945,6 @@ export default function CrewPage() {
                 )}
               </div>
               </div>
-            </div>
             </>
           )}
         </div>
