@@ -113,9 +113,9 @@ export default function PositionsPage() {
         )}
       </div>
 
-      <div className="flex gap-6">
-        {/* Position list */}
-        <div className="w-64 flex-shrink-0 flex flex-col gap-2">
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* Position list — hidden on mobile when detail is open */}
+        <div className={cn('w-full md:w-64 md:flex-shrink-0 flex flex-col gap-2', selected ? 'hidden md:flex' : 'flex')}>
           {positions.length === 0 ? (
             <div className="glass-card rounded-2xl p-8 text-center text-gray-500 text-sm">
               No positions yet.{isManager && <><br/>Create one to get started.</>}
@@ -176,6 +176,10 @@ export default function PositionsPage() {
 
           {selected ? (
             <div className="flex flex-col gap-5">
+              {/* Mobile back button */}
+              <button onClick={() => setSelected(null)} className="md:hidden flex items-center gap-2 text-sm text-gray-400 hover:text-white transition">
+                ← Back to Positions
+              </button>
               {/* Header */}
               <div className="glass-card rounded-2xl p-6">
                 <div className="flex items-start justify-between mb-2">
