@@ -690,7 +690,7 @@ export default function CrewPage() {
           )}
         </div>
       ) : (
-        <div className="flex gap-6 items-start">
+        <div className="flex flex-col md:flex-row gap-6 items-start">
           {/* Roster list */}
           <div className="flex-1 min-w-0 flex flex-col gap-3">
 
@@ -776,10 +776,17 @@ export default function CrewPage() {
 
           </div>
 
-          {/* Detail panel */}
+          {/* Detail panel — bottom sheet on mobile, sidebar on desktop */}
           {selected && (
-            <div className="w-72 flex-shrink-0 sticky top-0">
-              <div className="glass-card rounded-2xl overflow-hidden border border-white/10">
+            <>
+              {/* Mobile backdrop */}
+              <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={() => setSelected(null)} />
+              <div className="fixed inset-x-0 bottom-0 z-50 md:static md:w-72 md:flex-shrink-0 md:sticky md:top-0">
+                {/* Mobile drag handle */}
+                <div className="flex justify-center pt-3 pb-1 md:hidden">
+                  <div className="w-10 h-1 rounded-full bg-white/20" />
+                </div>
+              <div className="glass-card rounded-t-2xl md:rounded-2xl overflow-hidden border border-white/10 max-h-[85vh] md:max-h-none overflow-y-auto">
                 {/* Header */}
                 <div className="p-5 border-b border-white/5">
                   <div className="flex items-start justify-between mb-3">
@@ -937,7 +944,9 @@ export default function CrewPage() {
                   </div>
                 )}
               </div>
+              </div>
             </div>
+            </>
           )}
         </div>
       )}
