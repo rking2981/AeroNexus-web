@@ -844,7 +844,7 @@ export default function AirlineSettingsPage() {
               <div className="flex flex-col gap-2">
                 <p className="text-xs text-gray-500">Choose a fixed multiplier for a more simulation-focused experience. Cannot exceed your dynamic cap.</p>
                 <div className="flex gap-2 flex-wrap">
-                  {[25, 35, 50, 75, 100].map(v => (
+                  {[3, 5, 10, 15, 20].map(v => (
                     <button key={v} onClick={() => setMultiplierValue(v)}
                       className={`px-4 py-2 rounded-xl text-sm font-bold border transition ${multiplierValue === v ? 'bg-aero text-black border-aero' : 'border-white/10 text-gray-400 hover:text-white hover:border-white/30'}`}>
                       {v}×
