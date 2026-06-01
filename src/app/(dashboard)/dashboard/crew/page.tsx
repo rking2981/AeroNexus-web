@@ -783,10 +783,10 @@ export default function CrewPage() {
               <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={() => setSelected(null)} />
               <div className="fixed inset-x-0 bottom-0 z-50 md:static md:w-72 md:flex-shrink-0 md:sticky md:top-0">
                 {/* Mobile drag handle */}
-                <div className="flex justify-center pt-3 pb-1 md:hidden">
+                <div className="flex justify-center pt-3 pb-1 md:hidden bg-[#0a0a0f] rounded-t-2xl">
                   <div className="w-10 h-1 rounded-full bg-white/20" />
                 </div>
-              <div className="glass-card rounded-t-2xl md:rounded-2xl overflow-hidden border border-white/10 max-h-[85vh] md:max-h-none overflow-y-auto">
+              <div className="bg-[#0a0a0f] md:bg-transparent glass-card rounded-t-2xl md:rounded-2xl overflow-hidden border border-white/10 max-h-[85vh] md:max-h-none overflow-y-auto">
                 {/* Header */}
                 <div className="p-5 border-b border-white/5">
                   <div className="flex items-start justify-between mb-3">
