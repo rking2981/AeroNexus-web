@@ -138,23 +138,17 @@ export default function CargoPage() {
       try {
         const params = new URLSearchParams({ origin: o, page: '1' });
         if (d) params.set('dest', d);
-        const { data } = await api.get(`/cargo/board?${params}`);
-        setClaimed(data.claimed);
-        if (data.available.length === 0) {
-          setGenerating(true);
-          await api.post(`/cargo/generate?origin=${o}${d ? `&dest=${d}` : ''}`);
-          setGenerating(false);
-          const { data: data2 } = await api.get(`/cargo/board?${params}`);
-          setAvailable(data2.available);
-          setTotal(data2.total);
-          setPages(data2.pages);
-          setPage(1);
-        } else {
-          setAvailable(data.available);
-          setTotal(data.total);
-          setPages(data.pages);
-          setPage(1);
-        }
+        // Always trigger generate when filtering by origin — tops up to 20 destinations
+        setGenerating(true);
+        await api.post(`/cargo/generate?origin=${o}${d ? `&dest=${d}` : ''}`);
+        setGenerating(false);
+        // Reload after generation
+        const { data: data2 } = await api.get(`/cargo/board?${params}`);
+        setClaimed(data2.claimed);
+        setAvailable(data2.available);
+        setTotal(data2.total);
+        setPages(data2.pages);
+        setPage(1);
       } catch {
         setError('Failed to load cargo');
         setGenerating(false);
