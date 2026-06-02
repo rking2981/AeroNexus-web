@@ -496,12 +496,23 @@ export default function FinancesPage() {
 
   if (!summary) return null;
   const { symbol, code } = summary.currency;
+  const fxRate: number = (summary as any).fx_rate ?? 1;
+  const isUsd = code === 'USD' || fxRate === 1;
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-1">Finances</h1>
-        <p className="text-gray-400 text-sm">P&L dashboard · {code}</p>
+      <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-3xl font-bold mb-1">Finances</h1>
+          <p className="text-gray-400 text-sm">P&L dashboard · {code}</p>
+        </div>
+        {!isUsd && (
+          <div className="glass-card rounded-xl px-4 py-2.5 text-right">
+            <p className="text-xs text-gray-500 uppercase tracking-wider">Today&apos;s Rate</p>
+            <p className="text-sm font-bold text-white">1 USD = <span className="text-aero">{fxRate.toFixed(4)} {code}</span></p>
+            <p className="text-[10px] text-gray-600">Balances stored in USD · display converted live</p>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
