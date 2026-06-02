@@ -39,6 +39,21 @@ interface AdminAirline {
   _count: { users: number; hulls: number; flights: number };
 }
 
+interface AirlineDetail extends AdminAirline {
+  iata_code: string | null;
+  hub_country: string | null;
+  currency_code: string;
+  currency_symbol: string;
+  earned_balance: string;
+  branding: Record<string, unknown> | null;
+  flight_multiplier: number;
+  multiplier_mode: string;
+  trial_days_left: number | null;
+  trial_expired: boolean;
+  trial_expires_at: string;
+  _count: { users: number; hulls: number; flights: number; routes: number };
+}
+
 interface FuelHub {
   id: string;
   name: string;
@@ -228,10 +243,143 @@ function UsersTab() {
 
 // ─── Tab: Airlines ────────────────────────────────────────────────────────────
 
+// ─── Airline View Panel (VA Manager perspective) ──────────────────────────────
+
+function AirlineViewPanel({ airlineId, onClose }: { airlineId: string; onClose: () => void }) {
+  const [detail, setDetail] = useState<AirlineDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get(`/admin/airlines/${airlineId}`)
+      .then(r => setDetail(r.data))
+      .finally(() => setLoading(false));
+  }, [airlineId]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
+      {/* Panel */}
+      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-xl bg-[#0d0d14] border-l border-white/10 overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-amber-400 border border-amber-500/20 bg-amber-500/5 px-2 py-0.5 rounded-full">Admin View</span>
+              <span className="text-xs text-gray-500">Viewing as VA Manager</span>
+            </div>
+            <button onClick={onClose} className="text-gray-500 hover:text-white text-lg transition">✕</button>
+          </div>
+
+          {loading && <div className="glass-card rounded-2xl h-40 animate-pulse" />}
+
+          {detail && (
+            <div className="flex flex-col gap-6">
+              {/* Airline header */}
+              <div className="glass-card rounded-2xl p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">{detail.name}</h2>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="font-mono text-xs text-aero border border-aero/20 px-1.5 py-0.5 rounded">{detail.icao_code}</span>
+                      {detail.iata_code && <span className="font-mono text-xs text-gray-400 border border-white/10 px-1.5 py-0.5 rounded">{detail.iata_code}</span>}
+                      <Badge label={detail.subscription_tier} color={tierColor(detail.subscription_tier)} />
+                      <Badge label={detail.subscription_status} color={statusColor(detail.subscription_status)} />
+                    </div>
+                  </div>
+                </div>
+                {detail.hub_country && (
+                  <p className="text-xs text-gray-500">Hub Country: <span className="text-white">{detail.hub_country}</span></p>
+                )}
+              </div>
+
+              {/* Trial banner */}
+              {detail.trial_days_left !== null && (
+                <div className={cn('rounded-2xl p-4 border text-sm',
+                  detail.trial_expired
+                    ? 'bg-red-500/5 border-red-500/20 text-red-400'
+                    : 'bg-amber-500/5 border-amber-500/20 text-amber-400')}>
+                  {detail.trial_expired
+                    ? 'Trial expired — airline is on a free trial that has ended'
+                    : `Trial active — ${detail.trial_days_left} day${detail.trial_days_left !== 1 ? 's' : ''} remaining`}
+                </div>
+              )}
+
+              {/* Balance */}
+              <div className="glass-card rounded-2xl p-6">
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Airline Balance</p>
+                <p className="text-3xl font-bold text-aero">
+                  {detail.currency_symbol}{Number(detail.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Earned: {detail.currency_symbol}{Number(detail.earned_balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+
+              {/* Stats grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Pilots', value: detail._count.users, icon: '👤' },
+                  { label: 'Fleet', value: detail._count.hulls, icon: '✈️' },
+                  { label: 'Routes', value: detail._count.routes, icon: '🌐' },
+                  { label: 'Flights', value: detail._count.flights, icon: '📋' },
+                ].map(s => (
+                  <div key={s.label} className="glass-card rounded-xl p-4 text-center">
+                    <p className="text-xl mb-1">{s.icon}</p>
+                    <p className="text-xl font-bold text-white">{s.value.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Settings */}
+              <div className="glass-card rounded-2xl p-5">
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Settings</p>
+                <div className="flex flex-col gap-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Currency</span>
+                    <span className="text-white font-mono">{detail.currency_code}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Flight Multiplier</span>
+                    <span className="text-white font-mono">{detail.flight_multiplier}× ({detail.multiplier_mode})</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Member Since</span>
+                    <span className="text-white">{new Date(detail.created_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick links */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Fleet', href: `/dashboard/fleet`, icon: '🛩️' },
+                  { label: 'Routes & Hubs', href: `/dashboard/network`, icon: '🌐' },
+                  { label: 'Crew Center', href: `/dashboard/crew`, icon: '👥' },
+                  { label: 'Finances', href: `/dashboard/finances`, icon: '💰' },
+                ].map(l => (
+                  <a key={l.label} href={l.href}
+                    className="glass-card rounded-xl p-4 flex items-center gap-3 hover:bg-white/5 transition">
+                    <span className="text-xl">{l.icon}</span>
+                    <span className="text-sm font-medium text-gray-300">{l.label}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 function AirlinesTab() {
   const [data, setData] = useState<{ airlines: AdminAirline[]; total: number } | null>(null);
   const [page, setPage] = useState(1);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
   const limit = 50;
 
   const fetch = useCallback(async () => {
@@ -265,14 +413,14 @@ function AirlinesTab() {
 
       <div className="glass-card rounded-2xl overflow-hidden">
         <div className="grid px-4 py-2.5 border-b border-white/5 text-xs text-gray-500 uppercase tracking-widest"
-          style={{ gridTemplateColumns: '80px 1fr 100px 120px 80px 80px 80px 160px' }}>
+          style={{ gridTemplateColumns: '80px 1fr 100px 120px 80px 80px 80px 200px' }}>
           <span>ICAO</span><span>Name</span><span>Tier</span><span>Status</span>
           <span className="text-right">Pilots</span><span className="text-right">Fleet</span><span className="text-right">Flights</span>
           <span className="text-right">Actions</span>
         </div>
         {(data?.airlines ?? []).map(a => (
           <div key={a.id} className="grid px-4 py-3 border-b border-white/5 last:border-0 items-center gap-2"
-            style={{ gridTemplateColumns: '80px 1fr 100px 120px 80px 80px 80px 160px' }}>
+            style={{ gridTemplateColumns: '80px 1fr 100px 120px 80px 80px 80px 200px' }}>
             <span className="font-mono font-bold text-aero text-sm">{a.icao_code}</span>
             <span className="text-sm text-white truncate">{a.name}</span>
             <Badge label={a.subscription_tier} color={tierColor(a.subscription_tier)} />
@@ -297,6 +445,10 @@ function AirlinesTab() {
                     : 'border-green-500/30 text-green-400 hover:bg-green-500/10')}>
                 {a.subscription_status === 'ACTIVE' ? 'Cancel' : 'Activate'}
               </button>
+              <button onClick={() => setViewingId(a.id)}
+                className="text-xs px-2 py-1 rounded-lg border border-aero/30 text-aero hover:bg-aero/10 transition">
+                View
+              </button>
             </div>
           </div>
         ))}
@@ -311,6 +463,8 @@ function AirlinesTab() {
             className="text-xs border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition disabled:opacity-40">Next →</button>
         </div>
       )}
+
+      {viewingId && <AirlineViewPanel airlineId={viewingId} onClose={() => setViewingId(null)} />}
     </div>
   );
 }
