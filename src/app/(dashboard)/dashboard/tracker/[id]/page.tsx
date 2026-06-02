@@ -145,7 +145,7 @@ export default function ReportDetailPage() {
         <p className="text-gray-400 text-sm">{report.category.replace('_', ' ')} · Filed by {report.reporter.display_name}</p>
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col lg:flex-row gap-6">
         {/* Main content */}
         <div className="flex-1 min-w-0 flex flex-col gap-5">
           {/* Header */}
@@ -254,83 +254,82 @@ export default function ReportDetailPage() {
               </form>
             )}
           </div>
-        </div>
-
-        {/* Attachments */}
-        <div className="flex flex-col gap-3 mt-1">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-300">
-              Attachments ({report.attachments?.length ?? 0})
-            </h3>
-            <div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".jpg,.jpeg,.png,.gif,.webp,.txt,.log"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="text-xs border border-white/20 px-3 py-1.5 rounded-lg hover:bg-white/5 transition disabled:opacity-40"
-              >
-                {uploading ? 'Uploading…' : '📎 Attach File'}
-              </button>
+          {/* Attachments — inside main column */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-300">
+                Attachments ({report.attachments?.length ?? 0})
+              </h3>
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.txt,.log"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="text-xs border border-white/20 px-3 py-1.5 rounded-lg hover:bg-white/5 transition disabled:opacity-40"
+                >
+                  {uploading ? 'Uploading…' : '📎 Attach File'}
+                </button>
+              </div>
             </div>
-          </div>
 
-          {uploadError && (
-            <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-              {uploadError}
+            {uploadError && (
+              <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                {uploadError}
+              </p>
+            )}
+
+            <p className="text-[10px] text-gray-600">
+              Allowed: images (.jpg .png .gif .webp) · text files (.txt .log) · max 10 MB
             </p>
-          )}
 
-          <p className="text-[10px] text-gray-600">
-            Allowed: images (.jpg .png .gif .webp) · text files (.txt .log) · max 10 MB
-          </p>
-
-          {report.attachments?.length > 0 && (
-            <div className="flex flex-col gap-2">
-              {report.attachments.map((a: any) => {
-                const isImage = a.file_type?.startsWith('image/');
-                const downloadUrl = `${process.env.NEXT_PUBLIC_API_URL}/reports/attachments/${a.id}`;
-                return (
-                  <div key={a.id} className="glass-card rounded-xl p-3 flex items-center gap-3">
-                    <span className="text-lg flex-shrink-0">{isImage ? '🖼️' : '📄'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{a.file_name}</p>
-                      <p className="text-xs text-gray-500">
-                        {(a.file_size / 1024).toFixed(1)} KB · {a.uploader?.display_name}
-                      </p>
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <a
-                        href={downloadUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-aero border border-aero/20 px-2 py-1 rounded-lg hover:bg-aero/10 transition"
-                      >
-                        {isImage ? 'View' : 'Download'}
-                      </a>
-                      {isStaff && (
-                        <button
-                          onClick={() => handleDeleteAttachment(a.id, a.file_name)}
-                          className="text-xs text-red-400 border border-red-500/20 px-2 py-1 rounded-lg hover:bg-red-500/10 transition"
+            {report.attachments?.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {report.attachments.map((a: any) => {
+                  const isImage = a.file_type?.startsWith('image/');
+                  const downloadUrl = `${process.env.NEXT_PUBLIC_API_URL}/reports/attachments/${a.id}`;
+                  return (
+                    <div key={a.id} className="glass-card rounded-xl p-3 flex items-center gap-3">
+                      <span className="text-lg flex-shrink-0">{isImage ? '🖼️' : '📄'}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{a.file_name}</p>
+                        <p className="text-xs text-gray-500">
+                          {(a.file_size / 1024).toFixed(1)} KB · {a.uploader?.display_name}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <a
+                          href={downloadUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-aero border border-aero/20 px-2 py-1 rounded-lg hover:bg-aero/10 transition"
                         >
-                          ✕
-                        </button>
-                      )}
+                          {isImage ? 'View' : 'Download'}
+                        </a>
+                        {isStaff && (
+                          <button
+                            onClick={() => handleDeleteAttachment(a.id, a.file_name)}
+                            className="text-xs text-red-400 border border-red-500/20 px-2 py-1 rounded-lg hover:bg-red-500/10 transition"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Sidebar */}
-        <div className="w-56 flex-shrink-0 flex flex-col gap-4">
+        <div className="w-full lg:w-56 lg:flex-shrink-0 flex flex-col gap-4">
           {/* Staff controls */}
           {isStaff && (
             <>
