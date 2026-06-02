@@ -801,15 +801,8 @@ export default function AirlineSettingsPage() {
       {tab === 'expenses' && (
         <div className="flex flex-col gap-6">
 
-        {/* Flight Multiplier — hidden on trial accounts */}
-        {airline.subscription_status === 'TRIALING' ? (
-          <div className="glass-card rounded-2xl p-6 border border-white/5">
-            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Flight Revenue Multiplier</h2>
-            <p className="text-xs text-gray-500 mt-2">
-              Revenue multipliers are available on paid plans. Upgrade to Startup or Enterprise to unlock.
-            </p>
-          </div>
-        ) : (
+        {/* Flight Multiplier */}
+        {(() => { const isTrial = airline.subscription_status === 'TRIALING'; return (
         <div className="glass-card rounded-2xl p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Flight Revenue Multiplier</h2>
           <p className="text-xs text-gray-500 mb-5">
@@ -833,7 +826,7 @@ export default function AirlineSettingsPage() {
             ))}
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className={`flex flex-col gap-3 ${isTrial ? 'opacity-50 pointer-events-none select-none' : ''}`}>
             {/* Mode toggle */}
             <div className="flex gap-1 glass-card rounded-xl p-1 w-fit">
               {(['DYNAMIC', 'FIXED'] as const).map(m => (
@@ -862,19 +855,24 @@ export default function AirlineSettingsPage() {
               </div>
             )}
 
-            <div className="flex items-center gap-3">
-              <button onClick={saveMultiplier} disabled={multiplierSaving}
-                className="px-5 py-2 bg-aero text-black font-bold rounded-xl text-sm hover:brightness-110 transition disabled:opacity-50">
-                {multiplierSaving ? 'Saving…' : 'Save'}
-              </button>
-              {multiplierSaved && <span className="text-xs text-green-400">✓ Saved</span>}
-            </div>
+            {!isTrial && (
+              <div className="flex items-center gap-3">
+                <button onClick={saveMultiplier} disabled={multiplierSaving}
+                  className="px-5 py-2 bg-aero text-black font-bold rounded-xl text-sm hover:brightness-110 transition disabled:opacity-50">
+                  {multiplierSaving ? 'Saving…' : 'Save'}
+                </button>
+                {multiplierSaved && <span className="text-xs text-green-400">✓ Saved</span>}
+              </div>
+            )}
           </div>
-        </div>
-        )}
 
-        <div className="glass-card rounded-2xl p-6">
-          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">Expense Configuration</h2>
+          {isTrial && (
+            <p className="text-xs text-amber-400 border border-amber-500/20 bg-amber-500/5 rounded-xl px-4 py-2 mt-3">
+              🔒 Revenue multipliers are locked during the trial period. Upgrade to a paid plan to unlock.
+            </p>
+          )}
+        </div>
+        )}())}
           <div className="flex flex-col gap-0">
             {airline.expense_configs.filter(c => c.expense_type !== 'FUEL').map((config, i) => (
               <div key={config.id}
