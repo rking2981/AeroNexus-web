@@ -304,7 +304,6 @@ export default function ReportDetailPage() {
               <div className="flex flex-col gap-2">
                 {report.attachments.map((a: any) => {
                   const isImage = a.file_type?.startsWith('image/');
-                  const downloadUrl = `${process.env.NEXT_PUBLIC_API_URL}/reports/attachments/${a.id}`;
                   return (
                     <div key={a.id} className="glass-card rounded-xl p-3 flex items-center gap-3">
                       <span className="text-lg flex-shrink-0">{isImage ? '🖼️' : '📄'}</span>
@@ -315,14 +314,20 @@ export default function ReportDetailPage() {
                         </p>
                       </div>
                       <div className="flex gap-2 flex-shrink-0">
-                        <a
-                          href={downloadUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={async () => {
+                            const res = await api.get(`/reports/attachments/${a.id}`, { responseType: 'blob' });
+                            const url = URL.createObjectURL(res.data);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            if (isImage) { window.open(url, '_blank'); }
+                            else { link.download = a.file_name; link.click(); }
+                            setTimeout(() => URL.revokeObjectURL(url), 10000);
+                          }}
                           className="text-xs text-aero border border-aero/20 px-2 py-1 rounded-lg hover:bg-aero/10 transition"
                         >
                           {isImage ? 'View' : 'Download'}
-                        </a>
+                        </button>
                         {isStaff && (
                           <button
                             onClick={() => handleDeleteAttachment(a.id, a.file_name)}
