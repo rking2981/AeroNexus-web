@@ -801,7 +801,15 @@ export default function AirlineSettingsPage() {
       {tab === 'expenses' && (
         <div className="flex flex-col gap-6">
 
-        {/* Flight Multiplier */}
+        {/* Flight Multiplier — hidden on trial accounts */}
+        {airline.subscription_status === 'TRIALING' ? (
+          <div className="glass-card rounded-2xl p-6 border border-white/5">
+            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Flight Revenue Multiplier</h2>
+            <p className="text-xs text-gray-500 mt-2">
+              Revenue multipliers are available on paid plans. Upgrade to Startup or Enterprise to unlock.
+            </p>
+          </div>
+        ) : (
         <div className="glass-card rounded-2xl p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Flight Revenue Multiplier</h2>
           <p className="text-xs text-gray-500 mb-5">
@@ -863,6 +871,7 @@ export default function AirlineSettingsPage() {
             </div>
           </div>
         </div>
+        )}
 
         <div className="glass-card rounded-2xl p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">Expense Configuration</h2>
