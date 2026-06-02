@@ -124,13 +124,44 @@ export default function CargoPage() {
     }).catch(() => {});
   }, [loadBoard]);
 
-  function handleSearch() {
+  async function handleSearch() {
     const o = originInput.trim().toUpperCase();
     const d = destInput.trim().toUpperCase();
     setActiveOrigin(o);
     setActiveDest(d);
-    loadBoard(o, d, 1);
     setTab('available');
+
+    // Load first — if origin specified and zero results, auto-generate then reload
+    if (o) {
+      setLoading(true);
+      setError('');
+      try {
+        const params = new URLSearchParams({ origin: o, page: '1' });
+        if (d) params.set('dest', d);
+        const { data } = await api.get(`/cargo/board?${params}`);
+        setClaimed(data.claimed);
+        if (data.available.length === 0) {
+          setGenerating(true);
+          await api.post(`/cargo/generate?origin=${o}${d ? `&dest=${d}` : ''}`);
+          setGenerating(false);
+          const { data: data2 } = await api.get(`/cargo/board?${params}`);
+          setAvailable(data2.available);
+          setTotal(data2.total);
+          setPages(data2.pages);
+          setPage(1);
+        } else {
+          setAvailable(data.available);
+          setTotal(data.total);
+          setPages(data.pages);
+          setPage(1);
+        }
+      } catch {
+        setError('Failed to load cargo');
+        setGenerating(false);
+      } finally { setLoading(false); }
+    } else {
+      loadBoard(o, d, 1);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -291,7 +322,12 @@ export default function CargoPage() {
 
       {/* Available shipments */}
       {tab === 'available' && (
-        loading ? (
+        generating ? (
+          <div className="glass-card rounded-2xl p-12 text-center">
+            <p className="text-4xl mb-3 animate-pulse">📦</p>
+            <p className="text-gray-400 text-sm">Generating cargo for <span className="font-mono text-white">{activeOrigin}</span>…</p>
+          </div>
+        ) : loading ? (
           <div className="glass-card rounded-2xl h-48 animate-pulse" />
         ) : available.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
