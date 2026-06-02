@@ -379,7 +379,6 @@ function AirlinesTab() {
   const [data, setData] = useState<{ airlines: AdminAirline[]; total: number } | null>(null);
   const [page, setPage] = useState(1);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [viewingId, setViewingId] = useState<string | null>(null);
   const limit = 50;
 
   const fetch = useCallback(async () => {
@@ -445,7 +444,7 @@ function AirlinesTab() {
                     : 'border-green-500/30 text-green-400 hover:bg-green-500/10')}>
                 {a.subscription_status === 'ACTIVE' ? 'Cancel' : 'Activate'}
               </button>
-              <button onClick={() => setViewingId(a.id)}
+              <button onClick={() => window.open(`/dashboard/admin/airline/${a.id}`, '_blank')}
                 className="text-xs px-2 py-1 rounded-lg border border-aero/30 text-aero hover:bg-aero/10 transition">
                 View
               </button>
@@ -464,7 +463,6 @@ function AirlinesTab() {
         </div>
       )}
 
-      {viewingId && <AirlineViewPanel airlineId={viewingId} onClose={() => setViewingId(null)} />}
     </div>
   );
 }
