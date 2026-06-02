@@ -918,7 +918,6 @@ export default function AirlineSettingsPage() {
             ))}
           </div>
         </div>
-        </div>
       )}
 
       {/* Webhooks tab */}
