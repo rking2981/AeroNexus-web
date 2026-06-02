@@ -151,36 +151,27 @@ export default function CargoPage() {
     const o = activeFlight.route.origin.icao;
     const d = activeFlight.route.destination.icao;
     setOriginInput(o);
-    setDestInput(d);
+    setDestInput('');
     setActiveOrigin(o);
-    setActiveDest(d);
+    setActiveDest('');
     setTab('available');
 
-    // Load first, then generate if empty
+    // Always generate cargo for the specific route + nearby destinations
     setLoading(true);
+    setGenerating(true);
     setError('');
     try {
-      const params = new URLSearchParams({ origin: o, dest: d, page: '1' });
-      const { data } = await api.get(`/cargo/board?${params}`);
+      const category = activeFlight?.hull?.aircraft_category ?? '';
+      await api.post(`/cargo/generate?origin=${o}&dest=${d}${category ? `&aircraft_category=${category}` : ''}`);
+      setGenerating(false);
+      // Load all cargo from this origin (not just the booked route)
+      const originParams = new URLSearchParams({ origin: o, page: '1' });
+      const { data } = await api.get(`/cargo/board?${originParams}`);
       setClaimed(data.claimed);
-      if (data.available.length === 0) {
-        // None found — generate on-demand
-        setGenerating(true);
-        const category = activeFlight?.hull?.aircraft_category ?? '';
-        await api.post(`/cargo/generate?origin=${o}&dest=${d}${category ? `&aircraft_category=${category}` : ''}`);
-        setGenerating(false);
-        // Reload
-        const { data: data2 } = await api.get(`/cargo/board?${params}`);
-        setAvailable(data2.available);
-        setTotal(data2.total);
-        setPages(data2.pages);
-        setPage(1);
-      } else {
-        setAvailable(data.available);
-        setTotal(data.total);
-        setPages(data.pages);
-        setPage(1);
-      }
+      setAvailable(data.available);
+      setTotal(data.total);
+      setPages(data.pages);
+      setPage(1);
     } catch {
       setError('Failed to load cargo');
       setGenerating(false);
@@ -278,7 +269,7 @@ export default function CargoPage() {
             className="mt-3 flex items-center gap-2 text-xs text-aero border border-aero/20 bg-aero/5 hover:bg-aero/10 px-3 py-1.5 rounded-lg transition w-fit disabled:opacity-50"
           >
             {generating ? '⏳ Generating cargo…' : (
-              <>✈️ Find cargo for my booked flight <span className="font-mono text-white">{activeFlight.route.origin.icao} → {activeFlight.route.destination.icao}</span></>
+              <>✈️ Load cargo from <span className="font-mono text-white">{activeFlight.route.origin.icao}</span> (booked flight to <span className="font-mono text-white">{activeFlight.route.destination.icao}</span>)</>
             )}
           </button>
         )}
