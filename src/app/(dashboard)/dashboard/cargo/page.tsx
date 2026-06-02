@@ -65,6 +65,7 @@ function timerColor(expiresAt: string, now: number): string {
 interface ActiveFlight {
   id: string;
   status: string;
+  hull: { aircraft_category: string } | null;
   route: {
     origin: { icao: string };
     destination: { icao: string };
@@ -165,7 +166,8 @@ export default function CargoPage() {
       if (data.available.length === 0) {
         // None found — generate on-demand
         setGenerating(true);
-        await api.post(`/cargo/generate?origin=${o}&dest=${d}`);
+        const category = activeFlight?.hull?.aircraft_category ?? '';
+        await api.post(`/cargo/generate?origin=${o}&dest=${d}${category ? `&aircraft_category=${category}` : ''}`);
         setGenerating(false);
         // Reload
         const { data: data2 } = await api.get(`/cargo/board?${params}`);
