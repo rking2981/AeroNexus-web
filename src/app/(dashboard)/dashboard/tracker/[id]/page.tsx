@@ -184,7 +184,13 @@ export default function ReportDetailPage() {
             ) : (
               <>
                 <h1 className="text-xl font-bold text-white mb-4">{report.title}</h1>
-                <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{report.description}</p>
+                <div className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed break-words">
+                  {report.description.split(/(https?:\/\/[^\s]+)/g).map((part: string, i: number) =>
+                    /^https?:\/\//.test(part)
+                      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-aero underline break-all hover:brightness-125 transition">{part}</a>
+                      : part
+                  )}
+                </div>
               </>
             )}
             <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/5 text-xs text-gray-500">
@@ -228,7 +234,13 @@ export default function ReportDetailPage() {
                   )}
                   <span className="text-xs text-gray-500 ml-auto">{new Date(c.created_at).toLocaleString()}</span>
                 </div>
-                <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{c.message}</p>
+                <div className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed break-words">
+                  {c.message.split(/(https?:\/\/[^\s]+)/g).map((part: string, i: number) =>
+                    /^https?:\/\//.test(part)
+                      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-aero underline break-all hover:brightness-125 transition">{part}</a>
+                      : part
+                  )}
+                </div>
               </div>
             ))}
 
