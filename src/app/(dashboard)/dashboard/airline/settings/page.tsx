@@ -607,6 +607,8 @@ export default function AirlineSettingsPage() {
   if (loading) return <div className="p-8"><div className="glass-card rounded-2xl h-64 animate-pulse" /></div>;
   if (!airline) return null;
 
+  const isTrial = airline.subscription_status === 'TRIALING';
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8 flex items-start justify-between">
@@ -802,7 +804,6 @@ export default function AirlineSettingsPage() {
         <div className="flex flex-col gap-6">
 
         {/* Flight Multiplier */}
-        {(() => { const isTrial = airline.subscription_status === 'TRIALING'; return (
         <div className="glass-card rounded-2xl p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Flight Revenue Multiplier</h2>
           <p className="text-xs text-gray-500 mb-5">
@@ -872,7 +873,6 @@ export default function AirlineSettingsPage() {
             </p>
           )}
         </div>
-        )}())}
           <div className="flex flex-col gap-0">
             {airline.expense_configs.filter(c => c.expense_type !== 'FUEL').map((config, i) => (
               <div key={config.id}
