@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -74,6 +74,9 @@ interface ActiveFlight {
 export default function CargoPage() {
   const [available, setAvailable] = useState<CargoShipment[]>([]);
   const [claimed, setClaimed] = useState<CargoShipment[]>([]);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [claimedLoading, setClaimedLoading] = useState(true);
   const [tab, setTab] = useState<'available' | 'claimed'>('available');
@@ -82,8 +85,9 @@ export default function CargoPage() {
   const [now, setNow] = useState(Date.now());
   const [originInput, setOriginInput] = useState('');
   const [destInput, setDestInput] = useState('');
-  const [searchedOrigin, setSearchedOrigin] = useState('');
-  const [searchedDest, setSearchedDest] = useState('');
+  const [activeOrigin, setActiveOrigin] = useState('');
+  const [activeDest, setActiveDest] = useState('');
+  const [generating, setGenerating] = useState(false);
   const [activeFlight, setActiveFlight] = useState<ActiveFlight | null>(null);
   const originRef = useRef<HTMLInputElement>(null);
 
@@ -92,53 +96,93 @@ export default function CargoPage() {
     return () => clearInterval(id);
   }, []);
 
-  // Load claimed shipments and active flight on mount
-  useEffect(() => {
-    loadClaimed();
-    api.get('/flights/active').then(({ data }) => {
-      if (data?.status === 'BOARDING') setActiveFlight(data);
-    }).catch(() => {});
-  }, []);
-
-  async function loadClaimed() {
-    setClaimedLoading(true);
-    try {
-      const { data } = await api.get('/cargo/board');
-      setClaimed(data.claimed);
-    } finally { setClaimedLoading(false); }
-  }
-
-  async function search(origin: string, dest?: string) {
-    const originCode = origin.trim().toUpperCase();
-    if (originCode.length < 3) return;
-    const destCode = dest?.trim().toUpperCase() ?? '';
+  const loadBoard = useCallback(async (origin: string, dest: string, p: number) => {
     setLoading(true);
     setError('');
-    setSearchedOrigin(originCode);
-    setSearchedDest(destCode);
     try {
-      const params = new URLSearchParams({ origin: originCode });
-      if (destCode.length >= 3) params.set('dest', destCode);
+      const params = new URLSearchParams({ page: String(p) });
+      if (origin) params.set('origin', origin);
+      if (dest) params.set('dest', dest);
       const { data } = await api.get(`/cargo/board?${params}`);
       setAvailable(data.available);
+      setTotal(data.total);
+      setPages(data.pages);
+      setPage(p);
       setClaimed(data.claimed);
-      setTab('available');
     } catch {
       setError('Failed to load cargo');
     } finally { setLoading(false); }
+  }, []);
+
+  // Load on mount
+  useEffect(() => {
+    loadBoard('', '', 1);
+    setClaimedLoading(false);
+    api.get('/flights/active').then(({ data }) => {
+      if (data?.status === 'BOARDING') setActiveFlight(data);
+    }).catch(() => {});
+  }, [loadBoard]);
+
+  function handleSearch() {
+    const o = originInput.trim().toUpperCase();
+    const d = destInput.trim().toUpperCase();
+    setActiveOrigin(o);
+    setActiveDest(d);
+    loadBoard(o, d, 1);
+    setTab('available');
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') search(originInput, destInput);
+    if (e.key === 'Enter') handleSearch();
   }
 
   function handleClear() {
     setOriginInput('');
     setDestInput('');
-    setSearchedOrigin('');
-    setSearchedDest('');
-    setAvailable([]);
+    setActiveOrigin('');
+    setActiveDest('');
+    loadBoard('', '', 1);
     originRef.current?.focus();
+  }
+
+  async function handleFlightSearch() {
+    if (!activeFlight?.route) return;
+    const o = activeFlight.route.origin.icao;
+    const d = activeFlight.route.destination.icao;
+    setOriginInput(o);
+    setDestInput(d);
+    setActiveOrigin(o);
+    setActiveDest(d);
+    setTab('available');
+
+    // Load first, then generate if empty
+    setLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams({ origin: o, dest: d, page: '1' });
+      const { data } = await api.get(`/cargo/board?${params}`);
+      setClaimed(data.claimed);
+      if (data.available.length === 0) {
+        // None found — generate on-demand
+        setGenerating(true);
+        await api.post(`/cargo/generate?origin=${o}&dest=${d}`);
+        setGenerating(false);
+        // Reload
+        const { data: data2 } = await api.get(`/cargo/board?${params}`);
+        setAvailable(data2.available);
+        setTotal(data2.total);
+        setPages(data2.pages);
+        setPage(1);
+      } else {
+        setAvailable(data.available);
+        setTotal(data.total);
+        setPages(data.pages);
+        setPage(1);
+      }
+    } catch {
+      setError('Failed to load cargo');
+      setGenerating(false);
+    } finally { setLoading(false); }
   }
 
   async function handleClaim(id: string) {
@@ -148,6 +192,7 @@ export default function CargoPage() {
       const s = available.find(s => s.id === id)!;
       setAvailable(prev => prev.filter(s => s.id !== id));
       setClaimed(prev => [{ ...s, status: 'CLAIMED', claimed_at: new Date().toISOString() }, ...prev]);
+      setTotal(prev => prev - 1);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg ?? 'Failed to claim shipment');
@@ -172,7 +217,7 @@ export default function CargoPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-1">Cargo Board</h1>
         <p className="text-gray-400 text-sm">
-          Search for available cargo shipments by departure airport.
+          Browse all available cargo. Filter by origin or destination airport.
         </p>
       </div>
 
@@ -184,7 +229,7 @@ export default function CargoPage() {
 
       {/* Search bar */}
       <div className="glass-card rounded-2xl p-5 mb-6">
-        <label className="text-xs text-gray-400 block mb-2 font-medium uppercase tracking-wide">Search Cargo</label>
+        <label className="text-xs text-gray-400 block mb-2 font-medium uppercase tracking-wide">Filter Cargo</label>
         <div className="flex gap-2 items-center flex-wrap">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">FROM</span>
@@ -195,7 +240,7 @@ export default function CargoPage() {
               onChange={(e) => setOriginInput(e.target.value.toUpperCase())}
               onKeyDown={handleKeyDown}
               placeholder="KJFK"
-              maxLength={4}
+              maxLength={7}
               className="pl-14 pr-4 py-2.5 w-36 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-aero/50 font-mono"
             />
           </div>
@@ -208,35 +253,31 @@ export default function CargoPage() {
               onChange={(e) => setDestInput(e.target.value.toUpperCase())}
               onKeyDown={handleKeyDown}
               placeholder="EGLL"
-              maxLength={4}
+              maxLength={7}
               className="pl-10 pr-4 py-2.5 w-36 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-aero/50 font-mono"
             />
           </div>
           <button
-            onClick={() => search(originInput, destInput)}
-            disabled={originInput.trim().length < 3 || loading}
+            onClick={handleSearch}
+            disabled={loading}
             className="px-5 py-2.5 bg-aero text-black font-bold rounded-xl text-sm hover:brightness-110 transition disabled:opacity-40"
           >
-            {loading ? 'Searching…' : 'Search'}
+            {loading ? 'Loading…' : 'Filter'}
           </button>
           {(originInput || destInput) && (
             <button onClick={handleClear} className="text-xs text-gray-500 hover:text-white transition">Clear</button>
           )}
         </div>
-        <p className="text-xs text-gray-600 mt-2">Origin is required · Destination is optional</p>
+        <p className="text-xs text-gray-600 mt-2">Both fields optional — leave blank to browse all available cargo</p>
         {activeFlight?.route && (
           <button
-            onClick={() => {
-              const o = activeFlight.route!.origin.icao;
-              const d = activeFlight.route!.destination.icao;
-              setOriginInput(o);
-              setDestInput(d);
-              search(o, d);
-            }}
-            className="mt-3 flex items-center gap-2 text-xs text-aero border border-aero/20 bg-aero/5 hover:bg-aero/10 px-3 py-1.5 rounded-lg transition w-fit"
+            onClick={handleFlightSearch}
+            disabled={loading || generating}
+            className="mt-3 flex items-center gap-2 text-xs text-aero border border-aero/20 bg-aero/5 hover:bg-aero/10 px-3 py-1.5 rounded-lg transition w-fit disabled:opacity-50"
           >
-            ✈️ Find cargo for my booked flight
-            <span className="font-mono text-white">{activeFlight.route.origin.icao} → {activeFlight.route.destination.icao}</span>
+            {generating ? '⏳ Generating cargo…' : (
+              <>✈️ Find cargo for my booked flight <span className="font-mono text-white">{activeFlight.route.origin.icao} → {activeFlight.route.destination.icao}</span></>
+            )}
           </button>
         )}
       </div>
@@ -244,7 +285,7 @@ export default function CargoPage() {
       {/* Tabs */}
       <div className="flex gap-1 mb-6 glass-card rounded-xl p-1 w-fit">
         {([
-          { key: 'available', label: `Available${searchedOrigin ? ` (${available.length})` : ''}` },
+          { key: 'available', label: `Available (${total.toLocaleString()})` },
           { key: 'claimed',   label: `My Shipments (${claimed.length})` },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -257,61 +298,77 @@ export default function CargoPage() {
 
       {/* Available shipments */}
       {tab === 'available' && (
-        !searchedOrigin ? (
-          <div className="glass-card rounded-2xl p-16 text-center">
-            <p className="text-5xl mb-4">🔍</p>
-            <p className="text-white font-semibold mb-1">Search for cargo</p>
-            <p className="text-gray-400 text-sm">Enter a departure airport ICAO code above to see available shipments.</p>
-          </div>
-        ) : loading ? (
+        loading ? (
           <div className="glass-card rounded-2xl h-48 animate-pulse" />
         ) : available.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
             <p className="text-4xl mb-3">📦</p>
             <p className="text-gray-400 text-sm">
-              No cargo found for <span className="font-mono text-white">{searchedOrigin}</span>
-              {searchedDest && <> → <span className="font-mono text-white">{searchedDest}</span></>}.
-              {searchedDest ? ' Try removing the destination filter or check back later.' : ' Try another airport or check back later.'}
+              {activeOrigin || activeDest
+                ? <>No cargo found for <span className="font-mono text-white">{activeOrigin || 'any'}</span> → <span className="font-mono text-white">{activeDest || 'any'}</span>. Try clearing the filter.</>
+                : 'No cargo available right now. Check back in a few minutes.'}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {available.map(s => (
-              <div key={s.id} className="glass-card rounded-2xl p-5 flex flex-col gap-3 border border-transparent hover:border-white/10 transition">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{CARGO_ICONS[s.cargo_type] ?? '📦'}</span>
-                    <div>
-                      <p className="font-bold text-sm">{s.cargo_type}</p>
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
-                        <span className="font-mono text-aero">{s.origin_icao}</span>
-                        <span>→</span>
-                        <span className="font-mono text-white">{s.destination_icao}</span>
-                        <span>· {s.distance_nm.toLocaleString()} nm</span>
+          <>
+            {(activeOrigin || activeDest) && (
+              <p className="text-xs text-gray-500 mb-4">
+                Showing {available.length} of {total.toLocaleString()} shipments
+                {activeOrigin && <> from <span className="font-mono text-white">{activeOrigin}</span></>}
+                {activeDest && <> to <span className="font-mono text-white">{activeDest}</span></>}
+              </p>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {available.map(s => (
+                <div key={s.id} className="glass-card rounded-2xl p-5 flex flex-col gap-3 border border-transparent hover:border-white/10 transition">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{CARGO_ICONS[s.cargo_type] ?? '📦'}</span>
+                      <div>
+                        <p className="font-bold text-sm">{s.cargo_type}</p>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+                          <span className="font-mono text-aero">{s.origin_icao}</span>
+                          <span>→</span>
+                          <span className="font-mono text-white">{s.destination_icao}</span>
+                          <span>· {s.distance_nm.toLocaleString()} nm</span>
+                        </div>
                       </div>
                     </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-green-400">{formatValue(s.total_value)}</p>
+                      <p className="text-xs text-gray-500">${Number(s.rate_per_kg).toFixed(4)}/kg</p>
+                    </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-green-400">{formatValue(s.total_value)}</p>
-                    <p className="text-xs text-gray-500">${Number(s.rate_per_kg).toFixed(4)}/kg</p>
+                  <div className="flex gap-4 text-xs text-gray-400">
+                    <span>⚖️ {formatWeight(s.weight_kg)}</span>
+                    <span className={cn('font-mono text-xs', timerColor(s.expires_at, now))}>⏳ {timeLeft(s.expires_at, now)}</span>
                   </div>
+                  <button
+                    onClick={() => handleClaim(s.id)}
+                    disabled={actionLoading === s.id}
+                    className="w-full bg-aero text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50 mt-auto"
+                  >
+                    {actionLoading === s.id ? 'Claiming…' : 'Claim Shipment'}
+                  </button>
                 </div>
+              ))}
+            </div>
 
-                <div className="flex gap-4 text-xs text-gray-400">
-                  <span>⚖️ {formatWeight(s.weight_kg)}</span>
-                  <span className={cn('font-mono text-xs', timerColor(s.expires_at, now))}>⏳ {timeLeft(s.expires_at, now)}</span>
-                </div>
-
-                <button
-                  onClick={() => handleClaim(s.id)}
-                  disabled={actionLoading === s.id}
-                  className="w-full bg-aero text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50 mt-auto"
-                >
-                  {actionLoading === s.id ? 'Claiming…' : 'Claim Shipment'}
+            {/* Pagination */}
+            {pages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <button onClick={() => loadBoard(activeOrigin, activeDest, page - 1)} disabled={page <= 1}
+                  className="px-4 py-2 rounded-xl text-sm border border-white/10 text-gray-400 hover:text-white hover:border-white/30 transition disabled:opacity-30">
+                  ← Prev
+                </button>
+                <span className="text-sm text-gray-400">Page {page} of {pages}</span>
+                <button onClick={() => loadBoard(activeOrigin, activeDest, page + 1)} disabled={page >= pages}
+                  className="px-4 py-2 rounded-xl text-sm border border-white/10 text-gray-400 hover:text-white hover:border-white/30 transition disabled:opacity-30">
+                  Next →
                 </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )
       )}
 
@@ -322,7 +379,7 @@ export default function CargoPage() {
         ) : claimed.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
             <p className="text-4xl mb-3">📋</p>
-            <p className="text-gray-400 text-sm">No shipments claimed yet. Search for cargo above to pick some up.</p>
+            <p className="text-gray-400 text-sm">No shipments claimed yet. Browse cargo above to pick some up.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
