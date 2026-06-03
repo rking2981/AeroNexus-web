@@ -11,12 +11,37 @@ interface CargoShipment {
   distance_nm: number;
   cargo_type: string;
   weight_kg: number;
+  volume_m3: number;
+  density_class: string;
   rate_per_kg: number;
   total_value: number;
   status: string;
   claimed_at: string | null;
   expires_at: string;
 }
+
+interface HullCapacity {
+  registration: string;
+  aircraft_type: string;
+  cargo_capacity_kg: number | null;
+  cargo_volume_m3: number | null;
+  used_weight_kg: number;
+  used_volume_m3: number;
+}
+
+const DENSITY_LABELS: Record<string, string> = {
+  low:        '🪶 Low density',
+  medium:     '📦 Medium density',
+  high:       '⚙️ High density',
+  ultra_high: '💎 Ultra-dense',
+};
+
+const DENSITY_COLORS: Record<string, string> = {
+  low:        'text-blue-400',
+  medium:     'text-green-400',
+  high:       'text-amber-400',
+  ultra_high: 'text-purple-400',
+};
 
 const CARGO_ICONS: Record<string, string> = {
   'Electronics':       '💻',
@@ -72,9 +97,27 @@ interface ActiveFlight {
   } | null;
 }
 
+function CapacityBar({ used, total, label, unit }: { used: number; total: number; label: string; unit: string }) {
+  const pct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
+  const color = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-aero';
+  const textColor = pct >= 90 ? 'text-red-400' : pct >= 70 ? 'text-amber-400' : 'text-aero';
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-gray-400">{label}</span>
+        <span className={textColor}>{used.toLocaleString()} / {total.toLocaleString()} {unit}</span>
+      </div>
+      <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+        <div className={cn('h-full rounded-full transition-all', color)} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export default function CargoPage() {
   const [available, setAvailable] = useState<CargoShipment[]>([]);
   const [claimed, setClaimed] = useState<CargoShipment[]>([]);
+  const [hullCapacity, setHullCapacity] = useState<HullCapacity | null>(null);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
   const [page, setPage] = useState(1);
@@ -97,19 +140,21 @@ export default function CargoPage() {
     return () => clearInterval(id);
   }, []);
 
-  const loadBoard = useCallback(async (origin: string, dest: string, p: number) => {
+  const loadBoard = useCallback(async (origin: string, dest: string, p: number, fid?: string) => {
     setLoading(true);
     setError('');
     try {
       const params = new URLSearchParams({ page: String(p) });
       if (origin) params.set('origin', origin);
       if (dest) params.set('dest', dest);
+      if (fid) params.set('flight_id', fid);
       const { data } = await api.get(`/cargo/board?${params}`);
       setAvailable(data.available);
       setTotal(data.total);
       setPages(data.pages);
       setPage(p);
       setClaimed(data.claimed);
+      if (data.hull_capacity) setHullCapacity(data.hull_capacity);
     } catch {
       setError('Failed to load cargo');
     } finally { setLoading(false); }
@@ -117,11 +162,15 @@ export default function CargoPage() {
 
   // Load on mount
   useEffect(() => {
-    loadBoard('', '', 1);
-    setClaimedLoading(false);
     api.get('/flights/active').then(({ data }) => {
-      if (data?.status === 'BOARDING') setActiveFlight(data);
-    }).catch(() => {});
+      if (data?.status === 'BOARDING') {
+        setActiveFlight(data);
+        loadBoard('', '', 1, data.id);
+      } else {
+        loadBoard('', '', 1);
+      }
+    }).catch(() => { loadBoard('', '', 1); });
+    setClaimedLoading(false);
   }, [loadBoard]);
 
   async function handleSearch() {
@@ -130,6 +179,7 @@ export default function CargoPage() {
     setActiveOrigin(o);
     setActiveDest(d);
     setTab('available');
+    const fid = activeFlight?.id;
 
     // Load first — if origin specified and zero results, auto-generate then reload
     if (o) {
@@ -143,18 +193,20 @@ export default function CargoPage() {
         await api.post(`/cargo/generate?origin=${o}${d ? `&dest=${d}` : ''}`);
         setGenerating(false);
         // Reload after generation
+        if (fid) params.set('flight_id', fid);
         const { data: data2 } = await api.get(`/cargo/board?${params}`);
         setClaimed(data2.claimed);
         setAvailable(data2.available);
         setTotal(data2.total);
         setPages(data2.pages);
+        if (data2.hull_capacity) setHullCapacity(data2.hull_capacity);
         setPage(1);
       } catch {
         setError('Failed to load cargo');
         setGenerating(false);
       } finally { setLoading(false); }
     } else {
-      loadBoard(o, d, 1);
+      loadBoard(o, d, 1, fid);
     }
   }
 
@@ -211,6 +263,14 @@ export default function CargoPage() {
       setAvailable(prev => prev.filter(s => s.id !== id));
       setClaimed(prev => [{ ...s, status: 'CLAIMED', claimed_at: new Date().toISOString() }, ...prev]);
       setTotal(prev => prev - 1);
+      // Update hull capacity live
+      if (hullCapacity && s) {
+        setHullCapacity(prev => prev ? {
+          ...prev,
+          used_weight_kg: prev.used_weight_kg + s.weight_kg,
+          used_volume_m3: Math.round((prev.used_volume_m3 + Number(s.volume_m3)) * 100) / 100,
+        } : prev);
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg ?? 'Failed to claim shipment');
@@ -224,6 +284,14 @@ export default function CargoPage() {
       const s = claimed.find(s => s.id === id)!;
       setClaimed(prev => prev.filter(s => s.id !== id));
       setAvailable(prev => [{ ...s, status: 'AVAILABLE', claimed_at: null }, ...prev]);
+      // Restore hull capacity
+      if (hullCapacity && s) {
+        setHullCapacity(prev => prev ? {
+          ...prev,
+          used_weight_kg: Math.max(0, prev.used_weight_kg - s.weight_kg),
+          used_volume_m3: Math.max(0, Math.round((prev.used_volume_m3 - Number(s.volume_m3)) * 100) / 100),
+        } : prev);
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg ?? 'Failed to return shipment');
@@ -242,6 +310,42 @@ export default function CargoPage() {
       {error && (
         <div className="glass-card rounded-xl p-4 mb-6 border border-red-500/20 bg-red-500/5 text-sm text-red-400">
           {error}
+        </div>
+      )}
+
+      {/* Hull capacity card */}
+      {hullCapacity && (
+        <div className="glass-card rounded-2xl p-5 mb-6 border border-aero/20">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-sm font-bold text-white">{hullCapacity.aircraft_type}</p>
+              <p className="text-xs text-gray-500 font-mono">{hullCapacity.registration}</p>
+            </div>
+            <span className="text-xs text-aero border border-aero/20 bg-aero/5 px-2 py-0.5 rounded-full">Booked Flight</span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {hullCapacity.cargo_capacity_kg ? (
+              <CapacityBar
+                used={hullCapacity.used_weight_kg}
+                total={hullCapacity.cargo_capacity_kg}
+                label="Weight capacity"
+                unit="kg"
+              />
+            ) : (
+              <p className="text-xs text-gray-500">No cargo capacity data for this aircraft type.</p>
+            )}
+            {hullCapacity.cargo_volume_m3 && (
+              <CapacityBar
+                used={hullCapacity.used_volume_m3}
+                total={hullCapacity.cargo_volume_m3}
+                label="Volume capacity"
+                unit="m³"
+              />
+            )}
+          </div>
+          {hullCapacity.used_weight_kg === 0 && (
+            <p className="text-xs text-gray-600 mt-2">Claim shipments below to load cargo onto this flight.</p>
+          )}
         </div>
       )}
 
@@ -362,16 +466,33 @@ export default function CargoPage() {
                       <p className="text-xs text-gray-500">${Number(s.rate_per_kg).toFixed(4)}/kg</p>
                     </div>
                   </div>
-                  <div className="flex gap-4 text-xs text-gray-400">
+                  <div className="flex gap-3 text-xs text-gray-400 flex-wrap">
                     <span>⚖️ {formatWeight(s.weight_kg)}</span>
+                    <span>📐 {Number(s.volume_m3).toFixed(1)} m³</span>
                     <span className={cn('font-mono text-xs', timerColor(s.expires_at, now))}>⏳ {timeLeft(s.expires_at, now)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className={cn('text-[10px] font-medium', DENSITY_COLORS[s.density_class] ?? 'text-gray-400')}>
+                      {DENSITY_LABELS[s.density_class] ?? s.density_class}
+                    </span>
+                    {hullCapacity?.cargo_capacity_kg && (
+                      <span className="text-[10px] text-gray-500">
+                        {((s.weight_kg / hullCapacity.cargo_capacity_kg) * 100).toFixed(1)}% of capacity
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={() => handleClaim(s.id)}
-                    disabled={actionLoading === s.id}
+                    disabled={actionLoading === s.id || (
+                      hullCapacity?.cargo_capacity_kg != null &&
+                      hullCapacity.used_weight_kg + s.weight_kg > hullCapacity.cargo_capacity_kg
+                    )}
                     className="w-full bg-aero text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50 mt-auto"
                   >
-                    {actionLoading === s.id ? 'Claiming…' : 'Claim Shipment'}
+                    {actionLoading === s.id ? 'Claiming…'
+                      : hullCapacity?.cargo_capacity_kg != null && hullCapacity.used_weight_kg + s.weight_kg > hullCapacity.cargo_capacity_kg
+                        ? '⚠️ Exceeds capacity'
+                        : 'Claim Shipment'}
                   </button>
                 </div>
               ))}
