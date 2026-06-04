@@ -18,6 +18,7 @@ interface CargoShipment {
   status: string;
   claimed_at: string | null;
   expires_at: string;
+  flight_id: string | null;
 }
 
 interface HullCapacity {
@@ -27,6 +28,7 @@ interface HullCapacity {
   cargo_volume_m3: number | null;
   used_weight_kg: number;
   used_volume_m3: number;
+  pax_baggage_kg: number;
 }
 
 const DENSITY_LABELS: Record<string, string> = {
@@ -258,10 +260,11 @@ export default function CargoPage() {
   async function handleClaim(id: string) {
     setActionLoading(id); setError('');
     try {
-      await api.post(`/cargo/claim/${id}`);
+      const flightParam = activeFlight?.id ? `?flight_id=${activeFlight.id}` : '';
+      await api.post(`/cargo/claim/${id}${flightParam}`);
       const s = available.find(s => s.id === id)!;
       setAvailable(prev => prev.filter(s => s.id !== id));
-      setClaimed(prev => [{ ...s, status: 'CLAIMED', claimed_at: new Date().toISOString() }, ...prev]);
+      setClaimed(prev => [{ ...s, status: 'CLAIMED', claimed_at: new Date().toISOString(), flight_id: activeFlight?.id ?? null }, ...prev]);
       setTotal(prev => prev - 1);
       // Update hull capacity live
       if (hullCapacity && s) {
@@ -343,7 +346,12 @@ export default function CargoPage() {
               />
             )}
           </div>
-          {hullCapacity.used_weight_kg === 0 && (
+          {hullCapacity.pax_baggage_kg > 0 && (
+            <p className="text-xs text-gray-600 mt-2">
+              Hold capacity after pax baggage ({hullCapacity.pax_baggage_kg.toLocaleString()} kg reserved).
+            </p>
+          )}
+          {hullCapacity.used_weight_kg === 0 && hullCapacity.pax_baggage_kg === 0 && (
             <p className="text-xs text-gray-600 mt-2">Claim shipments below to load cargo onto this flight.</p>
           )}
         </div>
@@ -546,9 +554,15 @@ export default function CargoPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className="text-xs text-amber-400 border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 rounded-full font-medium">
-                    Awaiting Flight
-                  </span>
+                  {s.flight_id ? (
+                    <span className="text-xs text-green-400 border border-green-500/20 bg-green-500/10 px-2.5 py-1 rounded-full font-medium">
+                      ✓ Loaded
+                    </span>
+                  ) : (
+                    <span className="text-xs text-amber-400 border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 rounded-full font-medium">
+                      Awaiting Flight
+                    </span>
+                  )}
                   <button
                     onClick={() => handleUnclaim(s.id)}
                     disabled={actionLoading === s.id}
