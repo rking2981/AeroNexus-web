@@ -813,24 +813,7 @@ export default function AirlineSettingsPage() {
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Flight Revenue Multiplier</h2>
           <p className="text-xs text-gray-500 mb-5">
             Applied to flight revenue after pilot cut. Allows your airline to grow while keeping pilot earnings realistic.
-            Maximum multiplier decreases as your total airline value grows.
           </p>
-
-          {/* Dynamic caps reference */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-5">
-            {[
-              { cap: '100×', label: 'Under $3.5B', color: 'text-green-400' },
-              { cap: '75×',  label: 'Under $4.0B', color: 'text-aero' },
-              { cap: '50×',  label: 'Under $4.5B', color: 'text-amber-400' },
-              { cap: '35×',  label: 'Under $5.0B', color: 'text-orange-400' },
-              { cap: '25×',  label: 'Over $5.0B',  color: 'text-red-400' },
-            ].map(b => (
-              <div key={b.cap} className="glass-card rounded-xl p-3 text-center border border-white/5">
-                <p className={`text-lg font-bold ${b.color}`}>{b.cap}</p>
-                <p className="text-[10px] text-gray-500">{b.label}</p>
-              </div>
-            ))}
-          </div>
 
           <div className={`flex flex-col gap-3 ${isTrial ? 'opacity-50 pointer-events-none select-none' : ''}`}>
             {/* Mode toggle */}
@@ -851,7 +834,7 @@ export default function AirlineSettingsPage() {
               <div className="flex flex-col gap-2">
                 <p className="text-xs text-gray-500">Choose a fixed multiplier for a more simulation-focused experience. Cannot exceed your dynamic cap.</p>
                 <div className="flex gap-2 flex-wrap">
-                  {[3, 5, 10, 15, 20].map(v => (
+                  {[1, 5, 10, 15, 20].map(v => (
                     <button key={v} onClick={() => setMultiplierValue(v)}
                       className={`px-4 py-2 rounded-xl text-sm font-bold border transition ${multiplierValue === v ? 'bg-aero text-black border-aero' : 'border-white/10 text-gray-400 hover:text-white hover:border-white/30'}`}>
                       {v}×
