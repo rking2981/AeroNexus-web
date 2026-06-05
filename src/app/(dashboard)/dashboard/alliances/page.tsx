@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -61,9 +62,13 @@ function AirlineLogo({ airline }: { airline: Partner }) {
 
 function AlliancesContent() {
   const { user } = useAuthStore();
+  const searchParams = useSearchParams();
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
-  const [tab, setTab] = useState<'alliances' | 'requests' | 'find'>('alliances');
+  const validAllianceTabs = ['alliances', 'requests', 'find'] as const;
+  type AllianceTab = typeof validAllianceTabs[number];
+  const initialAllianceTab = validAllianceTabs.includes(searchParams.get('tab') as AllianceTab) ? searchParams.get('tab') as AllianceTab : 'alliances';
+  const [tab, setTab] = useState<AllianceTab>(initialAllianceTab);
   const [alliances, setAlliances] = useState<AllianceItem[]>([]);
   const [requests, setRequests] = useState<{ sent: RequestItem[]; received: RequestItem[] }>({ sent: [], received: [] });
   const [loading, setLoading] = useState(true);
