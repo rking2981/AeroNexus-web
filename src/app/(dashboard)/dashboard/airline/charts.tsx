@@ -63,7 +63,7 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
               <YAxis hide tickFormatter={formatK} />
               <Tooltip
                 contentStyle={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number) => [formatK(v), 'Revenue']}
+                formatter={(v: number | string) => [formatK(Number(v)), 'Revenue']}
                 labelStyle={{ color: '#9ca3af' }}
                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
               />
@@ -100,7 +100,7 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
               </Pie>
               <Tooltip
                 contentStyle={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number) => [v, 'Flights']}
+                formatter={(v: number | string) => [Number(v), 'Flights']}
                 labelStyle={{ color: '#9ca3af' }}
               />
               <Legend
@@ -136,7 +136,7 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
               </Pie>
               <Tooltip
                 contentStyle={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number) => [formatK(v), 'Revenue']}
+                formatter={(v: number | string) => [formatK(Number(v)), 'Revenue']}
                 labelStyle={{ color: '#9ca3af' }}
               />
               <Legend
