@@ -63,7 +63,8 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
               <YAxis hide tickFormatter={formatK} />
               <Tooltip
                 contentStyle={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number | string) => [formatK(Number(v)), 'Revenue']}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={(v: any) => [formatK(Number(v ?? 0)), 'Revenue']}
                 labelStyle={{ color: '#9ca3af' }}
                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
               />
@@ -100,7 +101,8 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
               </Pie>
               <Tooltip
                 contentStyle={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number | string) => [Number(v), 'Flights']}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={(v: any) => [Number(v ?? 0), 'Flights']}
                 labelStyle={{ color: '#9ca3af' }}
               />
               <Legend
@@ -136,7 +138,8 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
               </Pie>
               <Tooltip
                 contentStyle={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number | string) => [formatK(Number(v)), 'Revenue']}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={(v: any) => [formatK(Number(v ?? 0)), 'Revenue']}
                 labelStyle={{ color: '#9ca3af' }}
               />
               <Legend
