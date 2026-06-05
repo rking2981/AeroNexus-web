@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Input } from '@/components/ui/input';
@@ -419,7 +420,11 @@ export default function AirlineSettingsPage() {
   const { user } = useAuthStore();
   const [airline, setAirline] = useState<Airline | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'general' | 'branding' | 'expenses' | 'webhooks' | 'subscription' | 'transfer'>('general');
+  const searchParams = useSearchParams();
+  const validTabs = ['general', 'branding', 'expenses', 'webhooks', 'subscription', 'transfer'] as const;
+  type TabType = typeof validTabs[number];
+  const initialTab = validTabs.includes(searchParams.get('tab') as TabType) ? searchParams.get('tab') as TabType : 'general';
+  const [tab, setTab] = useState<TabType>(initialTab);
 
   // Transfer ownership state
   const [transferEmail, setTransferEmail] = useState('');
