@@ -9,15 +9,16 @@ interface FuelCrisisEvent {
 }
 
 function severityLabel(multiplier: number): string {
-  if (multiplier >= 5) return 'SEVERE';
-  if (multiplier >= 3) return 'CRISIS';
-  if (multiplier >= 1.5) return 'SHORTAGE';
+  if (multiplier >= 5) return 'CRITICAL';
+  if (multiplier >= 3) return 'SEVERE';
+  if (multiplier >= 1.5) return 'HIGH';
   return 'ELEVATED';
 }
 
 function severityColor(multiplier: number): string {
   if (multiplier >= 5) return 'text-red-400';
   if (multiplier >= 3) return 'text-orange-400';
+  if (multiplier >= 1.5) return 'text-amber-400';
   return 'text-yellow-400';
 }
 
@@ -57,7 +58,7 @@ export function FuelCrisisTicker({ events }: { events: FuelCrisisEvent[] }) {
             {items.map((e, i) => (
               <span key={i} className="flex items-center gap-2 px-8 whitespace-nowrap text-xs">
                 <span className={`font-bold uppercase ${severityColor(e.multiplier)}`}>
-                  [{severityLabel(e.multiplier)} {e.multiplier.toFixed(1)}×]
+                  [{severityLabel(e.multiplier)}]
                 </span>
                 <span className="text-gray-300">{e.country}</span>
                 <span className="text-gray-600">—</span>
