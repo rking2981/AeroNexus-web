@@ -189,11 +189,12 @@ export default function AirlinePage() {
       </div>
 
       {/* Charts row */}
-      {charts && (
-        <div className="mb-8">
-          <RechartsCharts charts={charts} currencySymbol={sym} />
-        </div>
-      )}
+      <div className="mb-8">
+        <RechartsCharts
+          charts={charts ?? { daily_revenue: {}, cargo_by_type: [], top_routes: [] }}
+          currencySymbol={sym}
+        />
+      </div>
 
       {/* Recent flights table */}
       <div className="glass-card rounded-2xl overflow-hidden">
