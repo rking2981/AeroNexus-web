@@ -85,17 +85,17 @@ export default function AirlinePage() {
       router.replace('/dashboard/airline/create');
       return;
     }
-    Promise.all([
-      api.get('/airline'),
-      api.get('/airline/overview'),
-    ])
-      .then(([airlineRes, overviewRes]) => {
-        setAirline(airlineRes.data);
-        setRecentFlights(overviewRes.data.recent_flights ?? []);
-        setCharts(overviewRes.data.charts ?? null);
-      })
+    api.get('/airline')
+      .then(r => setAirline(r.data))
       .catch(() => router.replace('/dashboard/airline/create'))
       .finally(() => setLoading(false));
+
+    api.get('/airline/overview')
+      .then(r => {
+        setRecentFlights(r.data.recent_flights ?? []);
+        setCharts(r.data.charts ?? null);
+      })
+      .catch(() => {}); // charts are non-critical — fail silently
   }, [user, router]);
 
   if (loading) return (
