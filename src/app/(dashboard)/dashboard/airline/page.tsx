@@ -3,12 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
-
-const RechartsCharts = dynamic(() => import('./charts'), { ssr: false, loading: () => <div className="h-48 animate-pulse bg-white/5 rounded-xl" /> });
+import RechartsCharts from './charts';
 
 interface Airline {
   id: string;

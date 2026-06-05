@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
@@ -21,6 +22,13 @@ function formatK(v: number) {
 }
 
 export default function RechartsCharts({ charts, currencySymbol }: { charts: Charts; currencySymbol: string }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {[1,2,3].map(i => <div key={i} className="glass-card rounded-2xl h-48 animate-pulse" />)}
+    </div>
+  );
   // Build daily revenue array — last 14 days
   const revenueData = Object.entries(charts.daily_revenue)
     .sort(([a], [b]) => a.localeCompare(b))
