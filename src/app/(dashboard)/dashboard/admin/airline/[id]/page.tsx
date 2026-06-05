@@ -297,7 +297,7 @@ export default function AdminAirlinePage() {
                           )}
                         </td>
                         <td className={cn('px-4 py-2.5 text-xs font-mono font-bold whitespace-nowrap', f.revenue < 0 ? 'text-red-400' : 'text-green-400')}>
-                          {f.revenue < 0 ? '-' : ''}{airline.currency_symbol}{Math.abs(f.revenue) >= 1000 ? `${(Math.abs(f.revenue) / 1000).toFixed(1)}K` : Math.abs(f.revenue).toFixed(0)}
+                          {f.revenue < 0 ? '-' : ''}{airline.currency_symbol}{Math.abs(f.revenue).toLocaleString('en-US', { minimumFractionDigits: Math.abs(f.revenue) % 1 !== 0 ? 2 : 0, maximumFractionDigits: 2 })}
                         </td>
                       </tr>
                     ))}
