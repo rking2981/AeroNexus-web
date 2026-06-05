@@ -77,6 +77,8 @@ export default function AirlinePage() {
   const [recentFlights, setRecentFlights] = useState<RecentFlight[]>([]);
   const [charts, setCharts] = useState<Charts | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
+  const [allFlightsLoading, setAllFlightsLoading] = useState(false);
 
   useEffect(() => {
     if (!user?.airline_id) {
@@ -197,8 +199,9 @@ export default function AirlinePage() {
       {/* Recent flights table */}
       <div className="glass-card rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-          <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Flights — Last 7 Days</p>
-          <Link href="/dashboard/logbook" className="text-xs text-aero hover:underline">Show all →</Link>
+          <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">
+            {showAll ? 'All Flights' : 'Flights — Last 7 Days'}
+          </p>
         </div>
         {recentFlights.length === 0 ? (
           <div className="px-5 py-10 text-center text-gray-600 text-sm">No completed flights in the last 7 days.</div>
@@ -245,6 +248,31 @@ export default function AirlinePage() {
             </table>
           </div>
         )}
+        {/* View All / Show Less footer */}
+        <button
+          onClick={async () => {
+            if (showAll) {
+              // Collapse — reload 7-day view
+              setShowAll(false);
+              const r = await api.get('/airline/overview');
+              setRecentFlights(r.data.recent_flights ?? []);
+            } else {
+              // Expand — fetch all flights
+              setAllFlightsLoading(true);
+              try {
+                const r = await api.get('/airline/overview?all=true');
+                setRecentFlights(r.data.recent_flights ?? []);
+                setShowAll(true);
+              } finally {
+                setAllFlightsLoading(false);
+              }
+            }
+          }}
+          disabled={allFlightsLoading}
+          className="w-full py-3 text-xs text-aero hover:text-white border-t border-white/5 transition disabled:opacity-50"
+        >
+          {allFlightsLoading ? 'Loading…' : showAll ? '▲ Show Less' : '▼ View All Flights'}
+        </button>
       </div>
     </div>
   );
