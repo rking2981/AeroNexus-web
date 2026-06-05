@@ -71,6 +71,9 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-500 mt-1">
                 Accepting will make you the VA Manager. If you currently manage another airline, it will be dissolved.
               </p>
+              <p className="text-xs text-amber-500/80 mt-1 font-medium">
+                Only accept this transfer if you no longer wish to keep your current airline.
+              </p>
               {t.expires_at && (
                 <p className="text-xs text-gray-600 mt-1">Expires: {new Date(t.expires_at).toLocaleString()}</p>
               )}
