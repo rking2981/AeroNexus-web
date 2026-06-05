@@ -90,22 +90,12 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
 
       {/* Top routes pie */}
       <div className="glass-card rounded-2xl p-5">
-        <p className="text-xs text-gray-500 uppercase tracking-widest mb-4">Top Routes (30 days)</p>
+        <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Top Routes (30 days)</p>
         {hasRoutes ? (
-          <ResponsiveContainer width="100%" height={160}>
+          <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie
-                data={routesPieData}
-                cx="50%"
-                cy="50%"
-                innerRadius={40}
-                outerRadius={65}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {routesPieData.map((_, i) => (
-                  <Cell key={i} fill={ROUTE_COLORS[i % ROUTE_COLORS.length]} />
-                ))}
+              <Pie data={routesPieData} cx="50%" cy="45%" innerRadius={35} outerRadius={58} paddingAngle={3} dataKey="value">
+                {routesPieData.map((_, i) => <Cell key={i} fill={ROUTE_COLORS[i % ROUTE_COLORS.length]} />)}
               </Pie>
               <Tooltip
                 contentStyle={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
@@ -113,11 +103,8 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
                 formatter={(v: any) => [Number(v ?? 0), 'Flights']}
                 labelStyle={{ color: '#9ca3af' }}
               />
-              <Legend
-                iconType="circle"
-                iconSize={8}
-                wrapperStyle={{ fontSize: 10, color: '#9ca3af' }}
-              />
+              <Legend iconType="circle" iconSize={7} verticalAlign="bottom" layout="horizontal"
+                wrapperStyle={{ fontSize: 9, color: '#9ca3af', paddingTop: 8 }} />
             </PieChart>
           </ResponsiveContainer>
         ) : (
@@ -127,11 +114,11 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
 
       {/* Cargo revenue pie */}
       <div className="glass-card rounded-2xl p-5">
-        <p className="text-xs text-gray-500 uppercase tracking-widest mb-4">Cargo Revenue (30 days)</p>
+        <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Cargo Revenue (30 days)</p>
         {hasCargo ? (
-          <ResponsiveContainer width="100%" height={160}>
+          <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie data={cargoPieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
+              <Pie data={cargoPieData} cx="50%" cy="45%" innerRadius={35} outerRadius={58} paddingAngle={3} dataKey="value">
                 {cargoPieData.map((_, i) => <Cell key={i} fill={CARGO_COLORS[i % CARGO_COLORS.length]} />)}
               </Pie>
               <Tooltip
@@ -140,7 +127,8 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
                 formatter={(v: any) => [formatK(Number(v ?? 0)), 'Revenue']}
                 labelStyle={{ color: '#9ca3af' }}
               />
-              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, color: '#9ca3af' }} />
+              <Legend iconType="circle" iconSize={7} verticalAlign="bottom" layout="horizontal"
+                wrapperStyle={{ fontSize: 9, color: '#9ca3af', paddingTop: 8 }} />
             </PieChart>
           </ResponsiveContainer>
         ) : (
@@ -150,11 +138,11 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
 
       {/* Expenses by type pie */}
       <div className="glass-card rounded-2xl p-5">
-        <p className="text-xs text-gray-500 uppercase tracking-widest mb-4">Expenses by Type (30 days)</p>
+        <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Expenses by Type (30 days)</p>
         {hasExpenses ? (
-          <ResponsiveContainer width="100%" height={160}>
+          <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie data={expensePieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
+              <Pie data={expensePieData} cx="50%" cy="45%" innerRadius={35} outerRadius={58} paddingAngle={3} dataKey="value">
                 {expensePieData.map((_, i) => <Cell key={i} fill={EXPENSE_COLORS[i % EXPENSE_COLORS.length]} />)}
               </Pie>
               <Tooltip
@@ -163,7 +151,8 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
                 formatter={(v: any) => [formatK(Number(v ?? 0)), 'Expenses']}
                 labelStyle={{ color: '#9ca3af' }}
               />
-              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, color: '#9ca3af' }} />
+              <Legend iconType="circle" iconSize={7} verticalAlign="bottom" layout="horizontal"
+                wrapperStyle={{ fontSize: 9, color: '#9ca3af', paddingTop: 8 }} />
             </PieChart>
           </ResponsiveContainer>
         ) : (
