@@ -135,10 +135,10 @@ export default async function HomePage() {
           AERO<span className="text-aero">NEXUS</span>
         </div>
         <div className="hidden md:flex space-x-8 text-base font-medium text-gray-400">
-          <a href="#features" className="hover:text-white transition">Network</a>
-          <a href="#features" className="hover:text-white transition">Economy</a>
-          <a href="#features" className="hover:text-white transition">ACARS</a>
+          <Link href="/features" className="hover:text-white transition">Features</Link>
+          <Link href="/faq" className="hover:text-white transition">FAQ</Link>
           <a href="#pricing" className="hover:text-white transition">Pricing</a>
+          <Link href="/contact" className="hover:text-white transition">Contact</Link>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login" className="text-sm font-medium text-gray-400 hover:text-white transition">
@@ -328,10 +328,24 @@ export default async function HomePage() {
 
       {/* Footer */}
       <footer className="py-12 text-center text-gray-600 text-sm border-t border-white/5">
+        {/* AdSense — public placement for Google crawler visibility */}
+        <div className="max-w-4xl mx-auto mb-10 px-6">
+          <ins
+            className="adsbygoogle"
+            style={{ display: 'block' }}
+            data-ad-client="ca-pub-3384657062371102"
+            data-ad-slot="4567890123"
+            data-ad-format="horizontal"
+            data-full-width-responsive="true"
+          />
+        </div>
         <p>&copy; 2026 AeroNexus Ecosystem. Built for MSFS 2024 &amp; X-Plane.</p>
-        <div className="flex items-center justify-center gap-6 mt-3">
+        <div className="flex items-center justify-center gap-6 mt-3 flex-wrap">
+          <Link href="/features" className="hover:text-gray-400 transition">Features</Link>
+          <Link href="/faq" className="hover:text-gray-400 transition">FAQ</Link>
           <Link href="/terms" className="hover:text-gray-400 transition">Terms of Use</Link>
           <Link href="/privacy" className="hover:text-gray-400 transition">Privacy Policy</Link>
+          <Link href="/contact" className="hover:text-gray-400 transition">Contact</Link>
           <a href="mailto:terms@aeronexus.app" className="hover:text-gray-400 transition">Legal Contact</a>
         </div>
       </footer>
