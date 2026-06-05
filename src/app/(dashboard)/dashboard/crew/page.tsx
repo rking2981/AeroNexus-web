@@ -20,6 +20,7 @@ interface RankTier {
   min_hours: number;
   min_flights: number;
   sort_order: number;
+  hourly_pay_rate: number;
 }
 
 interface PilotStats {
@@ -545,11 +546,12 @@ export default function CrewPage() {
               </div>
               {rankTiers.map((tier, i) => (
                 <div key={i} className="grid px-4 py-2.5 border-b border-white/5 last:border-0 items-center"
-                  style={{ gridTemplateColumns: '32px 1fr 110px 110px' }}>
+                  style={{ gridTemplateColumns: '32px 1fr 110px 110px 110px' }}>
                   <span className="text-xs text-gray-600 font-mono">{i + 1}</span>
                   <span className="text-sm text-white font-medium">{tier.rank}</span>
                   <span className="text-sm font-mono text-gray-400 text-right">{tier.min_hours}h</span>
                   <span className="text-sm font-mono text-gray-400 text-right">{tier.min_flights} flights</span>
+                  <span className="text-sm font-mono text-gray-400 text-right">${Number(tier.hourly_pay_rate ?? 0).toFixed(2)}/hr</span>
                 </div>
               ))}
             </div>
@@ -567,17 +569,18 @@ export default function CrewPage() {
           <div className="glass-card rounded-2xl overflow-hidden mb-4">
             {/* Header */}
             <div className="grid px-4 py-2.5 border-b border-white/5 text-xs text-gray-500 uppercase tracking-widest"
-              style={{ gridTemplateColumns: '32px 1fr 110px 110px 36px' }}>
+              style={{ gridTemplateColumns: '32px 1fr 110px 110px 120px 36px' }}>
               <span>#</span>
               <span>Rank Name</span>
               <span className="text-right">Min Hours</span>
               <span className="text-right">Min Flights</span>
+              <span className="text-right">Pay/Hour</span>
               <span />
             </div>
 
             {rankTiers.map((tier, i) => (
               <div key={i} className="grid px-4 py-2.5 border-b border-white/5 last:border-0 items-center gap-3"
-                style={{ gridTemplateColumns: '32px 1fr 110px 110px 36px' }}>
+                style={{ gridTemplateColumns: '32px 1fr 110px 110px 120px 36px' }}>
                 <span className="text-xs text-gray-600 font-mono">{i + 1}</span>
 
                 {isManager ? (
@@ -604,6 +607,17 @@ export default function CrewPage() {
                   <span className="text-sm font-mono text-gray-300 text-right">{tier.min_flights} flights</span>
                 )}
 
+                {isManager ? (
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">$</span>
+                    <input type="number" min={0} step={0.01} value={tier.hourly_pay_rate ?? 0}
+                      onChange={(e) => setRankTiers(rankTiers.map((t, j) => j === i ? { ...t, hourly_pay_rate: Number(e.target.value) } : t))}
+                      className="w-full rounded-lg border border-white/10 bg-white/5 pl-5 pr-2 py-1 text-sm text-white text-right focus:border-aero focus:outline-none transition" />
+                  </div>
+                ) : (
+                  <span className="text-sm font-mono text-gray-300 text-right">${Number(tier.hourly_pay_rate ?? 0).toFixed(2)}/hr</span>
+                )}
+
                 {isManager && (
                   <button onClick={() => setRankTiers(rankTiers.filter((_, j) => j !== i))}
                     className="text-red-400 hover:text-red-300 text-sm transition" title="Remove tier">✕</button>
@@ -614,7 +628,7 @@ export default function CrewPage() {
 
           {isManager && (
             <div className="flex gap-3 flex-wrap">
-              <button onClick={() => setRankTiers([...rankTiers, { rank: 'New Rank', min_hours: 0, min_flights: 0, sort_order: rankTiers.length }])}
+              <button onClick={() => setRankTiers([...rankTiers, { rank: 'New Rank', min_hours: 0, min_flights: 0, hourly_pay_rate: 0, sort_order: rankTiers.length }])}
                 disabled={rankTiers.length >= 10}
                 className="text-sm border border-white/20 px-4 py-2 rounded-xl hover:bg-white/5 transition disabled:opacity-40">
                 + Add Tier
