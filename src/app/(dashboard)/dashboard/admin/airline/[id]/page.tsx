@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
-import RechartsCharts from '../../../../airline/charts';
+import RechartsCharts from '@/app/(dashboard)/dashboard/airline/charts';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
