@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { PricingSection } from '@/components/pricing-section';
 import { HeroCanvas } from '@/components/hero-canvas';
 import { ScreenshotGallery } from '@/components/screenshot-gallery';
-import { FuelCrisisTicker } from '@/components/fuel-crisis-ticker';
 
 export const metadata: Metadata = {
   title: 'AeroNexus — Virtual Airline Management Platform for MSFS 2024 & X-Plane',
@@ -64,23 +63,6 @@ async function getNetworkStats(): Promise<NetworkStats> {
   }
 }
 
-interface FuelCrisisEvent {
-  country: string;
-  multiplier: number;
-  airports: string[];
-}
-
-async function getFuelCrisisEvents(): Promise<FuelCrisisEvent[]> {
-  try {
-    const res = await fetch(`${API}/fuel-crisis-events`, {
-      next: { revalidate: 120 },
-    });
-    if (!res.ok) throw new Error('Failed');
-    return res.json();
-  } catch {
-    return [];
-  }
-}
 
 const jsonLd = [
   {
@@ -141,7 +123,7 @@ const jsonLd = [
 ];
 
 export default async function HomePage() {
-  const [founders, stats, crisisEvents] = await Promise.all([getFoundersStatus(), getNetworkStats(), getFuelCrisisEvents()]);
+  const [founders, stats] = await Promise.all([getFoundersStatus(), getNetworkStats()]);
 
   return (
     <div className="antialiased">
@@ -173,8 +155,6 @@ export default async function HomePage() {
           </Link>
         </div>
       </nav>
-
-      <FuelCrisisTicker events={crisisEvents} />
 
       {/* Hero */}
       <section className="relative overflow-hidden pt-16 pb-32 px-6 text-center select-none">

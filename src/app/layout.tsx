@@ -1,6 +1,19 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { FuelCrisisTicker } from '@/components/fuel-crisis-ticker';
+
+const API = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'https://aeronexus-api-production.up.railway.app';
+
+async function getFuelCrisisEvents() {
+  try {
+    const res = await fetch(`${API}/fuel-crisis-events`, { next: { revalidate: 120 } });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
 
 const inter = Inter({
   subsets: ['latin'],
@@ -94,7 +107,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const crisisEvents = await getFuelCrisisEvents();
+
   return (
     <html lang="en" className={`${inter.variable} h-full`}>
       <head>
@@ -104,7 +119,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           crossOrigin="anonymous"
         />
       </head>
-      <body className="min-h-full flex flex-col antialiased">{children}</body>
+      <body className="min-h-full flex flex-col antialiased">
+        <FuelCrisisTicker events={crisisEvents} />
+        {children}
+      </body>
     </html>
   );
 }
