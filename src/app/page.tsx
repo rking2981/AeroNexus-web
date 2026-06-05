@@ -29,10 +29,12 @@ interface FoundersStatus {
 }
 
 interface NetworkStats {
-  pilots_online: number;
-  active_airlines: number;
-  flights_today: number;
-  nm_this_week: number;
+  total_pilots: number;
+  total_flights: number;
+  total_hours: number;
+  total_aircraft: number;
+  total_airlines: number;
+  total_revenue: number;
 }
 
 const API = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'https://aeronexus-api-production.up.railway.app';
@@ -57,7 +59,7 @@ async function getNetworkStats(): Promise<NetworkStats> {
     if (!res.ok) throw new Error('Failed');
     return res.json();
   } catch {
-    return { pilots_online: 0, active_airlines: 0, flights_today: 0, nm_this_week: 0 };
+    return { total_pilots: 0, total_flights: 0, total_hours: 0, total_aircraft: 0, total_airlines: 0, total_revenue: 0 };
   }
 }
 
@@ -192,28 +194,22 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* Live stats bar */}
+        {/* Platform stats */}
         <div className="relative z-10 mt-16 max-w-3xl mx-auto">
           <p className="text-[10px] text-gray-600 uppercase tracking-widest text-center mb-3 font-bold">
-            Live Network
+            By The Numbers
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 rounded-2xl overflow-hidden border border-white/5">
+          <div className="grid grid-cols-3 gap-px bg-white/5 rounded-2xl overflow-hidden border border-white/5">
             {[
-              { value: (stats.pilots_online ?? 0).toLocaleString(), label: 'Pilots Online', pulse: (stats.pilots_online ?? 0) > 0 },
-              { value: (stats.active_airlines ?? 0).toLocaleString(), label: 'Active Airlines', pulse: false },
-              { value: (stats.flights_today ?? 0).toLocaleString(), label: 'Flights Today', pulse: false },
-              { value: Math.round(Number(stats.nm_this_week ?? 0)).toLocaleString(), label: 'nm This Week', pulse: false },
+              { value: (stats.total_pilots ?? 0).toLocaleString(), label: 'Registered Pilots' },
+              { value: (stats.total_flights ?? 0).toLocaleString(), label: 'Flights Logged' },
+              { value: (stats.total_hours ?? 0).toLocaleString(), label: 'Hours Flown' },
+              { value: (stats.total_aircraft ?? 0).toLocaleString(), label: 'Aircraft Owned' },
+              { value: (stats.total_airlines ?? 0).toLocaleString(), label: 'Airlines Created' },
+              { value: '$' + Math.round(stats.total_revenue ?? 0).toLocaleString(), label: 'Total Airline Revenue' },
             ].map((s) => (
               <div key={s.label} className="bg-black/40 px-6 py-5 text-center backdrop-blur-sm">
-                <div className="flex items-center justify-center gap-2">
-                  {s.pulse && (
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-aero opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-aero" />
-                    </span>
-                  )}
-                  <p className="text-xl font-extrabold text-aero">{s.value}</p>
-                </div>
+                <p className="text-xl font-extrabold text-aero">{s.value}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
               </div>
             ))}
