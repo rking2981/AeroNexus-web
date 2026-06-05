@@ -49,11 +49,8 @@ interface Charts {
 
 function formatRevenue(v: number, symbol: string): string {
   const abs = Math.abs(v);
-  const formatted = abs >= 1_000_000
-    ? `${symbol}${(abs / 1_000_000).toFixed(2)}M`
-    : abs >= 1000
-    ? `${symbol}${(abs / 1000).toFixed(1)}K`
-    : `${symbol}${abs.toFixed(0)}`;
+  const hascents = abs % 1 !== 0;
+  const formatted = `${symbol}${abs.toLocaleString('en-US', { minimumFractionDigits: hascents ? 2 : 0, maximumFractionDigits: 2 })}`;
   return v < 0 ? `-${formatted}` : formatted;
 }
 
