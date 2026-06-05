@@ -5,17 +5,41 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { AdSenseUnit } from '@/components/shared/AdSenseUnit';
 import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+
+interface PendingTransfer {
+  id: string;
+  from_user: { display_name: string };
+  airline: { name: string; icao_code: string };
+  expires_at: string;
+}
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const [acarsVersion, setAcarsVersion] = useState<string | null>(null);
+  const [pendingTransfers, setPendingTransfers] = useState<PendingTransfer[]>([]);
+  const [transferAction, setTransferAction] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('https://aeronexus-api-production.up.railway.app/acars/version')
       .then(r => r.json())
       .then(d => setAcarsVersion(d.version))
       .catch(() => null);
+
+    api.get('/founders/transfers')
+      .then(({ data }) => setPendingTransfers(data.received ?? []))
+      .catch(() => {});
   }, []);
+
+  async function handleTransfer(id: string, action: 'accept' | 'decline') {
+    setTransferAction(id);
+    try {
+      await api.patch(`/founders/transfers/${id}/${action}`);
+      setPendingTransfers(prev => prev.filter(t => t.id !== id));
+    } catch { /* ignore */ }
+    finally { setTransferAction(null); }
+  }
+
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
   return (
@@ -33,6 +57,43 @@ export default function DashboardPage() {
           <span className="text-aero">Rep {Number(user?.reputation ?? 5).toFixed(1)}</span>
         </p>
       </div>
+
+      {/* Pending Transfer Requests */}
+      {pendingTransfers.map(t => (
+        <div key={t.id} className="glass-card rounded-2xl p-5 mb-6 border border-amber-500/30 bg-amber-500/5">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-sm font-bold text-amber-400 mb-1">✈️ Airline Ownership Transfer</p>
+              <p className="text-sm text-gray-300">
+                <span className="text-white font-medium">{t.from_user.display_name}</span> wants to transfer{' '}
+                <span className="text-aero font-medium">{t.airline.name} ({t.airline.icao_code})</span> to you.
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Accepting will make you the VA Manager. If you currently manage another airline, it will be dissolved.
+              </p>
+              {t.expires_at && (
+                <p className="text-xs text-gray-600 mt-1">Expires: {new Date(t.expires_at).toLocaleString()}</p>
+              )}
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={() => handleTransfer(t.id, 'accept')}
+                disabled={transferAction === t.id}
+                className="bg-green-500 hover:bg-green-400 text-black font-bold px-4 py-2 rounded-xl text-sm transition disabled:opacity-50"
+              >
+                {transferAction === t.id ? '…' : 'Accept'}
+              </button>
+              <button
+                onClick={() => handleTransfer(t.id, 'decline')}
+                disabled={transferAction === t.id}
+                className="border border-white/10 text-gray-400 hover:text-red-400 hover:border-red-500/30 font-medium px-4 py-2 rounded-xl text-sm transition disabled:opacity-50"
+              >
+                Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
