@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -84,7 +85,11 @@ export default function CrewPage() {
   const { user } = useAuthStore();
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
-  const [activeTab, setActiveTab] = useState<'roster' | 'banned' | 'ranks' | 'applications' | 'form'>('roster');
+  const searchParams = useSearchParams();
+  const validCrewTabs = ['roster', 'banned', 'ranks', 'applications', 'form'] as const;
+  type CrewTab = typeof validCrewTabs[number];
+  const initialCrewTab = validCrewTabs.includes(searchParams.get('tab') as CrewTab) ? searchParams.get('tab') as CrewTab : 'roster';
+  const [activeTab, setActiveTab] = useState<CrewTab>(initialCrewTab);
   const [airlineBans, setAirlineBans] = useState<AirlineBan[]>([]);
   const [banReason, setBanReason] = useState('');
   const [showBanReason, setShowBanReason] = useState<string | null>(null);
