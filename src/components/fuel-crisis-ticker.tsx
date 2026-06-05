@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 interface FuelCrisisEvent {
   country: string;
   multiplier: number;
-  airports: string[];
+  airport_count: number;
 }
 
 function severityLabel(multiplier: number): string {
@@ -56,13 +56,17 @@ export function FuelCrisisTicker({ events }: { events: FuelCrisisEvent[] }) {
         <div className="overflow-hidden flex-1">
           <div ref={trackRef} className="flex gap-0 will-change-transform py-2">
             {items.map((e, i) => (
-              <span key={i} className="flex items-center gap-2 px-8 whitespace-nowrap text-xs">
-                <span className={`font-bold uppercase ${severityColor(e.multiplier)}`}>
+              <span key={i} className="flex items-center gap-3 px-8 whitespace-nowrap text-xs">
+                <span className={`font-bold uppercase tracking-wider ${severityColor(e.multiplier)}`}>
                   [{severityLabel(e.multiplier)}]
                 </span>
-                <span className="text-gray-300">{e.country}</span>
-                <span className="text-gray-600">—</span>
-                <span className="text-gray-400">{e.airports.slice(0, 4).join(', ')}{e.airports.length > 4 ? ` +${e.airports.length - 4} more` : ''}</span>
+                <span className="text-white font-semibold">{e.country}</span>
+                <span className="text-gray-500">·</span>
+                <span className={`font-bold ${severityColor(e.multiplier)}`}>
+                  Fuel +{Math.round((e.multiplier - 1) * 100)}%
+                </span>
+                <span className="text-gray-500">·</span>
+                <span className="text-gray-400">Affected Airports: {e.airport_count.toLocaleString()}</span>
                 <span className="text-gray-700 ml-4">•</span>
               </span>
             ))}
