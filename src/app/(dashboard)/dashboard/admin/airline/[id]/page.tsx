@@ -123,6 +123,8 @@ export default function AdminAirlinePage() {
   const [finances, setFinances] = useState<FinancesData | null>(null);
   const [recentFlights, setRecentFlights] = useState<RecentFlight[]>([]);
   const [overviewCharts, setOverviewCharts] = useState<OverviewCharts | null>(null);
+  const [showAllFlights, setShowAllFlights] = useState(false);
+  const [allFlightsLoading, setAllFlightsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -257,7 +259,9 @@ export default function AdminAirlinePage() {
           {/* Recent flights */}
           <div className="glass-card rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-              <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Flights — Last 7 Days</p>
+              <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">
+                {showAllFlights ? 'All Flights' : 'Flights — Last 7 Days'}
+              </p>
             </div>
             {recentFlights.length === 0 ? (
               <div className="px-5 py-8 text-center text-gray-600 text-sm">No completed flights in the last 7 days.</div>
@@ -288,7 +292,9 @@ export default function AdminAirlinePage() {
                             <span className={cn('font-bold', f.grade === 'S' ? 'text-[#00D1FF]' : f.grade === 'A' ? 'text-green-400' : f.grade === 'B' ? 'text-lime-400' : f.grade === 'C' ? 'text-amber-400' : 'text-red-400')}>
                               {f.grade}{f.score !== null ? ` (${f.score}%)` : ''}
                             </span>
-                          ) : <span className="text-gray-400">{Math.round(f.pax_happiness)}%</span>}
+                          ) : (
+                            <span className="text-gray-400">PAX {Math.round(f.pax_happiness)}%</span>
+                          )}
                         </td>
                         <td className={cn('px-4 py-2.5 text-xs font-mono font-bold whitespace-nowrap', f.revenue < 0 ? 'text-red-400' : 'text-green-400')}>
                           {f.revenue < 0 ? '-' : ''}{airline.currency_symbol}{Math.abs(f.revenue) >= 1000 ? `${(Math.abs(f.revenue) / 1000).toFixed(1)}K` : Math.abs(f.revenue).toFixed(0)}
@@ -299,6 +305,28 @@ export default function AdminAirlinePage() {
                 </table>
               </div>
             )}
+            <button
+              onClick={async () => {
+                if (showAllFlights) {
+                  setShowAllFlights(false);
+                  const r = await api.get(`/admin/airlines/${airlineId}/overview`);
+                  setRecentFlights(r.data.recent_flights ?? []);
+                } else {
+                  setAllFlightsLoading(true);
+                  try {
+                    const r = await api.get(`/admin/airlines/${airlineId}/overview?all=true`);
+                    setRecentFlights(r.data.recent_flights ?? []);
+                    setShowAllFlights(true);
+                  } finally {
+                    setAllFlightsLoading(false);
+                  }
+                }
+              }}
+              disabled={allFlightsLoading}
+              className="w-full py-3 text-xs text-aero hover:text-white border-t border-white/5 transition disabled:opacity-50"
+            >
+              {allFlightsLoading ? 'Loading…' : showAllFlights ? '▲ Show Less' : '▼ View All Flights'}
+            </button>
           </div>
         </div>
       )}

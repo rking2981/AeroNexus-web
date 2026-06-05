@@ -234,9 +234,9 @@ export default function AirlinePage() {
                           <span className={cn('font-bold', gradeColor(f.grade))}>
                             {f.grade} {f.score !== null ? `(${f.score}%)` : ''}
                           </span>
-                        ) : f.pax_happiness !== null ? (
-                          <span className="text-gray-400">{Math.round(f.pax_happiness)}%</span>
-                        ) : '—'}
+                        ) : (
+                          <span className="text-gray-400">PAX {Math.round(f.pax_happiness)}%</span>
+                        )}
                       </td>
                       <td className={cn('px-4 py-2.5 text-xs font-mono font-bold whitespace-nowrap', isNegative ? 'text-red-400' : 'text-green-400')}>
                         {formatRevenue(f.revenue, airline.currency_symbol)}
