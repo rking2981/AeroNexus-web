@@ -19,12 +19,18 @@ export default function DashboardPage() {
   const [acarsVersion, setAcarsVersion] = useState<string | null>(null);
   const [pendingTransfers, setPendingTransfers] = useState<PendingTransfer[]>([]);
   const [transferAction, setTransferAction] = useState<string | null>(null);
+  const [showPayBanner, setShowPayBanner] = useState(false);
 
   useEffect(() => {
     fetch('https://aeronexus-api-production.up.railway.app/acars/version')
       .then(r => r.json())
       .then(d => setAcarsVersion(d.version))
       .catch(() => null);
+
+    // Show rank pay banner once to managers who haven't dismissed it
+    if (typeof window !== 'undefined' && !localStorage.getItem('aeronexus_rank_pay_banner_dismissed')) {
+      setShowPayBanner(true);
+    }
 
     api.get('/founders/transfers')
       .then(({ data }) => setPendingTransfers(data.received ?? []))
@@ -44,6 +50,39 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
+
+      {/* Rank-based pilot pay announcement banner — shown once to managers */}
+      {isManager && showPayBanner && (
+        <div className="mb-6 rounded-2xl border border-aero/40 bg-aero/8 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl flex-shrink-0">💰</span>
+              <div>
+                <p className="text-sm font-bold text-aero mb-1">Rank-Based Pilot Pay is now live</p>
+                <p className="text-sm text-gray-300 mb-2">
+                  Pilots are now paid per block hour based on their rank. <strong className="text-white">Pilot pay is currently set to $0/hr for all ranks</strong> — visit your Rank Structure in Crew Center to set hourly rates for each rank tier.
+                </p>
+                <Link
+                  href="/dashboard/crew?tab=ranks"
+                  className="inline-block text-xs font-bold bg-aero text-black px-4 py-1.5 rounded-lg hover:brightness-110 transition"
+                >
+                  Go to Rank Structure →
+                </Link>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setShowPayBanner(false);
+                localStorage.setItem('aeronexus_rank_pay_banner_dismissed', '1');
+              }}
+              className="flex-shrink-0 text-gray-500 hover:text-white transition text-sm border border-white/10 px-3 py-1 rounded-lg"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-1">
