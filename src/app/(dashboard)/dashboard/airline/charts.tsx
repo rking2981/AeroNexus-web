@@ -10,10 +10,12 @@ interface Charts {
   daily_revenue: Record<string, number>;
   cargo_by_type: { type: string; revenue: number; count: number }[];
   top_routes: { route: string; flights: number }[];
+  expenses_by_type?: { type: string; amount: number }[];
 }
 
-const CARGO_COLORS = ['#00D1FF', '#818cf8', '#34d399', '#fbbf24', '#f97316', '#e879f9'];
-const ROUTE_COLORS = ['#00D1FF', '#60a5fa', '#34d399', '#fbbf24', '#f97316'];
+const CARGO_COLORS   = ['#00D1FF', '#818cf8', '#34d399', '#fbbf24', '#f97316', '#e879f9'];
+const ROUTE_COLORS   = ['#00D1FF', '#60a5fa', '#34d399', '#fbbf24', '#f97316'];
+const EXPENSE_COLORS = ['#f97316', '#ef4444', '#fbbf24', '#e879f9', '#818cf8', '#60a5fa', '#34d399', '#9ca3af'];
 
 function formatK(v: number) {
   if (Math.abs(v) >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
@@ -25,8 +27,8 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {[1,2,3].map(i => <div key={i} className="glass-card rounded-2xl h-48 animate-pulse" />)}
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      {[1,2,3,4].map(i => <div key={i} className="glass-card rounded-2xl h-48 animate-pulse" />)}
     </div>
   );
   // Build daily revenue array — last 14 days
@@ -47,12 +49,18 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
     value: r.flights,
   }));
 
-  const hasRevenue = revenueData.some(d => d.revenue > 0);
-  const hasCargo = cargoPieData.length > 0;
-  const hasRoutes = routesPieData.length > 0;
+  const expensePieData = (charts.expenses_by_type ?? []).map(e => ({
+    name: e.type.replace(/_/g, ' '),
+    value: Math.round(e.amount),
+  }));
+
+  const hasRevenue  = revenueData.some(d => d.revenue > 0);
+  const hasCargo    = cargoPieData.length > 0;
+  const hasRoutes   = routesPieData.length > 0;
+  const hasExpenses = expensePieData.length > 0;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
       {/* Revenue bar chart */}
       <div className="glass-card rounded-2xl p-5">
         <p className="text-xs text-gray-500 uppercase tracking-widest mb-4">Revenue — Last 14 Days</p>
@@ -123,18 +131,8 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
         {hasCargo ? (
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
-              <Pie
-                data={cargoPieData}
-                cx="50%"
-                cy="50%"
-                innerRadius={40}
-                outerRadius={65}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {cargoPieData.map((_, i) => (
-                  <Cell key={i} fill={CARGO_COLORS[i % CARGO_COLORS.length]} />
-                ))}
+              <Pie data={cargoPieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
+                {cargoPieData.map((_, i) => <Cell key={i} fill={CARGO_COLORS[i % CARGO_COLORS.length]} />)}
               </Pie>
               <Tooltip
                 contentStyle={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
@@ -142,15 +140,34 @@ export default function RechartsCharts({ charts, currencySymbol }: { charts: Cha
                 formatter={(v: any) => [formatK(Number(v ?? 0)), 'Revenue']}
                 labelStyle={{ color: '#9ca3af' }}
               />
-              <Legend
-                iconType="circle"
-                iconSize={8}
-                wrapperStyle={{ fontSize: 10, color: '#9ca3af' }}
-              />
+              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, color: '#9ca3af' }} />
             </PieChart>
           </ResponsiveContainer>
         ) : (
           <div className="h-40 flex items-center justify-center text-gray-600 text-xs">No cargo data yet</div>
+        )}
+      </div>
+
+      {/* Expenses by type pie */}
+      <div className="glass-card rounded-2xl p-5">
+        <p className="text-xs text-gray-500 uppercase tracking-widest mb-4">Expenses by Type (30 days)</p>
+        {hasExpenses ? (
+          <ResponsiveContainer width="100%" height={160}>
+            <PieChart>
+              <Pie data={expensePieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
+                {expensePieData.map((_, i) => <Cell key={i} fill={EXPENSE_COLORS[i % EXPENSE_COLORS.length]} />)}
+              </Pie>
+              <Tooltip
+                contentStyle={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={(v: any) => [formatK(Number(v ?? 0)), 'Expenses']}
+                labelStyle={{ color: '#9ca3af' }}
+              />
+              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, color: '#9ca3af' }} />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-40 flex items-center justify-center text-gray-600 text-xs">No expense data yet</div>
         )}
       </div>
     </div>

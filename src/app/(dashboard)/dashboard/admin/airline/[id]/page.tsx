@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+import RechartsCharts from '../../airline/charts';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,20 @@ interface CrewMember {
 interface Transaction {
   id: string; amount: string; description: string | null;
   expense_type: string | null; created_at: string;
+}
+
+interface RecentFlight {
+  id: string; from: string; to: string; arrived_at: string;
+  pax: number; aircraft_type: string; distance_nm: number; pilot: string;
+  pax_happiness: number; landing_vs_fpm: number | null;
+  grade: string | null; score: number | null; revenue: number;
+}
+
+interface OverviewCharts {
+  daily_revenue: Record<string, number>;
+  cargo_by_type: { type: string; revenue: number; count: number }[];
+  top_routes: { route: string; flights: number }[];
+  expenses_by_type?: { type: string; amount: number }[];
 }
 
 interface FinancesData {
@@ -106,6 +121,8 @@ export default function AdminAirlinePage() {
   const [routes, setRoutes] = useState<Route[] | null>(null);
   const [crew, setCrew] = useState<CrewMember[] | null>(null);
   const [finances, setFinances] = useState<FinancesData | null>(null);
+  const [recentFlights, setRecentFlights] = useState<RecentFlight[]>([]);
+  const [overviewCharts, setOverviewCharts] = useState<OverviewCharts | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -116,6 +133,12 @@ export default function AdminAirlinePage() {
     api.get(`/admin/airlines/${airlineId}`)
       .then(r => setAirline(r.data))
       .finally(() => setLoading(false));
+    api.get(`/admin/airlines/${airlineId}/overview`)
+      .then(r => {
+        setRecentFlights(r.data.recent_flights ?? []);
+        setOverviewCharts(r.data.charts ?? null);
+      })
+      .catch(() => {});
   }, [airlineId]);
 
   const loadTab = useCallback(async (t: Tab) => {
@@ -223,6 +246,59 @@ export default function AdminAirlinePage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Charts */}
+          <RechartsCharts
+            charts={overviewCharts ?? { daily_revenue: {}, cargo_by_type: [], top_routes: [] }}
+            currencySymbol={airline.currency_symbol}
+          />
+
+          {/* Recent flights */}
+          <div className="glass-card rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+              <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Flights — Last 7 Days</p>
+            </div>
+            {recentFlights.length === 0 ? (
+              <div className="px-5 py-8 text-center text-gray-600 text-sm">No completed flights in the last 7 days.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/5">
+                      {['From', 'To', 'Arrival', 'PAX', 'A/C', 'Dist.', 'PIC', 'Rating', 'Income'].map(h => (
+                        <th key={h} className="px-4 py-2.5 text-left text-xs text-gray-500 font-medium whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentFlights.map((f, i) => (
+                      <tr key={f.id} className={cn('border-b border-white/5 hover:bg-white/3 transition', i % 2 !== 0 ? 'bg-white/1' : '')}>
+                        <td className="px-4 py-2.5 font-mono text-aero text-xs font-bold">{f.from}</td>
+                        <td className="px-4 py-2.5 font-mono text-white text-xs font-bold">{f.to}</td>
+                        <td className="px-4 py-2.5 text-xs text-gray-400 whitespace-nowrap">
+                          {f.arrived_at ? new Date(f.arrived_at).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '—'}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs text-gray-300">{f.pax}</td>
+                        <td className="px-4 py-2.5 text-xs text-gray-400 whitespace-nowrap">{f.aircraft_type}</td>
+                        <td className="px-4 py-2.5 text-xs text-gray-400 whitespace-nowrap">{f.distance_nm.toLocaleString()} nm</td>
+                        <td className="px-4 py-2.5 text-xs text-gray-300 whitespace-nowrap max-w-32 truncate">{f.pilot}</td>
+                        <td className="px-4 py-2.5 text-xs whitespace-nowrap">
+                          {f.grade ? (
+                            <span className={cn('font-bold', f.grade === 'S' ? 'text-[#00D1FF]' : f.grade === 'A' ? 'text-green-400' : f.grade === 'B' ? 'text-lime-400' : f.grade === 'C' ? 'text-amber-400' : 'text-red-400')}>
+                              {f.grade}{f.score !== null ? ` (${f.score}%)` : ''}
+                            </span>
+                          ) : <span className="text-gray-400">{Math.round(f.pax_happiness)}%</span>}
+                        </td>
+                        <td className={cn('px-4 py-2.5 text-xs font-mono font-bold whitespace-nowrap', f.revenue < 0 ? 'text-red-400' : 'text-green-400')}>
+                          {f.revenue < 0 ? '-' : ''}{airline.currency_symbol}{Math.abs(f.revenue) >= 1000 ? `${(Math.abs(f.revenue) / 1000).toFixed(1)}K` : Math.abs(f.revenue).toFixed(0)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
