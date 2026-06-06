@@ -452,7 +452,7 @@ function AircraftDetailModal({
               <p className="text-sm text-gray-300 mb-1">
                 <span className="font-mono font-bold text-aero">{purchaseResult.registration}</span> is ready at your hub.
               </p>
-              <p className="text-xs text-gray-500">Weekly fee: {fp(purchaseResult.weekly_fee)} — first payment due in 7 days.</p>
+              <p className="text-xs text-gray-500">Weekly fee: {fp(purchaseResult.weekly_fee ?? 0)} — first payment due in 7 days.</p>
             </div>
           )}
 
