@@ -55,6 +55,9 @@ interface PurchaseResult {
   delivery_distance_nm: number;
   delivery_from: string | null;
   delivery_to: string | null;
+  weekly_fee?: number;
+  leased_from?: string;
+  first_payment_due?: string;
 }
 
 // Icons keyed by operational category (AircraftTypeCategory)
