@@ -879,9 +879,138 @@ function NewsTab() {
   );
 }
 
+// ─── Promo Codes Tab ─────────────────────────────────────────────────────────
+
+interface PromoCode {
+  id: string;
+  code: string;
+  description: string | null;
+  granted_tier: string;
+  granted_months: number;
+  max_uses: number;
+  uses: number;
+  created_at: string;
+  redemptions: { redeemed_at: string; expires_at: string; user: { display_name: string; email: string } }[];
+}
+
+function PromoCodesTab() {
+  const [codes, setCodes] = useState<PromoCode[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [count, setCount] = useState('10');
+  const [description, setDescription] = useState('Beta tester invite');
+  const [months, setMonths] = useState('6');
+  const [newCodes, setNewCodes] = useState<{ id: string; code: string }[]>([]);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => { api.get('/admin/promo-codes').then(r => setCodes(r.data)); }, []);
+
+  async function handleGenerate() {
+    setGenerating(true);
+    setNewCodes([]);
+    try {
+      const { data } = await api.post('/admin/promo-codes/generate', {
+        count: parseInt(count),
+        description: description || undefined,
+        granted_months: parseInt(months),
+      });
+      setNewCodes(data);
+      api.get('/admin/promo-codes').then(r => setCodes(r.data));
+    } finally { setGenerating(false); }
+  }
+
+  async function handleDelete(id: string) {
+    await api.delete(`/admin/promo-codes/${id}`);
+    setCodes(c => c.filter(x => x.id !== id));
+  }
+
+  function copyAll() {
+    navigator.clipboard.writeText(newCodes.map(c => c.code).join('\n'));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Generate form */}
+      <div className="glass-card rounded-2xl p-6">
+        <h3 className="font-bold text-lg mb-4">Generate Promo Codes</h3>
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Count (max 100)</label>
+            <input type="number" min="1" max="100" value={count} onChange={e => setCount(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-aero focus:outline-none transition" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Months of Enterprise</label>
+            <input type="number" min="1" max="24" value={months} onChange={e => setMonths(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-aero focus:outline-none transition" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Description (shown to user)</label>
+            <input value={description} onChange={e => setDescription(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-aero focus:outline-none transition" />
+          </div>
+        </div>
+        <button onClick={handleGenerate} disabled={generating}
+          className="bg-aero text-black font-bold px-5 py-2 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
+          {generating ? 'Generating…' : 'Generate Codes'}
+        </button>
+
+        {newCodes.length > 0 && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-400">{newCodes.length} codes generated</span>
+              <button onClick={copyAll} className="text-xs text-aero hover:underline">
+                {copied ? '✓ Copied!' : 'Copy All'}
+              </button>
+            </div>
+            <div className="bg-black/40 rounded-xl p-3 max-h-48 overflow-y-auto font-mono text-sm text-green-400 space-y-1">
+              {newCodes.map(c => <div key={c.id}>{c.code}</div>)}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Existing codes */}
+      <div className="glass-card rounded-2xl p-6">
+        <h3 className="font-bold text-lg mb-4">All Promo Codes ({codes.length})</h3>
+        {codes.length === 0 ? (
+          <p className="text-sm text-gray-500">No promo codes yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {codes.map(c => (
+              <div key={c.id} className="flex items-center justify-between bg-black/20 rounded-xl px-4 py-3 text-sm">
+                <div className="flex items-center gap-4">
+                  <span className="font-mono text-aero font-bold">{c.code}</span>
+                  <span className="text-gray-400 text-xs">{c.granted_months}mo Enterprise</span>
+                  {c.description && <span className="text-gray-500 text-xs">— {c.description}</span>}
+                  <span className={`text-xs font-bold ${c.uses >= c.max_uses ? 'text-red-400' : 'text-green-400'}`}>
+                    {c.uses}/{c.max_uses} used
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {c.redemptions.length > 0 && (
+                    <span className="text-xs text-gray-500">
+                      {c.redemptions[0].user.display_name} · expires {new Date(c.redemptions[0].expires_at).toLocaleDateString()}
+                    </span>
+                  )}
+                  <button onClick={() => handleDelete(c.id)}
+                    className="text-xs text-red-400 border border-red-500/20 px-2 py-1 rounded-lg hover:bg-red-500/10 transition">
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Tab registry ─────────────────────────────────────────────────────────────
 
-type Tab = 'stats' | 'users' | 'airlines' | 'fuel' | 'events' | 'websites' | 'purchases' | 'news';
+type Tab = 'stats' | 'users' | 'airlines' | 'fuel' | 'events' | 'websites' | 'purchases' | 'news' | 'promo';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'stats',    label: 'Overview',    icon: '📊' },
@@ -892,6 +1021,7 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'websites',  label: 'VA Websites', icon: '🌐' },
   { key: 'purchases', label: 'Purchases',   icon: '💳' },
   { key: 'news',      label: 'News',        icon: '📰' },
+  { key: 'promo',     label: 'Promo Codes', icon: '🎟️' },
 ];
 
 export default function AdminPage() {
@@ -940,6 +1070,7 @@ export default function AdminPage() {
       {tab === 'websites'  && <WebsitesTab />}
       {tab === 'purchases' && <PurchasesTab />}
       {tab === 'news'      && <NewsTab />}
+      {tab === 'promo'     && <PromoCodesTab />}
     </div>
   );
 }

@@ -145,6 +145,15 @@ function CreateAirlineForm() {
         type: 'PRIMARY',
       });
 
+      // Redeem pending promo code if present
+      const pendingPromo = sessionStorage.getItem('pending_promo_code');
+      if (pendingPromo && data.airline_id) {
+        try {
+          await api.post('/auth/redeem-promo-code', { code: pendingPromo, airline_id: data.airline_id });
+          sessionStorage.removeItem('pending_promo_code');
+        } catch { /* non-critical — fail silently */ }
+      }
+
       // If a paid plan was selected, redirect to Stripe checkout
       if (plan && PLAN_PRICE_KEYS[plan]) {
         const { data: prices } = await api.post('/v1/payments/prices');

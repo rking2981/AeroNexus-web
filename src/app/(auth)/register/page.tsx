@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useCallback } from 'react';
+import { Suspense, useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,9 @@ function RegisterForm() {
   const [homeSearch, setHomeSearch] = useState('');
   const [homeResults, setHomeResults] = useState<{ id: string; icao: string; name: string; city: string | null }[]>([]);
   const [selectedHome, setSelectedHome] = useState<{ icao: string; name: string } | null>(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoStatus, setPromoStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const [promoInfo, setPromoInfo] = useState<{ granted_tier: string; granted_months: number; description?: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
@@ -56,6 +59,23 @@ function RegisterForm() {
     const { data } = await publicApi.get(`/network/airports/search?q=${encodeURIComponent(q)}`);
     setHomeResults(data);
   }, []);
+
+  useEffect(() => {
+    if (!promoCode.trim()) { setPromoStatus('idle'); setPromoInfo(null); return; }
+    if (promoCode.length < 5) return;
+    const t = setTimeout(async () => {
+      setPromoStatus('checking');
+      try {
+        const { data } = await publicApi.get(`/auth/validate-promo-code?code=${encodeURIComponent(promoCode.trim())}`);
+        setPromoStatus('valid');
+        setPromoInfo(data);
+      } catch {
+        setPromoStatus('invalid');
+        setPromoInfo(null);
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [promoCode]);
 
   function validate() {
     const e: Record<string, string> = {};
@@ -79,8 +99,14 @@ function RegisterForm() {
         password: form.password,
         display_name: form.display_name,
         home_airport_icao: selectedHome?.icao ?? undefined,
+        promo_code: promoStatus === 'valid' ? promoCode.trim().toUpperCase() : undefined,
       });
       setTokens(data.access_token, data.refresh_token);
+
+      // Store valid promo code to redeem after airline creation
+      if (promoStatus === 'valid' && promoCode.trim()) {
+        sessionStorage.setItem('pending_promo_code', promoCode.trim().toUpperCase());
+      }
 
       const { data: me } = await api.post('/auth/me', {}, {
         headers: { Authorization: `Bearer ${data.access_token}` },
@@ -212,6 +238,40 @@ function RegisterForm() {
           error={errors.confirm_password}
           autoComplete="new-password"
         />
+
+        {/* Promo Code */}
+        <div>
+          <label className="text-sm font-medium text-gray-300 block mb-1.5">
+            Promo Code <span className="text-gray-500 text-xs">(optional)</span>
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="ANEX-XXXX-XXXX"
+              value={promoCode}
+              onChange={e => setPromoCode(e.target.value.toUpperCase())}
+              className={`w-full rounded-xl border px-4 py-3 text-sm text-white placeholder-gray-500 bg-white/5 focus:outline-none focus:ring-1 transition font-mono ${
+                promoStatus === 'valid' ? 'border-green-500/50 focus:border-green-500 focus:ring-green-500/30' :
+                promoStatus === 'invalid' ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/30' :
+                'border-white/10 focus:border-[#00D1FF] focus:ring-[#00D1FF]'
+              }`}
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm">
+              {promoStatus === 'checking' && <span className="text-gray-500">...</span>}
+              {promoStatus === 'valid' && <span className="text-green-400">✓</span>}
+              {promoStatus === 'invalid' && <span className="text-red-400">✕</span>}
+            </div>
+          </div>
+          {promoStatus === 'valid' && promoInfo && (
+            <p className="text-xs text-green-400 mt-1">
+              ✓ {promoInfo.granted_months} months free {promoInfo.granted_tier} applied
+              {promoInfo.description ? ` — ${promoInfo.description}` : ''}
+            </p>
+          )}
+          {promoStatus === 'invalid' && (
+            <p className="text-xs text-red-400 mt-1">Invalid or already used promo code</p>
+          )}
+        </div>
 
         {errors.general && (
           <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
