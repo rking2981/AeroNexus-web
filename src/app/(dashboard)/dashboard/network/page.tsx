@@ -635,7 +635,7 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
   }, []);
 
   async function submit() {
-    if (!selectedOrigin || !selectedDest || !form.aircraft_type || !form.base_ticket_price) return;
+    if (!selectedOrigin || !selectedDest || !form.aircraft_type.trim() || Number(form.base_ticket_price) < 1) return;
     setLoading(true); setError('');
     try {
       const eco = parseFloat(form.cabin_economy) / 100;
@@ -774,7 +774,7 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
       </div>
       {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
       <div className="flex gap-3">
-        <button onClick={submit} disabled={loading || !selectedOrigin || !selectedDest || !form.aircraft_type || !form.base_ticket_price}
+        <button onClick={submit} disabled={loading || !selectedOrigin || !selectedDest || !form.aircraft_type.trim() || Number(form.base_ticket_price) < 1}
           className="bg-aero text-black font-bold px-5 py-2 rounded-xl hover:brightness-110 transition text-sm disabled:opacity-50">
           {loading ? 'Adding…' : 'Add Route'}
         </button>
