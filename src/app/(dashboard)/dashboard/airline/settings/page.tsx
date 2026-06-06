@@ -421,7 +421,7 @@ export default function AirlineSettingsPage() {
   const [airline, setAirline] = useState<Airline | null>(null);
   const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
-  const validTabs = ['general', 'branding', 'expenses', 'webhooks', 'subscription', 'transfer'] as const;
+  const validTabs = ['general', 'branding', 'expenses', 'webhooks', 'integrations', 'subscription', 'transfer'] as const;
   type TabType = typeof validTabs[number];
   const initialTab = validTabs.includes(searchParams.get('tab') as TabType) ? searchParams.get('tab') as TabType : 'general';
   const [tab, setTab] = useState<TabType>(initialTab);
@@ -488,8 +488,19 @@ export default function AirlineSettingsPage() {
 
   const isEnterprise = airline?.subscription_tier === 'ENTERPRISE' || airline?.subscription_tier === 'FOUNDERS';
 
+  // VA-Link state
+  const [vaLinkEnabled, setVaLinkEnabled] = useState(false);
+  const [vaApiKey, setVaApiKey] = useState('');
+  const [vaLinkSaving, setVaLinkSaving] = useState(false);
+  const [vaLinkSaved, setVaLinkSaved] = useState(false);
+  const [vaLinkError, setVaLinkError] = useState('');
+
   useEffect(() => {
     fetchTransfers();
+    api.get('/integrations/va-link').then(r => {
+      setVaLinkEnabled(r.data.enabled ?? false);
+    }).catch(() => {});
+
     api.get('/airline').then((r) => {
       const a = r.data as Airline;
       setAirline(a);
@@ -640,6 +651,7 @@ export default function AirlineSettingsPage() {
           { key: 'branding', label: 'Branding' },
           { key: 'expenses', label: 'Expenses' },
           { key: 'webhooks', label: 'Discord' },
+          { key: 'integrations', label: 'Integrations' },
           { key: 'subscription', label: 'Subscription' },
           { key: 'transfer', label: 'Transfer Ownership' },
         ] as const).map((t) => (
@@ -910,6 +922,105 @@ export default function AirlineSettingsPage() {
 
       {/* Webhooks tab */}
       {tab === 'webhooks' && <WebhooksPanel />}
+
+      {/* Integrations tab */}
+      {tab === 'integrations' && (
+        <div className="flex flex-col gap-6 max-w-2xl">
+          {/* VA-Link */}
+          <div className="glass-card rounded-2xl p-6 flex flex-col gap-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-bold text-lg mb-1">SayIntentions.AI VA-Link</h2>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Integrate AeroNexus with SayIntentions.AI so your pilots get a fully branded AI experience —
+                  custom dispatcher on 118.94, cabin crew trained on your airline, and co-pilot briefed on every flight.
+                  Requires a VA API key from SayIntentions.AI (email{' '}
+                  <span className="text-aero font-mono">va@sayintentions.ai</span> to get started).
+                </p>
+              </div>
+              {/* Toggle */}
+              <button
+                onClick={() => setVaLinkEnabled(v => !v)}
+                className={cn('w-12 h-6 rounded-full transition flex-shrink-0 relative mt-1',
+                  vaLinkEnabled ? 'bg-aero' : 'bg-white/10')}
+              >
+                <span className={cn('absolute top-1 w-4 h-4 rounded-full bg-white transition-all',
+                  vaLinkEnabled ? 'left-7' : 'left-1')} />
+              </button>
+            </div>
+
+            {/* What pilots get */}
+            <div className="rounded-xl border border-aero/15 bg-aero/5 px-4 py-3">
+              <p className="text-xs font-bold text-aero uppercase tracking-wider mb-2">What your pilots get</p>
+              <ul className="flex flex-col gap-1">
+                {[
+                  'Custom dispatcher on frequency 118.94 — knows your airline, routes, and procedures',
+                  'Cabin crew briefed on your airline culture, PAX load, and flight details',
+                  'Co-pilot with full flight context — route, fuel, weather, and weights',
+                  'Your VA logo displayed in the SayIntentions.AI app',
+                  'ATC uses your airline callsign when pilots file with your ICAO on SimBrief',
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="text-aero mt-0.5 flex-shrink-0">✓</span> {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* VA API key input */}
+            <div>
+              <label className="text-sm text-gray-300 block mb-1.5">VA API Key</label>
+              <p className="text-xs text-gray-500 mb-2">
+                Provided by SayIntentions.AI after VA registration. This is your airline&apos;s key, not a pilot&apos;s personal key.
+              </p>
+              <input
+                type="password"
+                value={vaApiKey}
+                onChange={e => setVaApiKey(e.target.value)}
+                placeholder="VA API key from SayIntentions.AI…"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white font-mono focus:border-aero focus:outline-none transition"
+              />
+            </div>
+
+            {vaLinkError && (
+              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{vaLinkError}</p>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  setVaLinkSaving(true); setVaLinkError(''); setVaLinkSaved(false);
+                  try {
+                    await api.patch('/integrations/va-link', {
+                      enabled: vaLinkEnabled,
+                      va_api_key: vaApiKey || null,
+                    });
+                    setVaLinkSaved(true);
+                    setTimeout(() => setVaLinkSaved(false), 3000);
+                  } catch (err: unknown) {
+                    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                    setVaLinkError(msg ?? 'Failed to save VA-Link settings');
+                  } finally { setVaLinkSaving(false); }
+                }}
+                disabled={vaLinkSaving}
+                className="bg-aero text-black font-bold px-6 py-2.5 rounded-xl text-sm hover:brightness-110 transition disabled:opacity-50"
+              >
+                {vaLinkSaving ? 'Saving…' : 'Save VA-Link Settings'}
+              </button>
+              {vaLinkSaved && <p className="text-green-400 text-sm">✓ Saved</p>}
+            </div>
+
+            <div className="rounded-xl border border-white/5 bg-white/2 px-4 py-3">
+              <p className="text-xs font-bold text-gray-400 mb-1">How it works</p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                When a pilot books a flight in AeroNexus and has their SayIntentions.AI key set in ACARS,
+                the flight data is automatically pushed to SayIntentions with your VA branding applied.
+                Pilots just need to link their SayIntentions account to your VA from the SayIntentions pilot portal.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Subscription tab */}
       {tab === 'subscription' && (
