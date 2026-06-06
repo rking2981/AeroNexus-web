@@ -47,6 +47,164 @@ interface Charts {
   top_routes: { route: string; flights: number }[];
 }
 
+interface LiveFlight {
+  id: string;
+  status: string;
+  pax_count: number;
+  hull: { registration: string; aircraft_type: string };
+  pilot: { id: string; display_name: string; sayintentions_api_key: string | null; sayintentions_verified: boolean };
+  route: { origin: { icao: string; name: string }; destination: { icao: string; name: string }; distance_nm: number };
+}
+
+const QUICK_MESSAGES = [
+  'ATIS updated at destination — check before descent',
+  'Expect delays at destination — hold if able',
+  'Fuel prices elevated — consider alternate',
+  'Smooth flight, well done',
+  'Weather improving at destination',
+];
+
+function DispatchPanel() {
+  const [flights, setFlights] = useState<LiveFlight[]>([]);
+  const [selected, setSelected] = useState<LiveFlight | null>(null);
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/flights/airline-live')
+      .then(r => setFlights(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+    const iv = setInterval(() => {
+      api.get('/flights/airline-live').then(r => setFlights(r.data)).catch(() => {});
+    }, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
+  async function send() {
+    if (!selected || !message.trim() || sending) return;
+    setSending(true); setResult(null);
+    try {
+      const { data } = await api.post('/integrations/cpdlc/send', {
+        pilot_user_id: selected.pilot.id,
+        message: message.trim(),
+        from: 'AERONEXUS DISPATCH',
+      });
+      if (data.ok) {
+        setResult({ ok: true, msg: `Sent to ${selected.pilot.display_name}` });
+        setMessage('');
+        setTimeout(() => setResult(null), 4000);
+      } else {
+        setResult({ ok: false, msg: data.error ?? 'Send failed' });
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setResult({ ok: false, msg: msg ?? 'Send failed' });
+    } finally { setSending(false); }
+  }
+
+  if (loading) return null;
+  if (flights.length === 0) return null;
+
+  return (
+    <div className="glass-card rounded-2xl p-6 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="font-bold text-lg">Dispatch</h2>
+          <p className="text-xs text-gray-500">{flights.length} active flight{flights.length !== 1 ? 's' : ''} · Send CPDLC to pilots via SayIntentions</p>
+        </div>
+        <span className="flex items-center gap-1.5 text-xs text-green-400">
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          Live
+        </span>
+      </div>
+
+      {/* Active flights */}
+      <div className="flex flex-col gap-2 mb-4">
+        {flights.map(f => (
+          <button
+            key={f.id}
+            onClick={() => setSelected(s => s?.id === f.id ? null : f)}
+            className={cn(
+              'flex items-center justify-between px-4 py-3 rounded-xl border text-left transition',
+              selected?.id === f.id
+                ? 'border-aero/40 bg-aero/5'
+                : 'border-white/5 bg-white/2 hover:bg-white/5'
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xs text-aero w-16">{f.hull.registration}</span>
+              <span className="text-sm font-medium">{f.route.origin.icao} → {f.route.destination.icao}</span>
+              <span className="text-xs text-gray-500">{f.pilot.display_name}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {!f.pilot.sayintentions_api_key && (
+                <span className="text-[10px] text-amber-400 border border-amber-500/20 bg-amber-500/5 px-2 py-0.5 rounded-full">No SI key</span>
+              )}
+              <span className={cn(
+                'text-[10px] font-bold px-2 py-0.5 rounded-full border',
+                f.status === 'CRUISE' ? 'text-aero border-aero/20 bg-aero/5' :
+                f.status === 'CLIMB'  ? 'text-green-400 border-green-500/20 bg-green-500/5' :
+                'text-gray-400 border-white/10 bg-white/5'
+              )}>{f.status}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Message compose */}
+      {selected && (
+        <div className="border-t border-white/5 pt-4 flex flex-col gap-3">
+          <p className="text-xs text-gray-400">
+            Sending CPDLC to <span className="text-white font-medium">{selected.pilot.display_name}</span>
+            {!selected.pilot.sayintentions_api_key && (
+              <span className="text-amber-400 ml-2">— pilot has no SayIntentions key, message will not deliver</span>
+            )}
+          </p>
+
+          {/* Quick messages */}
+          <div className="flex flex-wrap gap-2">
+            {QUICK_MESSAGES.map(q => (
+              <button key={q} onClick={() => setMessage(q)}
+                className="text-[10px] border border-white/10 bg-white/5 px-2.5 py-1 rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white">
+                {q}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              value={message}
+              onChange={e => setMessage(e.target.value.slice(0, 128))}
+              onKeyDown={e => e.key === 'Enter' && send()}
+              placeholder="Type CPDLC message… (max 128 chars)"
+              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white font-mono focus:border-aero focus:outline-none transition"
+            />
+            <button
+              onClick={send}
+              disabled={sending || !message.trim()}
+              className="bg-aero text-black font-bold px-5 py-2.5 rounded-xl text-sm hover:brightness-110 transition disabled:opacity-50 flex-shrink-0"
+            >
+              {sending ? '…' : 'Send'}
+            </button>
+          </div>
+
+          {result && (
+            <p className={cn('text-xs px-3 py-2 rounded-lg border', result.ok
+              ? 'text-green-400 bg-green-500/10 border-green-500/20'
+              : 'text-red-400 bg-red-500/10 border-red-500/20')}>
+              {result.ok ? '✓ ' : '✗ '}{result.msg}
+            </p>
+          )}
+          <p className="text-[10px] text-gray-600">{message.length} / 128 characters</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function formatRevenue(v: number, symbol: string): string {
   const abs = Math.abs(v);
   const hascents = abs % 1 !== 0;
@@ -192,6 +350,9 @@ export default function AirlinePage() {
           currencySymbol={sym}
         />
       </div>
+
+      {/* Dispatch panel — only shown when pilots are flying */}
+      <DispatchPanel />
 
       {/* Recent flights table */}
       <div className="glass-card rounded-2xl overflow-hidden">
