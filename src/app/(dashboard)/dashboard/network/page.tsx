@@ -621,12 +621,22 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
   const [destResults, setDestResults] = useState<Airport[]>([]);
   const [selectedOrigin, setSelectedOrigin] = useState<Airport | null>(null);
   const [selectedDest, setSelectedDest] = useState<Airport | null>(null);
+  const [fleet, setFleet] = useState<{ id: string; registration: string; aircraft_type: string }[]>([]);
   const [form, setForm] = useState({
     aircraft_type: '', base_ticket_price: '', route_type: 'SCHEDULED', flight_number: '',
     cabin_economy: '100', cabin_business: '0', cabin_first: '0',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get('/fleet').then(r => {
+      const active = (r.data as { id: string; registration: string; aircraft_type: string; status: string }[])
+        .filter(h => h.status === 'ACTIVE');
+      setFleet(active);
+      if (active.length > 0) setForm(f => ({ ...f, aircraft_type: active[0].aircraft_type }));
+    }).catch(() => {});
+  }, []);
 
   const search = useCallback(async (q: string, setter: (r: Airport[]) => void) => {
     if (q.length < 2) { setter([]); return; }
@@ -718,9 +728,21 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
         </div>
 
         <div>
-          <label className="text-xs text-gray-400 block mb-1">Aircraft Type *</label>
-          <input placeholder="Boeing 737-800" value={form.aircraft_type} className={inputCls}
-            onChange={e => setForm({ ...form, aircraft_type: e.target.value })} />
+          <label className="text-xs text-gray-400 block mb-1">Aircraft *</label>
+          {fleet.length > 0 ? (
+            <select value={form.aircraft_type} onChange={e => setForm({ ...form, aircraft_type: e.target.value })}
+              className="w-full rounded-xl border border-white/10 bg-[#111] px-3 py-2 text-sm text-white focus:border-aero focus:outline-none transition">
+              {fleet.map(h => (
+                <option key={h.id} value={h.aircraft_type}>
+                  {h.registration} — {h.aircraft_type}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-500">
+              No active aircraft in fleet
+            </div>
+          )}
         </div>
         <div>
           <label className="text-xs text-gray-400 block mb-1">Economy Price * <span className="text-gray-600">(max $2,500/pax · Business auto 2.5× · First auto 4×)</span></label>
