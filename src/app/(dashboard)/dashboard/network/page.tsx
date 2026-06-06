@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { api, publicApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+
+const RouteMapInner = dynamic(() => import('@/components/RouteMapInner'), { ssr: false, loading: () => <div style={{ height: 280, borderRadius: 12, background: 'rgba(255,255,255,0.03)' }} /> });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -445,7 +448,18 @@ function RouteCard({ route, isManager, onUpdate, onDelete, onReverse }: {
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="px-4 pb-4 border-t border-white/5 pt-3 grid grid-cols-2 gap-4 text-xs">
+        <div className="px-4 pb-4 border-t border-white/5 pt-3 text-xs">
+          <div className="mb-4">
+            <RouteMapInner
+              originLat={Number(route.origin.latitude)}
+              originLon={Number(route.origin.longitude)}
+              destLat={Number(route.destination.latitude)}
+              destLon={Number(route.destination.longitude)}
+              originIcao={route.origin.icao}
+              destIcao={route.destination.icao}
+            />
+          </div>
+        <div className="grid grid-cols-2 gap-4">
           {[
             { label: 'Demand Score', value: route.demand_score ? `${Math.round(Number(route.demand_score) * 100)}%` : `${Math.round(demandAvg * 100)}%` },
             { label: 'Block Time', value: formatBlockTime(route.estimated_block_min) },
@@ -473,6 +487,7 @@ function RouteCard({ route, isManager, onUpdate, onDelete, onReverse }: {
               </button>
             </div>
           )}
+        </div>
         </div>
       )}
     </div>
