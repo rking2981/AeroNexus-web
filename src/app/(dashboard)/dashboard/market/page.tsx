@@ -89,7 +89,7 @@ function formatWeight(kg: number | null) {
 
 // ─── Aircraft detail + purchase modal ──────────────────────────────────────
 
-type ModalState = 'detail' | 'purchasing' | 'post_purchase' | 'delivery' | 'jumpseat';
+type ModalState = 'detail' | 'purchasing' | 'post_purchase' | 'delivery' | 'jumpseat' | 'lease_done';
 
 function AircraftDetailModal({
   type,
@@ -143,8 +143,7 @@ function AircraftDetailModal({
         payment_type: paymentMode,
       });
       setPurchaseResult(data);
-      // Leases are placed at the hub immediately — no delivery step needed
-      setMode(paymentMode === 'LEASE' ? 'lease_done' : 'post_purchase');
+      setMode('post_purchase');
       showToast(paymentMode === 'LEASE'
         ? `${type.manufacturer} ${type.name} leased from AeroNexus!`
         : `${type.manufacturer} ${type.name} purchased!`);
@@ -171,13 +170,19 @@ function AircraftDetailModal({
     if (!purchaseResult?.factory_airport) return;
     setJumpLoading(true);
     try {
-      await api.post('/pilots/jumpseat', { destination_icao: purchaseResult.factory_airport });
-      setJumpDone(true);
-      showToast(`Jumpseat booked — you're now at ${purchaseResult.factory_airport}`);
+      if (paymentMode === 'LEASE') {
+        await api.post('/pilots/ferry', { destination_icao: purchaseResult.factory_airport });
+        setJumpDone(true);
+        showToast(`You're now at ${purchaseResult.factory_airport} — ready to ferry!`);
+      } else {
+        await api.post('/pilots/jumpseat', { destination_icao: purchaseResult.factory_airport });
+        setJumpDone(true);
+        showToast(`Jumpseat booked — you're now at ${purchaseResult.factory_airport}`);
+      }
       setMode('post_purchase');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setBuyError(msg ?? 'Jumpseat failed');
+      setBuyError(msg ?? (paymentMode === 'LEASE' ? 'Ferry failed' : 'Jumpseat failed'));
     } finally { setJumpLoading(false); }
   }
 
@@ -386,18 +391,23 @@ function AircraftDetailModal({
                 {deliveryLoading && <p className="text-xs text-aero mt-2">Processing…</p>}
               </button>
 
-              {/* Fly it myself option */}
+              {/* Fly/Ferry it myself option */}
               <button
-                onClick={jumpDone ? undefined : () => setMode('jumpseat')}
+                onClick={jumpDone ? undefined : paymentMode === 'LEASE' ? handleFlyItMyself : () => setMode('jumpseat')}
                 disabled={jumpDone}
                 className="glass-card rounded-xl p-5 text-left border border-white/10 hover:border-white/25 hover:bg-white/5 transition disabled:opacity-50"
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold">✈️ Fly It Myself</span>
-                  <span className="text-amber-400 font-bold text-sm">$150 jumpseat</span>
+                  <span className="font-bold">{paymentMode === 'LEASE' ? '✈️ Ferry It Myself' : '✈️ Fly It Myself'}</span>
+                  <span className={`font-bold text-sm ${paymentMode === 'LEASE' ? 'text-green-400' : 'text-amber-400'}`}>
+                    {paymentMode === 'LEASE' ? 'Free' : '$150 jumpseat'}
+                  </span>
                 </div>
                 <p className="text-xs text-gray-400">
-                  Buy a $150 jumpseat to <span className="font-mono">{purchaseResult.factory_airport}</span> and fly the aircraft back yourself.
+                  {paymentMode === 'LEASE'
+                    ? <>Ferry the aircraft from <span className="font-mono">{purchaseResult.factory_airport}</span> to your hub yourself — no fee.</>
+                    : <>Buy a $150 jumpseat to <span className="font-mono">{purchaseResult.factory_airport}</span> and fly the aircraft back yourself.</>
+                  }
                 </p>
                 {jumpDone && <p className="text-xs text-green-400 mt-2">✓ You're now at {purchaseResult.factory_airport}</p>}
               </button>
