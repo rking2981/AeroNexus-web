@@ -143,7 +143,8 @@ function AircraftDetailModal({
         payment_type: paymentMode,
       });
       setPurchaseResult(data);
-      setMode('post_purchase');
+      // Leases are placed at the hub immediately — no delivery step needed
+      setMode(paymentMode === 'LEASE' ? 'lease_done' : 'post_purchase');
       showToast(paymentMode === 'LEASE'
         ? `${type.manufacturer} ${type.name} leased from AeroNexus!`
         : `${type.manufacturer} ${type.name} purchased!`);
@@ -430,6 +431,18 @@ function AircraftDetailModal({
             </div>
           )}
 
+          {/* ── Lease confirmed ── */}
+          {mode === 'lease_done' && purchaseResult && (
+            <div className="text-center py-4">
+              <p className="text-4xl mb-3">✅</p>
+              <p className="font-bold text-green-400 mb-1">Lease Confirmed!</p>
+              <p className="text-sm text-gray-300 mb-1">
+                <span className="font-mono font-bold text-aero">{purchaseResult.registration}</span> is ready at your hub.
+              </p>
+              <p className="text-xs text-gray-500">Weekly fee: {fp(purchaseResult.weekly_fee)} — first payment due in 7 days.</p>
+            </div>
+          )}
+
           {/* ── Delivery confirmed ── */}
           {mode === 'delivery' && deliveryDone && (
             <div className="text-center py-4">
@@ -443,7 +456,7 @@ function AircraftDetailModal({
           )}
 
           <button onClick={onClose} className="mt-5 w-full text-xs text-gray-600 hover:text-gray-400 transition">
-            {mode === 'post_purchase' || mode === 'delivery' ? 'Done' : 'Close'}
+            {mode === 'post_purchase' || mode === 'delivery' || mode === 'lease_done' ? 'Done' : 'Close'}
           </button>
         </div>
       </div>
