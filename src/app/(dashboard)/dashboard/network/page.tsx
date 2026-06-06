@@ -114,53 +114,6 @@ function windDescription(dir: number | null, spd: number | null, gust: number | 
   return `${dirStr} @ ${spd}${gustStr} kt`;
 }
 
-// ─── Route Arc SVG ────────────────────────────────────────────────────────────
-
-function RouteArcMap({ route }: { route: Route }) {
-  const W = 280; const H = 80; const PAD = 12;
-
-  const oLat = Number(route.origin.latitude); const oLon = Number(route.origin.longitude);
-  const dLat = Number(route.destination.latitude); const dLon = Number(route.destination.longitude);
-
-  // Bounding box
-  const wps = route.waypoints.map(w => ({ lat: oLat, lon: oLon })); // placeholders, ICAOs only for now
-  const allLons = [oLon, dLon]; const allLats = [oLat, dLat];
-  const lonPad = (Math.max(...allLons) - Math.min(...allLons)) * 0.2 || 5;
-  const latPad = (Math.max(...allLats) - Math.min(...allLats)) * 0.2 || 5;
-  const minLon = Math.min(...allLons) - lonPad; const maxLon = Math.max(...allLons) + lonPad;
-  const minLat = Math.min(...allLats) - latPad; const maxLat = Math.max(...allLats) + latPad;
-
-  function proj(lat: number, lon: number): [number, number] {
-    const x = PAD + ((lon - minLon) / (maxLon - minLon)) * (W - PAD * 2);
-    const y = PAD + ((maxLat - lat) / (maxLat - minLat)) * (H - PAD * 2);
-    return [x, y];
-  }
-
-  const [ox, oy] = proj(oLat, oLon);
-  const [dx, dy] = proj(dLat, dLon);
-  const mx = (ox + dx) / 2;
-  const my = Math.min(oy, dy) - 18;
-
-  return (
-    <div className="rounded-lg overflow-hidden bg-black/30 border border-white/5 flex-shrink-0" style={{ width: W, height: H }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}>
-        {/* Arc glow */}
-        <path d={`M${ox},${oy} Q${mx},${my} ${dx},${dy}`} fill="none" stroke="#00D1FF" strokeWidth="5" strokeOpacity="0.08" />
-        {/* Arc */}
-        <path d={`M${ox},${oy} Q${mx},${my} ${dx},${dy}`} fill="none" stroke="#00D1FF" strokeWidth="1.5"
-          strokeLinecap="round" strokeDasharray="4,3" />
-        {/* Origin */}
-        <circle cx={ox} cy={oy} r="4" fill="#0A0A0A" stroke="#00D1FF" strokeWidth="1.5" />
-        <circle cx={ox} cy={oy} r="1.5" fill="#00D1FF" />
-        <text x={ox} y={oy - 6} textAnchor="middle" fontSize="7" fill="#00D1FF" fontFamily="monospace" fontWeight="700">{route.origin.icao}</text>
-        {/* Destination */}
-        <circle cx={dx} cy={dy} r="4" fill="#0A0A0A" stroke="#fff" strokeWidth="1.5" />
-        <circle cx={dx} cy={dy} r="1.5" fill="#fff" />
-        <text x={dx} y={dy - 6} textAnchor="middle" fontSize="7" fill="#fff" fontFamily="monospace" fontWeight="700">{route.destination.icao}</text>
-      </svg>
-    </div>
-  );
-}
 
 // ─── Demand Bar ───────────────────────────────────────────────────────────────
 
@@ -292,9 +245,6 @@ function RouteCard({ route, isManager, onUpdate, onDelete, onReverse }: {
     <div className="glass-card rounded-2xl overflow-hidden border border-transparent hover:border-white/5 transition">
       {/* Main row */}
       <div className="p-4 flex gap-4 items-start">
-        {/* Mini arc map */}
-        <RouteArcMap route={route} />
-
         {/* Info */}
         <div className="flex-1 min-w-0">
           {/* Top row: route + badges */}
