@@ -21,7 +21,7 @@ interface Hub { id: string; type: 'PRIMARY' | 'SECONDARY'; airport: AirportInfo 
 interface Waypoint { id?: string; icao: string; name?: string; sort_order: number }
 interface Route {
   id: string; distance_nm: number; aircraft_type: string; route_type: string;
-  flight_number: string | null;
+  flight_number: string | null; departure_gate: string | null; arrival_gate: string | null;
   status: string; is_saturated: boolean; base_ticket_price: number;
   business_price: number | null; first_price: number | null;
   cabin_split: { economy: number; business: number; first: number } | null;
@@ -453,6 +453,8 @@ function EditRouteModal({ route, onSave, onClose }: { route: Route; onSave: (upd
     business_price: route.business_price != null ? String(Math.round(Number(route.business_price))) : '',
     first_price: route.first_price != null ? String(Math.round(Number(route.first_price))) : '',
     flight_number: route.flight_number ?? '',
+    departure_gate: route.departure_gate ?? '',
+    arrival_gate: route.arrival_gate ?? '',
     route_type: route.route_type,
     status: route.status,
     cabin_economy: String(Math.round((route.cabin_split?.economy ?? 1) * 100)),
@@ -478,6 +480,8 @@ function EditRouteModal({ route, onSave, onClose }: { route: Route; onSave: (upd
         business_price: form.business_price ? parseFloat(form.business_price) : null,
         first_price: form.first_price ? parseFloat(form.first_price) : null,
         flight_number: form.flight_number || null,
+        departure_gate: form.departure_gate || null,
+        arrival_gate: form.arrival_gate || null,
         route_type: form.route_type,
         status: form.status,
         cabin_split: Math.abs(eco + biz + fst - 1.0) < 0.01
@@ -513,6 +517,14 @@ function EditRouteModal({ route, onSave, onClose }: { route: Route; onSave: (upd
           <div>
             <label className="text-xs text-gray-400 block mb-1">Flight Number</label>
             <input value={form.flight_number} onChange={e => setForm({ ...form, flight_number: e.target.value.toUpperCase() })} maxLength={8} placeholder="AN100" className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Departure Gate <span className="text-gray-600">(optional)</span></label>
+            <input value={form.departure_gate} onChange={e => setForm({ ...form, departure_gate: e.target.value.toUpperCase() })} maxLength={10} placeholder="A21" className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Arrival Gate <span className="text-gray-600">(optional)</span></label>
+            <input value={form.arrival_gate} onChange={e => setForm({ ...form, arrival_gate: e.target.value.toUpperCase() })} maxLength={10} placeholder="B38" className={inputCls} />
           </div>
           <div>
             <label className="text-xs text-gray-400 block mb-1">Economy Price ($)</label>
@@ -590,6 +602,7 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
   const [form, setForm] = useState({
     aircraft_type: '', base_ticket_price: '', route_type: 'SCHEDULED', flight_number: '',
     cabin_economy: '100', cabin_business: '0', cabin_first: '0',
+    departure_gate: '', arrival_gate: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -625,6 +638,8 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
         base_ticket_price: parseFloat(form.base_ticket_price),
         route_type: form.route_type,
         flight_number: form.flight_number || undefined,
+        departure_gate: form.departure_gate || undefined,
+        arrival_gate: form.arrival_gate || undefined,
         cabin_split: Math.abs(total - 1.0) < 0.01
           ? { economy: eco, business: biz, first: fst }
           : { economy: 1.0, business: 0, first: 0 },
@@ -757,6 +772,16 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
           <label className="text-xs text-gray-400 block mb-1">Flight Number <span className="text-gray-600">(optional)</span></label>
           <input value={form.flight_number} onChange={e => setForm({ ...form, flight_number: e.target.value.toUpperCase() })}
             placeholder="AN100" maxLength={8} className={inputCls} />
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 block mb-1">Departure Gate <span className="text-gray-600">(optional · used by SayIntentions)</span></label>
+          <input value={form.departure_gate} onChange={e => setForm({ ...form, departure_gate: e.target.value.toUpperCase() })}
+            placeholder="A21" maxLength={10} className={inputCls} />
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 block mb-1">Arrival Gate <span className="text-gray-600">(optional · used by SayIntentions)</span></label>
+          <input value={form.arrival_gate} onChange={e => setForm({ ...form, arrival_gate: e.target.value.toUpperCase() })}
+            placeholder="B38" maxLength={10} className={inputCls} />
         </div>
       </div>
       {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
