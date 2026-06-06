@@ -491,6 +491,10 @@ export default function AirlineSettingsPage() {
   // VA-Link state
   const [vaLinkEnabled, setVaLinkEnabled] = useState(false);
   const [vaApiKey, setVaApiKey] = useState('');
+  const [vaCrewPrompt, setVaCrewPrompt] = useState('');
+  const [vaDispatcherPrompt, setVaDispatcherPrompt] = useState('');
+  const [vaCopilotPrompt, setVaCopilotPrompt] = useState('');
+  const [vaSkyopsPrompt, setVaSkyopsPrompt] = useState('');
   const [vaLinkSaving, setVaLinkSaving] = useState(false);
   const [vaLinkSaved, setVaLinkSaved] = useState(false);
   const [vaLinkError, setVaLinkError] = useState('');
@@ -499,6 +503,10 @@ export default function AirlineSettingsPage() {
     fetchTransfers();
     api.get('/integrations/va-link').then(r => {
       setVaLinkEnabled(r.data.enabled ?? false);
+      setVaCrewPrompt(r.data.crew_prompt ?? '');
+      setVaDispatcherPrompt(r.data.dispatcher_prompt ?? '');
+      setVaCopilotPrompt(r.data.copilot_prompt ?? '');
+      setVaSkyopsPrompt(r.data.skyops_prompt ?? '');
     }).catch(() => {});
 
     api.get('/airline').then((r) => {
@@ -982,6 +990,41 @@ export default function AirlineSettingsPage() {
               />
             </div>
 
+            {/* Prompt customization */}
+            <div className="border-t border-white/5 pt-5 flex flex-col gap-5">
+              <div>
+                <h3 className="text-sm font-bold text-gray-300 mb-0.5">AI Role Prompts</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Enter static context for each AI role. ACARS will append live flight data automatically.
+                  Leave blank to use the default AeroNexus context. Max 4,000 characters per field.
+                </p>
+              </div>
+
+              {([
+                { label: 'Crew Prompt', value: vaCrewPrompt, setter: setVaCrewPrompt,
+                  hint: 'Service standards, airline culture, traditions, loyalty program, cabin quirks…' },
+                { label: 'Dispatcher Prompt', value: vaDispatcherPrompt, setter: setVaDispatcherPrompt,
+                  hint: 'Operational policies, fuel pricing, gate contacts, NOTAMs procedures, position report requirements…' },
+                { label: 'Co-Pilot Prompt', value: vaCopilotPrompt, setter: setVaCopilotPrompt,
+                  hint: 'FO personality, airline SOPs, co-pilot quirks, crew dynamics, preferred communication style…' },
+                { label: 'SkyOps / Mission Prompt', value: vaSkyopsPrompt, setter: setVaSkyopsPrompt,
+                  hint: 'Mission types, ground coordination contacts, reporting frequency, mission success criteria…' },
+              ] as { label: string; value: string; setter: (v: string) => void; hint: string }[]).map(({ label, value, setter, hint }) => (
+                <div key={label}>
+                  <label className="text-sm text-gray-300 block mb-1">{label}</label>
+                  <p className="text-xs text-gray-500 mb-1.5">{hint}</p>
+                  <textarea
+                    value={value}
+                    onChange={e => setter(e.target.value.slice(0, 4000))}
+                    rows={4}
+                    placeholder={`Enter ${label.toLowerCase()} context… (optional)`}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:border-aero focus:outline-none transition resize-y font-mono"
+                  />
+                  <p className="text-xs text-gray-600 text-right mt-0.5">{value.length} / 4,000</p>
+                </div>
+              ))}
+            </div>
+
             {vaLinkError && (
               <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{vaLinkError}</p>
             )}
@@ -994,6 +1037,10 @@ export default function AirlineSettingsPage() {
                     await api.patch('/integrations/va-link', {
                       enabled: vaLinkEnabled,
                       va_api_key: vaApiKey || null,
+                      crew_prompt: vaCrewPrompt || null,
+                      dispatcher_prompt: vaDispatcherPrompt || null,
+                      copilot_prompt: vaCopilotPrompt || null,
+                      skyops_prompt: vaSkyopsPrompt || null,
                     });
                     setVaLinkSaved(true);
                     setTimeout(() => setVaLinkSaved(false), 3000);
