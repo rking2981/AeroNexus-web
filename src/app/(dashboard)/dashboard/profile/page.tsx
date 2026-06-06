@@ -459,17 +459,17 @@ export default function ProfilePage() {
             </p>
             {/* SayIntentions.AI */}
             <div className="mt-5 pt-5 border-t border-white/5">
-              <label className="text-sm text-gray-300 block mb-1.5">SayIntentions.AI API Key</label>
+              <label className="text-sm text-gray-300 block mb-1.5">SayIntentions.AI API Key (ACARS ID)</label>
               <p className="text-xs text-gray-500 mb-3">
-                Required for SkyOps missions — your AI crew and ATC will be briefed with mission context.
-                Find your key at <span className="text-gray-400">sayintentions.ai → Portal → Account</span>.
+                Required for AI crew briefings and CPDLC messaging via SayIntentions.AI.
+                Find your key at <span className="text-gray-400">sayintentions.ai → Pilot Portal → Account Details → API Key (ACARS ID)</span>.
               </p>
               <div className="flex gap-3 items-end">
                 <input
                   type="password"
                   value={sayiKey}
                   onChange={e => { setSayiKey(e.target.value); setSayiResult(null); }}
-                  placeholder="Paste your SAPI key to verify and save"
+                  placeholder="Paste your API Key (ACARS ID) to verify and save"
                   className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-[#00D1FF] focus:outline-none transition"
                 />
                 <button onClick={handleSayiSave} disabled={sayiSaving || !sayiKey.trim()}
