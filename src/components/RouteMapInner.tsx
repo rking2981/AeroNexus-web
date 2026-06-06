@@ -80,21 +80,41 @@ export default function RouteMapInner({ originLat, originLon, destLat, destLon, 
         paint: { 'line-color': '#00D1FF', 'line-width': 2, 'line-opacity': 0.9, 'line-dasharray': [4, 3] },
       });
 
-      // Airport markers
+      // Departure icon (origin) — plane climbing right
+      const departureSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="36" height="36">
+        <filter id="gd"><feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#00D1FF" flood-opacity="0.8"/></filter>
+        <g filter="url(#gd)" fill="#00D1FF">
+          <path d="M4 44h56v4H4z"/>
+          <path d="M8 36 L28 20 L36 24 L22 34 L32 34 L52 22 L58 26 L32 42 L8 42 Z"/>
+        </g>
+      </svg>`;
+
+      // Arrival icon (destination) — plane descending left
+      const arrivalSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="36" height="36">
+        <filter id="ga"><feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#fff" flood-opacity="0.6"/></filter>
+        <g filter="url(#ga)" fill="#ffffff">
+          <path d="M4 44h56v4H4z"/>
+          <path d="M56 36 L36 20 L28 24 L42 34 L32 34 L12 22 L6 26 L32 42 L56 42 Z"/>
+        </g>
+      </svg>`;
+
       for (const [lon, lat, icao, isOrigin] of [
         [originLon, originLat, originIcao, true],
         [destLon, destLat, destIcao, false],
       ] as [number, number, string, boolean][]) {
-        const el = document.createElement('div');
-        el.style.cssText = `
-          width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-          background:${isOrigin ? 'rgba(0,209,255,0.15)' : 'rgba(255,255,255,0.08)'};
-          border:2px solid ${isOrigin ? '#00D1FF' : 'rgba(255,255,255,0.4)'};
-          font-family:monospace;font-size:7px;font-weight:700;
-          color:${isOrigin ? '#00D1FF' : '#fff'};cursor:default;
-        `;
-        el.textContent = icao;
-        new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;cursor:default;';
+
+        const icon = document.createElement('div');
+        icon.innerHTML = isOrigin ? departureSvg : arrivalSvg;
+
+        const label = document.createElement('div');
+        label.style.cssText = `font-family:monospace;font-size:9px;font-weight:700;color:${isOrigin ? '#00D1FF' : '#fff'};text-shadow:0 0 4px #000;background:rgba(0,0,0,0.6);padding:1px 4px;border-radius:3px;`;
+        label.textContent = icao;
+
+        wrapper.appendChild(icon);
+        wrapper.appendChild(label);
+        new maplibregl.Marker({ element: wrapper, anchor: 'bottom' }).setLngLat([lon, lat]).addTo(map);
       }
     });
 
