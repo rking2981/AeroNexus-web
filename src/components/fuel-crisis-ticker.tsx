@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface FuelCrisisEvent {
   country: string;
   multiplier: number;
   airport_count: number;
 }
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://aeronexus-api-production.up.railway.app';
+const POLL_INTERVAL_MS = 60_000;
 
 function severityLabel(multiplier: number): string {
   if (multiplier >= 5) return 'CRITICAL';
@@ -22,12 +25,30 @@ function severityColor(multiplier: number): string {
   return 'text-yellow-400';
 }
 
-export function FuelCrisisTicker({ events }: { events: FuelCrisisEvent[] }) {
+export function FuelCrisisTicker() {
+  const [events, setEvents] = useState<FuelCrisisEvent[]>([]);
   const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function fetchEvents() {
+      try {
+        const res = await fetch(`${API}/fuel-crisis-events`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data: FuelCrisisEvent[] = await res.json();
+        if (!cancelled) setEvents(data);
+      } catch { /* fail silently */ }
+    }
+
+    fetchEvents();
+    const interval = setInterval(fetchEvents, POLL_INTERVAL_MS);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  useEffect(() => {
     const track = trackRef.current;
-    if (!track) return;
+    if (!track || events.length === 0) return;
     let pos = 0;
     let raf: number;
 
@@ -43,7 +64,7 @@ export function FuelCrisisTicker({ events }: { events: FuelCrisisEvent[] }) {
 
   if (events.length === 0) return null;
 
-  const items = [...events, ...events]; // duplicate for seamless loop
+  const items = [...events, ...events];
 
   return (
     <div className="w-full bg-yellow-950/60 border-b border-yellow-700/30 overflow-hidden relative z-20">
