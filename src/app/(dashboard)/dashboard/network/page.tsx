@@ -800,8 +800,10 @@ function AddRouteForm({ onAdd, onCancel }: { onAdd: (r: Route) => void; onCancel
 
 export default function NetworkPage() {
   const { user } = useAuthStore();
-  const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN'
-    || !!(user as { permissions?: Record<string, boolean> } | null)?.permissions?.can_manage_routes;
+  const isSuperUser = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
+  const perms = (user as { permissions?: Record<string, boolean> } | null)?.permissions;
+  const isManager = isSuperUser || !!perms?.can_manage_routes;
+  const canManageHubs = isSuperUser || !!perms?.can_manage_hubs;
 
   const [hubs, setHubs] = useState<Hub[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -848,7 +850,7 @@ export default function NetworkPage() {
           <h1 className="text-3xl font-bold mb-1">Routes & Hubs</h1>
           <p className="text-gray-400 text-sm">{hubs.length} hubs · {routes.length} routes</p>
         </div>
-        {isManager && (
+        {((tab === 'routes' && isManager) || (tab === 'hubs' && canManageHubs)) && (
           <button onClick={() => tab === 'routes' ? setShowAddRoute(true) : setHubSearch(' ')}
             className="bg-aero text-black font-bold px-5 py-2.5 rounded-xl hover:brightness-110 transition text-sm">
             + Add {tab === 'routes' ? 'Route' : 'Hub'}
@@ -896,7 +898,7 @@ export default function NetworkPage() {
       {/* ── Hubs tab ── */}
       {tab === 'hubs' && (
         <div className="flex flex-col gap-4">
-          {isManager && (
+          {canManageHubs && (
             <div className="relative">
               <input type="text" placeholder="Search airport to add as hub..."
                 value={hubSearch}
@@ -961,7 +963,7 @@ export default function NetworkPage() {
                         ))}
                       </div>
                     )}
-                    {isManager && (
+                    {canManageHubs && (
                       <button onClick={() => { api.delete(`/network/hubs/${hub.id}`); setHubs(hubs.filter(h => h.id !== hub.id)); }}
                         className="text-xs text-red-400 hover:text-red-300 border border-red-500/20 hover:bg-red-500/5 px-3 py-1.5 rounded-lg w-full text-center transition">
                         Remove Hub
