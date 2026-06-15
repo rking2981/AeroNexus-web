@@ -901,6 +901,7 @@ export default function NetworkPage() {
         <div className="flex flex-col gap-4">
           {canManageHubs && (
             <div className="relative">
+              <label className="block text-xs text-gray-400 mb-1.5">Search Airport by ICAO or Name</label>
               <input ref={hubSearchRef} type="text" placeholder="Search airport to add as hub..."
                 value={hubSearch}
                 onChange={e => { setHubSearch(e.target.value); searchAirports(e.target.value, setHubResults); }}
