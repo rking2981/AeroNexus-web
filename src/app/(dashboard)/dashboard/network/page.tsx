@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { api, publicApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
@@ -812,6 +812,7 @@ export default function NetworkPage() {
   const [showAddRoute, setShowAddRoute] = useState(false);
 
   // Hub state
+  const hubSearchRef = useRef<HTMLInputElement>(null);
   const [hubSearch, setHubSearch] = useState('');
   const [hubResults, setHubResults] = useState<Airport[]>([]);
   const [addingHub, setAddingHub] = useState(false);
@@ -851,7 +852,7 @@ export default function NetworkPage() {
           <p className="text-gray-400 text-sm">{hubs.length} hubs · {routes.length} routes</p>
         </div>
         {((tab === 'routes' && isManager) || (tab === 'hubs' && canManageHubs)) && (
-          <button onClick={() => tab === 'routes' ? setShowAddRoute(true) : setHubSearch(' ')}
+          <button onClick={() => tab === 'routes' ? setShowAddRoute(true) : hubSearchRef.current?.focus()}
             className="bg-aero text-black font-bold px-5 py-2.5 rounded-xl hover:brightness-110 transition text-sm">
             + Add {tab === 'routes' ? 'Route' : 'Hub'}
           </button>
@@ -900,7 +901,7 @@ export default function NetworkPage() {
         <div className="flex flex-col gap-4">
           {canManageHubs && (
             <div className="relative">
-              <input type="text" placeholder="Search airport to add as hub..."
+              <input ref={hubSearchRef} type="text" placeholder="Search airport to add as hub..."
                 value={hubSearch}
                 onChange={e => { setHubSearch(e.target.value); searchAirports(e.target.value, setHubResults); }}
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-aero focus:outline-none transition"
