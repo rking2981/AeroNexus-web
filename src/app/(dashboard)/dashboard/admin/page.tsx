@@ -101,6 +101,10 @@ function statusColor(status: string): 'green' | 'amber' | 'red' | 'gray' {
   return 'gray';
 }
 
+function trialExpired(createdAt: string): boolean {
+  return (Date.now() - new Date(createdAt).getTime()) > 7 * 24 * 3600 * 1000;
+}
+
 // ─── Tab: Platform Stats ──────────────────────────────────────────────────────
 
 function StatsTab() {
@@ -285,7 +289,10 @@ function AirlineViewPanel({ airlineId, onClose }: { airlineId: string; onClose: 
                       <span className="font-mono text-xs text-aero border border-aero/20 px-1.5 py-0.5 rounded">{detail.icao_code}</span>
                       {detail.iata_code && <span className="font-mono text-xs text-gray-400 border border-white/10 px-1.5 py-0.5 rounded">{detail.iata_code}</span>}
                       <Badge label={detail.subscription_tier} color={tierColor(detail.subscription_tier)} />
-                      <Badge label={detail.subscription_status} color={statusColor(detail.subscription_status)} />
+                      <Badge
+                        label={detail.subscription_status === 'TRIALING' && detail.trial_expired ? 'TRIAL EXPIRED' : detail.subscription_status}
+                        color={detail.subscription_status === 'TRIALING' && detail.trial_expired ? 'red' : statusColor(detail.subscription_status)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -423,7 +430,10 @@ function AirlinesTab() {
             <span className="font-mono font-bold text-aero text-sm">{a.icao_code}</span>
             <span className="text-sm text-white truncate">{a.name}</span>
             <Badge label={a.subscription_tier} color={tierColor(a.subscription_tier)} />
-            <Badge label={a.subscription_status} color={statusColor(a.subscription_status)} />
+            <Badge
+              label={a.subscription_status === 'TRIALING' && trialExpired(a.created_at) ? 'TRIAL EXPIRED' : a.subscription_status}
+              color={a.subscription_status === 'TRIALING' && trialExpired(a.created_at) ? 'red' : statusColor(a.subscription_status)}
+            />
             <span className="text-right text-sm font-mono text-gray-300">{a._count.users}</span>
             <span className="text-right text-sm font-mono text-gray-300">{a._count.hulls}</span>
             <span className="text-right text-sm font-mono text-gray-300">{a._count.flights}</span>
