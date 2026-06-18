@@ -31,7 +31,6 @@ const STATUS_LABEL: Record<string, string> = {
   CLIMB:    'CLIMB',
   CRUISE:   'EN ROUTE',
   DESCENT:  'DESCENT',
-  LANDED:   'LANDED',
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -41,7 +40,6 @@ const STATUS_COLOR: Record<string, string> = {
   CLIMB:    '#00D1FF',
   CRUISE:   '#4ADE80',
   DESCENT:  '#00D1FF',
-  LANDED:   '#6B7280',
 };
 
 const LiveMapInner = dynamic(() => import('@/components/LiveMapInner'), {
