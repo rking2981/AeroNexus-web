@@ -52,6 +52,7 @@ export default function ActiveFlightPage() {
   const [loading, setLoading] = useState(true);
   const [dispatching, setDispatching] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [showCancelOptions, setShowCancelOptions] = useState(false);
   const [error, setError] = useState('');
   const [newCert, setNewCert] = useState<string | null>(null);
   // SimBrief OFP
@@ -165,12 +166,21 @@ export default function ActiveFlightPage() {
     } finally { setDispatching(false); }
   }
 
-  async function handleCancel() {
-    if (!flight || !confirm(`Cancel flight ${flight.route.origin.icao} → ${flight.route.destination.icao}?`)) return;
+  async function handleCancel(reason: 'PILOT' | 'SIM_CRASH') {
+    if (!flight) return;
+    const confirmMsg = reason === 'SIM_CRASH'
+      ? `Cancel flight ${flight.route.origin.icao} → ${flight.route.destination.icao} due to a sim crash? This marks it as interrupted so you can file a nullification claim.`
+      : `Cancel flight ${flight.route.origin.icao} → ${flight.route.destination.icao}?`;
+    if (!confirm(confirmMsg)) return;
     setCancelling(true); setError('');
+    const flightId = flight.id;
     try {
-      await api.patch(`/flights/${flight.id}/cancel`);
+      await api.patch(`/flights/${flightId}/cancel`, { reason });
       setFlight(null);
+      setShowCancelOptions(false);
+      if (reason === 'SIM_CRASH') {
+        router.push(`/dashboard/insurance?file_claim=${flightId}`);
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg ?? 'Cancel failed.');
@@ -411,10 +421,31 @@ export default function ActiveFlightPage() {
         )}
 
         {/* Cancel — always available regardless of status */}
-        <button onClick={handleCancel} disabled={cancelling}
-          className="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-50">
-          {cancelling ? 'Cancelling…' : 'Cancel Flight'}
-        </button>
+        {!showCancelOptions ? (
+          <button onClick={() => setShowCancelOptions(true)} disabled={cancelling}
+            className="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-50">
+            Cancel Flight
+          </button>
+        ) : (
+          <div className="border border-red-500/30 rounded-xl p-4 flex flex-col gap-3">
+            <p className="text-sm text-gray-300">How do you want to cancel this flight?</p>
+            <button onClick={() => handleCancel('SIM_CRASH')} disabled={cancelling}
+              className="w-full bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-50">
+              {cancelling ? 'Cancelling…' : '💥 Sim Crashed — Cancel & Mark Interrupted'}
+            </button>
+            <p className="text-xs text-gray-500 -mt-1">
+              Marks this flight as interrupted so you can file a nullification insurance claim for it afterward.
+            </p>
+            <button onClick={() => handleCancel('PILOT')} disabled={cancelling}
+              className="w-full border border-white/10 text-gray-400 hover:bg-white/5 font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-50">
+              {cancelling ? 'Cancelling…' : 'Just Cancel — No Claim Needed'}
+            </button>
+            <button onClick={() => setShowCancelOptions(false)} disabled={cancelling}
+              className="text-xs text-gray-500 hover:text-gray-300 transition">
+              Never mind, go back
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

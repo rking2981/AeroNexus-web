@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -86,10 +87,24 @@ const TIER_MULTIPLIERS = {
 };
 
 export default function InsurancePage() {
+  return (
+    <Suspense fallback={<div className="p-8 max-w-5xl mx-auto animate-pulse h-96" />}>
+      <InsurancePageContent />
+    </Suspense>
+  );
+}
+
+function InsurancePageContent() {
   const { user } = useAuthStore();
+  const searchParams = useSearchParams();
+  const fileClaimFlightId = searchParams.get('file_claim');
   const isManager = user?.role === 'VA_MANAGER' || user?.role === 'PLATFORM_ADMIN';
 
-  const [tab, setTab] = useState<'browse' | 'policies' | 'claims'>('browse');
+  // Deep link from the Active Flight page's "Sim Crashed" cancel — pre-fill and
+  // open the claim modal on first render so the pilot doesn't have to hunt for
+  // the flight ID. Lazy initializers run once, synchronously, before paint.
+  const [tab, setTab] = useState<'browse' | 'policies' | 'claims'>(() => fileClaimFlightId ? 'claims' : 'browse');
+
   const [companies, setCompanies] = useState<Company[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
@@ -110,10 +125,10 @@ export default function InsurancePage() {
   const [changeError, setChangeError] = useState('');
 
   // Claim modal state
-  const [filing, setFiling] = useState(false);
+  const [filing, setFiling] = useState(() => !!fileClaimFlightId);
   const [claimType, setClaimType] = useState<'HULL_DAMAGE' | 'FLIGHT_NULLIFICATION' | 'PAX_LIABILITY'>('FLIGHT_NULLIFICATION');
   const [claimReason, setClaimReason] = useState('');
-  const [claimFlightId, setClaimFlightId] = useState('');
+  const [claimFlightId, setClaimFlightId] = useState(() => fileClaimFlightId ?? '');
   const [claimHullId, setClaimHullId] = useState('');
   const [claimLoading, setClaimLoading] = useState(false);
 
