@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { useAuthStore } from '@/store/auth';
@@ -13,8 +13,11 @@ const HEALTH_INTERVAL_MS = 8000;   // poll every 8s normally
 const RECOVERY_INTERVAL_MS = 3000; // poll every 3s when down (faster recovery detection)
 const OUTAGE_THRESHOLD = 2;        // consecutive failures before showing banner
 
+const UPGRADE_GATE_EXEMPT_PATHS = ['/dashboard/upgrade', '/dashboard/airline/settings'];
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { isAuthenticated, user, setUser, _hasHydrated } = useAuthStore();
   const [isDown, setIsDown] = useState(false);
   const [recovering, setRecovering] = useState(false);
@@ -27,6 +30,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace('/login');
     }
   }, [_hasHydrated, isAuthenticated, router]);
+
+  // Gate VA Managers whose trial lapsed (airline downgraded to CANCELED/STARTUP)
+  // into the upgrade flow, except on the upgrade page itself or billing settings.
+  useEffect(() => {
+    if (!_hasHydrated || !isAuthenticated() || !user) return;
+    if (user.role !== 'VA_MANAGER') return;
+    if (user.airline?.subscription_status !== 'CANCELED') return;
+    if (UPGRADE_GATE_EXEMPT_PATHS.some((p) => pathname?.startsWith(p))) return;
+
+    router.replace('/dashboard/upgrade');
+  }, [_hasHydrated, isAuthenticated, user, pathname, router]);
 
   // Refresh user profile once after hydration to pick up server-side changes.
   // We proactively attempt a token refresh first using the refresh_token so
