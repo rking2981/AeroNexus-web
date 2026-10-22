@@ -88,7 +88,7 @@ export default function TermsPage() {
               <li>Subscriptions automatically renew unless cancelled before the renewal date</li>
               <li>You may cancel your subscription at any time through your account settings</li>
               <li>Refunds are not provided for partial billing periods, except where required by applicable law</li>
-              <li>The Founder&apos;s Pass is a one-time, lifetime purchase and is non-refundable once redeemed</li>
+              <li>The Founder's Pass is a one-time purchase that provides access to eligible AeroNexus features for the operational lifetime of the AeroNexus platform, rather than the lifetime of the purchaser. The operational lifetime of the platform refers to the period during which AeroNexus remains commercially available and operational. AeroNexus does not guarantee that the platform will operate indefinitely. The Founder's Pass is non-refundable once redeemed, except where refunds are required by applicable law. AeroNexus reserves the right to discontinue the platform, subject to applicable legal obligations and any rights established under the terms in effect at the time of purchase.</li>
               <li>AeroNexus reserves the right to change subscription pricing with 30 days&apos; notice to existing subscribers</li>
             </ul>
           </section>
